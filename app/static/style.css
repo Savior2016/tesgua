@@ -125,7 +125,7 @@ header {
 }
 
 /* 玻璃底放在伪元素上:顶部不透明实色 → 向下渐变半透明磨砂(模糊只在半透明区可见),
-   底边 mask 渐隐无分割线;不遮挡栏内内容;opacity 参与收缩过渡 */
+   底部保持磨砂效果;不遮挡栏内内容;opacity 参与收缩过渡 */
 header::before {
   content: '';
   position: absolute;
@@ -137,8 +137,6 @@ header::before {
     color-mix(in srgb, var(--page) 42%, transparent) 100%);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
   backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
   opacity: 0;
   transition: opacity .35s ease;
 }
