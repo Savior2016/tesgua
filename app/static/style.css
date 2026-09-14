@@ -127,14 +127,17 @@ header {
               box-shadow .35s ease;
 }
 
-/* 收缩态:液态玻璃底 + 发丝描边,内容更紧凑 */
+/* 收缩态:液态玻璃底,无描边——靠模糊 + 柔和投影 + 底部内嵌微光分层 */
 header.mini {
-  padding: 4px 20px 10px;
-  background: color-mix(in srgb, var(--page) 72%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(1.6);
-  backdrop-filter: blur(18px) saturate(1.6);
-  border-color: var(--border);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+  padding: 4px 20px 12px;
+  background: color-mix(in srgb, var(--page) 68%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  border-color: transparent;
+  border-radius: 0 0 18px 18px;
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, .16),
+    inset 0 -1px 0 color-mix(in srgb, var(--text-primary) 7%, transparent);
 }
 
 /* 顶栏主体:左侧两行,右侧车图 */
