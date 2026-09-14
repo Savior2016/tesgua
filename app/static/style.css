@@ -1708,13 +1708,49 @@ button { touch-action: manipulation; }
 
 .rt-detail {
   display: none;
-  padding: 6px 14px 10px;
+  padding: 8px 14px 12px;
   font-size: 12px;
   color: var(--text-muted);
   border-top: 1px dashed var(--gridline);
 }
 
 .rt-row.open + .rt-detail { display: block; }
+
+/* 行程详情:表格式键值网格(桌面 3 列) */
+.rt-kv {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px 14px;
+}
+
+.rt-kv-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 10px;
+  background: var(--tile-track);
+  border-radius: 7px;
+}
+
+.rt-kv-lab { color: var(--text-muted); white-space: nowrap; }
+
+.rt-kv-val {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 行程详情:海拔高度图 */
+.rt-elev-wrap { margin-top: 10px; }
+
+.rt-elev-title {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.rt-elev { height: 150px; }
 
 .empty {
   padding: 40px 0;
@@ -2209,6 +2245,9 @@ footer a { color: var(--text-muted); }
   /* 轨迹列表行:窄屏隐藏时长列,名称列省略 */
   .rt-row { grid-template-columns: 68px 1fr 70px 20px; }
   .rt-row .rt-dur { display: none; }
+
+  /* 行程详情:窄屏键值网格改 2 列 */
+  .rt-kv { grid-template-columns: repeat(2, 1fr); }
 
   /* 筛选栏吸顶,负外边距铺满到屏幕边缘 */
   .filter-row {

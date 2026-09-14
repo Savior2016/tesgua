@@ -936,7 +936,7 @@ def routes(car_id: int | None = Query(default=None),
     )
     pts = q(
         """
-        SELECT drive_id, latitude, longitude
+        SELECT drive_id, latitude, longitude, elevation
         FROM positions
         WHERE car_id = %s AND drive_id IS NOT NULL AND latitude IS NOT NULL
           AND date >= now() - make_interval(days => %s)
@@ -944,10 +944,12 @@ def routes(car_id: int | None = Query(default=None),
         """,
         (cid, days),
     )
+    # 轨迹点:[纬度, 经度, 海拔(可空)]——海拔供行程详情的高度图用
     by_id: dict[int, list[list[float]]] = {}
     for p in pts:
         by_id.setdefault(int(p["drive_id"]), []).append(
-            [float(p["latitude"]), float(p["longitude"])])
+            [float(p["latitude"]), float(p["longitude"]),
+             float(p["elevation"]) if p["elevation"] is not None else None])
     out = []
     for d in drives:
         points = by_id.get(d["id"], [])

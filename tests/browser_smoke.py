@@ -19,7 +19,7 @@ BASE = {
    "kwh_per_ideal_km":0.15,"kwh_per_pct":0.75,"totals":{"drives_total":3,"month_km":300,"week_km":100,"year_km":2000,"month_energy_kwh":45},"charging":{"sessions":2,"energy_kwh":40,"cost":30,"duration_min":60}},
  "drives/daily":{"days_rows":[{"day":"2026-09-01","distance":30,"drives":2}]},
  "charging/summary":{"totals":{},"sessions":[]},
- "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"start_name":XSS,"end_name":"合成终点","points":[[0,0],[0.01,0.01]]}]},
+ "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"speed_max":80,"start_ideal_range_km":400,"end_ideal_range_km":388,"start_name":XSS,"end_name":"合成终点","points":[[0,0,50],[0.005,0.005,65],[0.01,0.01,80]]}]},
  "activity":{"days":7,"battery":[[NOW-3600000,80],[NOW,75]],"drives":[],"charges":[],"sentry":[],"idle":[],"kwh_per_pct":0.75},
  "efficiency/trend":{"points":[{"start_ts":NOW-3600000,"eff_wh_km":145,"distance":10,"duration_min":30,"start_name":XSS,"end_name":"合成终点"}]},
  "tpms/trend":{"wheels":{w:[[NOW-3600000,2.9],[NOW,2.9]] for w in ['fl','fr','rl','rr']}},
@@ -84,6 +84,16 @@ def run():
                     page.locator('.tab[data-page="'+tab+'"]').click();page.wait_for_timeout(80)
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (role,width,tab)
             page.set_viewport_size({"width":390,"height":844})
+            # 行程详情:展开后渲染键值表格 + 海拔高度图,收起后图表销毁
+            page.locator('.tab[data-page="drives"]').click()
+            page.locator('.rt-row').first.click()
+            page.wait_for_timeout(150)
+            assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==6
+            assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
+            assert not page.evaluate('window.__auditXss===true')
+            page.locator('.rt-row').first.click()
+            page.wait_for_timeout(80)
+            assert page.evaluate("!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
             page.locator('.tab[data-page="activity"]').click()
             page.locator('#chart-efficiency').scroll_into_view_if_needed()
             page.evaluate("echarts.getInstanceByDom(document.getElementById('chart-efficiency')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0})")

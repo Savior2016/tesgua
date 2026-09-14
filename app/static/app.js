@@ -18,6 +18,7 @@
   };
 
   const charts = {};
+  const routeElev = {};  // 行程详情海拔图(行程 id → ECharts 实例),收起/重渲染时销毁
   let map = null;
   let mapTiles = {};
   let mapFit = false;
@@ -2282,7 +2283,7 @@
     const latestId = routes.length ? routes[routes.length - 1].id : null;
     let bounds = null;
     routes.forEach((r) => {
-      const pts = (r.points || []).filter((p) => p.length === 2);
+      const pts = (r.points || []).filter((p) => p.length >= 2).map((p) => [p[0], p[1]]);
       if (pts.length < 2) return;
       const isLatest = r.id === latestId;
       const style = {
@@ -2304,7 +2305,7 @@
     // 最近一次行程的起终点
     const last = routes[routes.length - 1];
     if (last && (last.points || []).length >= 2) {
-      const p0 = last.points[0], p1 = last.points[last.points.length - 1];
+      const p0 = last.points[0].slice(0, 2), p1 = last.points[last.points.length - 1].slice(0, 2);
       const mk = (p, fill) => L.circleMarker(p, {
         radius: 5, color: cssVar('--surface-1'), weight: 2, fillColor: fill, fillOpacity: 1,
       });
@@ -2338,10 +2339,71 @@
     selectedRouteId = null;
   }
 
+  /* 行程详情:海拔高度图(x = 累计里程 km,y = 海拔 m,平滑曲线 + 渐变填充) */
+  function renderRouteElev(r, box) {
+    if (routeElev[r.id]) { routeElev[r.id].resize(); return; }
+    const pts = (r.points || []).filter((p) => p.length >= 3 && p[2] !== null && p[2] !== undefined);
+    if (pts.length < 2) return;
+    // 相邻轨迹点 haversine 累加出行程里程
+    const R = 6371.0088, rad = Math.PI / 180;
+    let cum = 0;
+    const data = [[0, pts[0][2]]];
+    for (let i = 1; i < pts.length; i++) {
+      const dLat = (pts[i][0] - pts[i - 1][0]) * rad, dLng = (pts[i][1] - pts[i - 1][1]) * rad;
+      const h = Math.sin(dLat / 2) ** 2 +
+        Math.cos(pts[i - 1][0] * rad) * Math.cos(pts[i][0] * rad) * Math.sin(dLng / 2) ** 2;
+      cum += 2 * R * Math.asin(Math.sqrt(h));
+      data.push([Number(cum.toFixed(3)), pts[i][2]]);
+    }
+    const c = cssVar('--series-1');
+    // hex → rgba(供渐变填充用,同平均能耗图)
+    const hx = c.replace('#', '');
+    const n = parseInt(hx.length === 3 ? hx.split('').map((x) => x + x).join('') : hx, 16);
+    const fade = (a) => `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    const chart = echarts.init(box);
+    routeElev[r.id] = chart;
+    chart.setOption(Object.assign({}, chartTheme(), {
+      tooltip: tooltipAxis({ '海拔': 'm' }, (v) => fmtNum(Number(v), 1) + ' km'),
+      grid: { left: 46, right: 18, top: 14, bottom: 24 },
+      xAxis: Object.assign(axisCommon(), {
+        type: 'value', min: 0,
+        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value} km' },
+      }),
+      yAxis: Object.assign(axisCommon(), {
+        type: 'value', scale: true,
+        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value} m' },
+      }),
+      series: [
+        Object.assign(lineSeries('海拔', data, c), {
+          smooth: true,
+          smoothMonotone: 'x',
+          areaStyle: {
+            color: {
+              type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: fade(0.28) },
+                { offset: 1, color: fade(0.02) },
+              ],
+            },
+          },
+        }),
+      ],
+    }), { notMerge: true });
+  }
+
+  function disposeRouteElev(id) {
+    if (id === undefined) {  // 全部销毁(列表重渲染前)
+      Object.keys(routeElev).forEach((k) => disposeRouteElev(Number(k)));
+      return;
+    }
+    if (routeElev[id]) { routeElev[id].dispose(); delete routeElev[id]; }
+  }
+
   function renderRoutesList() {
     const o = S.overview;
     const box = $('#routes-list');
     if (!o || !o.routes) return;
+    disposeRouteElev();
     box.textContent = '';
     const routes = [...(o.routes.routes || [])].reverse();  // 新的在前
     if (!routes.length) {
@@ -2388,22 +2450,46 @@
           ? delta * o_kwh() * 1000 / r.distance : null;
         const avg = (r.duration_min && r.distance)
           ? r.distance / (r.duration_min / 60) : null;
-        const parts = [];
-        if (avg !== null) parts.push(`均速 ${fmtNum(avg, 0)} km/h`);
-        if (r.speed_max !== null && r.speed_max !== undefined) parts.push(`最高 ${fmtNum(r.speed_max, 0)} km/h`);
-        if (eff !== null) parts.push(`能耗约 ${fmtNum(eff, 0)} Wh/km`);
-        if (a && a.energy_kwh !== null && a.energy_kwh !== undefined) parts.push(`耗电约 ${fmtNum(a.energy_kwh, 1)} kWh`);
-        if (delta !== null) parts.push(`Δ理想续航 ${fmtNum(delta, 1)} km`);
-        if (a && a.cost_yuan !== null && a.cost_yuan !== undefined) {
-          parts.push(`电费 ¥${fmtNum(a.cost_yuan, 2)}` +
+        // 详情:表格式键值网格 + 海拔高度图(缺数据的格子显示 —)
+        const kv = el('div', 'rt-kv');
+        const kvItem = (lab, val) => {
+          const it = el('div', 'rt-kv-item');
+          it.appendChild(el('span', 'rt-kv-lab', lab));
+          it.appendChild(el('span', 'rt-kv-val', val));
+          kv.appendChild(it);
+        };
+        kvItem('均速', avg !== null ? `${fmtNum(avg, 0)} km/h` : '—');
+        kvItem('最高速', (r.speed_max !== null && r.speed_max !== undefined)
+          ? `${fmtNum(r.speed_max, 0)} km/h` : '—');
+        kvItem('能耗', eff !== null ? `${fmtNum(eff, 0)} Wh/km` : '—');
+        kvItem('耗电', (a && a.energy_kwh !== null && a.energy_kwh !== undefined)
+          ? `${fmtNum(a.energy_kwh, 1)} kWh` : '—');
+        kvItem('Δ理想续航', delta !== null ? `${fmtNum(delta, 1)} km` : '—');
+        kvItem('电费', (a && a.cost_yuan !== null && a.cost_yuan !== undefined)
+          ? `¥${fmtNum(a.cost_yuan, 2)}` +
             (a.cost_per_km_yuan !== null && a.cost_per_km_yuan !== undefined
-              ? ` (¥${fmtNum(a.cost_per_km_yuan, 2)}/km)` : ''));
+              ? ` (¥${fmtNum(a.cost_per_km_yuan, 2)}/km)` : '')
+          : '—');
+        const detail = el('div', 'rt-detail');
+        detail.appendChild(kv);
+        let elevBox = null;
+        const elevPts = (r.points || []).filter((p) => p.length >= 3 && p[2] !== null && p[2] !== undefined);
+        if (elevPts.length >= 2) {
+          const wrap = el('div', 'rt-elev-wrap');
+          wrap.appendChild(el('div', 'rt-elev-title', '海拔变化'));
+          elevBox = el('div', 'rt-elev');
+          wrap.appendChild(elevBox);
+          detail.appendChild(wrap);
         }
-        const detail = el('div', 'rt-detail', parts.length ? parts.join(' · ') : '无更多数据');
         row.addEventListener('click', () => {
           const open = row.classList.toggle('open');
-          if (open) selectRoute(r.id);
-          else if (selectedRouteId === r.id) deselectRoute();
+          if (open) {
+            selectRoute(r.id);
+            if (elevBox) requestAnimationFrame(() => renderRouteElev(r, elevBox));
+          } else {
+            if (selectedRouteId === r.id) deselectRoute();
+            disposeRouteElev(r.id);
+          }
         });
         body.appendChild(row);
         body.appendChild(detail);
@@ -2538,6 +2624,9 @@
     requestAnimationFrame(() => {
       const sec = document.getElementById('page-' + name);
       if (sec) Object.values(charts).forEach((c) => {
+        if (c && sec.contains(c.getDom())) c.resize();
+      });
+      if (sec) Object.values(routeElev).forEach((c) => {
         if (c && sec.contains(c.getDom())) c.resize();
       });
       if (name === 'drives' && map) {
@@ -2712,6 +2801,7 @@
 
     window.addEventListener('resize', () => {
       Object.values(charts).forEach((c) => c && c.resize());
+      Object.values(routeElev).forEach((c) => c && c.resize());
       if (map) map.invalidateSize();
       renderCar();  // 引线与标注按舞台实际尺寸定位,需随布局重算
       placeTabBubble();  // 气泡宽度随 Tab 布局变化
