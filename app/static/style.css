@@ -118,10 +118,10 @@ html, body {
 header {
   position: sticky;
   top: 0;
-  z-index: 60;
-  margin-bottom: 8px;
-  padding: 6px 10px;
-  border-radius: 14px;
+  z-index: 1000;              /* 压过 Leaflet 图层(最高 800),低于 Tab 栏(1200) */
+  margin: 0 -20px;            /* 满幅:盖住 .wrap 两侧 padding,防止边缘漏出滚动内容 */
+  padding: 6px 20px 14px;     /* 下间距折进 padding,背景覆盖,不留缝隙 */
+  border-radius: 0 0 14px 14px;
   border: 1px solid transparent;
   transition: padding .35s ease, background .35s ease, border-color .35s ease,
               box-shadow .35s ease;
@@ -129,7 +129,7 @@ header {
 
 /* 收缩态:液态玻璃底 + 发丝描边,内容更紧凑 */
 header.mini {
-  padding: 4px 10px;
+  padding: 4px 20px 10px;
   background: color-mix(in srgb, var(--page) 72%, transparent);
   -webkit-backdrop-filter: blur(18px) saturate(1.6);
   backdrop-filter: blur(18px) saturate(1.6);
@@ -2216,7 +2216,9 @@ footer a { color: var(--text-muted); }
   .tabbar .tab { min-width: 0; flex: 1; padding: 7px 4px 6px; font-size: 10.5px; }
   .tabbar .tab svg { width: 20px; height: 20px; }
 
-  /* 顶栏:车图右侧跨两行,服务器资源在页脚 */
+  /* 顶栏:车图右侧跨两行,服务器资源在页脚;满幅边距随 .wrap 收窄 */
+  header { margin: 0 -12px; padding: 6px 12px 12px; }
+  header.mini { padding: 4px 12px 8px; }
   .header-main { gap: 10px; }
   .header-main .model-icon { height: 58px; }
   header.mini .header-main .model-icon { height: 34px; }
