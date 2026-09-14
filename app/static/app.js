@@ -340,7 +340,12 @@
     badge.dataset.state = o.state;
     $('#state-text').textContent = STATE_LABEL[o.state] || o.state;
     $('#sw-version').textContent = o.software_version ? `v${o.software_version}` : '';
-    $('#updated-at').textContent = o.latest ? `数据更新 ${fmtTime(Number(o.latest.date_ts))}` : '暂无数据';
+    // 数据更新:固定第三行,文本更新时淡入(重启 CSS 动画)
+    const ua = $('#updated-at');
+    ua.textContent = o.latest ? `数据更新 ${fmtTime(Number(o.latest.date_ts))}` : '暂无数据';
+    ua.classList.remove('fade-in');
+    void ua.offsetWidth;
+    ua.classList.add('fade-in');
 
     // 电量胶囊:跟随全局 电量%⇄度数kWh⇄里程km 模式;里程直接用最新额定续航
     const lat = o.latest;

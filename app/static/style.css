@@ -125,18 +125,22 @@ header {
 }
 
 /* 玻璃底放在伪元素上:顶部不透明实色 → 向下渐变半透明磨砂(模糊只在半透明区可见),
-   底部保持磨砂效果;不遮挡栏内内容;opacity 参与收缩过渡 */
+   并向下多出一段渐隐尾巴,底部分界线柔和过渡;不遮挡栏内内容;opacity 参与收缩过渡 */
 header::before {
   content: '';
   position: absolute;
   inset: 0;
+  height: calc(100% + 26px);
   z-index: -1;
+  pointer-events: none;
   background: linear-gradient(to bottom,
     var(--page) 0%,
-    color-mix(in srgb, var(--page) 82%, transparent) 42%,
+    color-mix(in srgb, var(--page) 82%, transparent) 38%,
     color-mix(in srgb, var(--page) 42%, transparent) 100%);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
   backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
   opacity: 0;
   transition: opacity .35s ease;
 }
@@ -225,17 +229,25 @@ header.mini .header-main .model-icon { height: 44px; }
 .batt-pill[data-level="critical"] .batt-fill { fill: #d03b3b; }
 .batt-pill[data-level="unknown"] .batt-fill { fill: var(--text-muted); }
 
-/* 数据更新行:收缩时以 max-height/max-width/opacity 连续收起(不用 display:none,避免跳动) */
+/* 数据更新行:固定独占一行(不与状态行混排,避免文本出现时换行闪动);
+   收缩时以 max-height/max-width/opacity 连续收起(不用 display:none,避免跳动) */
 .header-meta {
   display: flex;
   align-items: center;
-  flex: 1 1 auto;
+  flex: 0 0 100%;
   min-width: 0;
   overflow: hidden;
   max-height: 26px;
-  max-width: 320px;
+  max-width: 100%;
   opacity: 1;
   transition: max-height .3s ease, max-width .3s ease, opacity .22s ease;
+}
+
+/* 数据更新文本:刷新时淡入(配合 app.js 重启动画) */
+#updated-at.fade-in { animation: rmFadeUp .5s ease; }
+@keyframes rmFadeUp {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
 }
 
 #sw-version { overflow: hidden; max-width: 120px; opacity: 1; transition: max-width .3s ease, opacity .22s ease; }
