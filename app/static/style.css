@@ -1069,6 +1069,152 @@ button { touch-action: manipulation; }
 #pk-card:not(.open) .pk-form,
 #pk-card:not(.open) .pk-list { display: none; }
 
+/* 家充设置卡同样整卡可折叠,默认收起 */
+#hc-card:not(.open) #hc-body { display: none; }
+
+/* 开关(家充总开关与各地点开关共用) */
+.tsw {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 26px;
+  flex: none;
+}
+
+.tsw input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+
+.tsw i {
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  background: var(--tile-track);
+  border: 1px solid var(--border);
+  transition: background 0.2s ease, border-color 0.2s ease;
+  pointer-events: none;
+}
+
+.tsw i::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s cubic-bezier(0.22, 1.35, 0.36, 1);
+}
+
+.tsw input:checked + i { background: var(--seq-blue-500); border-color: var(--seq-blue-500); }
+
+.tsw input:checked + i::after { transform: translateX(16px); }
+
+.tsw input:disabled { cursor: default; }
+
+.tsw input:disabled + i { opacity: 0.55; }
+
+/* 家充设置卡内容 */
+#hc-body { padding-top: 4px; }
+
+.hc-master {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--tile-track);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.hc-master .hc-hint { color: var(--text-muted); font-size: 12px; }
+
+.hc-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+.hc-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.hc-row.off { opacity: 0.6; }
+
+.hc-name {
+  font-size: 14px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--border);
+  padding: 2px 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.hc-name:focus { outline: none; border-bottom-color: var(--text-muted); }
+
+.hc-loc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+.hc-prices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.hc-prices input {
+  width: 62px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.hc-prices input[type="time"] { width: 78px; text-align: left; }
+
+.hc-del {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.hc-del:hover { color: #d34545; background: var(--tile-track); }
+
+.hc-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hc-add select { flex: 1; min-width: 140px; }
+
+.hc-add input { width: 62px; text-align: right; }
+
+.hc-add button { padding: 6px 14px; }
+
+@media (max-width: 600px) {
+  .hc-row { grid-template-columns: auto 1fr auto; }
+  .hc-prices { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* 充电详情卡:家充自动计价标签 */
+.cs-tag-home { color: var(--seq-blue-500); border-color: var(--seq-blue-500); }
+
+.cs-home-sel { max-width: 150px; font-size: 12px; }
+
 /* 充电桩统计并入充电详情卡后的分隔小标题 */
 .cg-divider {
   margin: 14px 4px 8px;
@@ -1507,7 +1653,11 @@ button { touch-action: manipulation; }
   display: inline-flex;
   align-items: baseline;
   gap: 5px;
+  flex-wrap: wrap;  /* 家充标签等追加内容放不下时折行,不再挤出格 */
+  justify-content: flex-end;
 }
+
+.cs-val:has(.cs-inline) { white-space: normal; }
 
 .cs-unit { font-size: 11px; color: var(--text-muted); }
 

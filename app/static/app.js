@@ -13,6 +13,7 @@
     cycles: null,
     cycleIdx: 0,
     sessions: null,
+    homeCharge: null,  // 家充设置(总开关 + 峰谷电价地点列表)
     delivery: null,   // 提车日期 YYYY-MM-DD(null = 未设置)
     timer: null,
   };
@@ -1473,6 +1474,193 @@
     }
   }
 
+  /* ---------- 家充设置(充电页底部):总开关 + 多地点峰谷电价 ---------- */
+
+  // 家充配置影响 sessions 的自动电费与活动事件计价,保存后一并刷新
+  async function hcRefresh() {
+    const [home, sessions, act] = await Promise.all([
+      api('charging/home'),
+      api(`charging/sessions?days=${S.days}`),
+      api(`activity?days=${S.days}`),
+    ]);
+    S.homeCharge = home;
+    S.sessions = sessions;
+    S.overview.activity = act;
+    renderHomeCharge(); renderSessions(); renderChargers(); renderCsBatt();
+    renderEvents(); renderActivity();
+  }
+
+  async function hcSave(path, body, method) {
+    try {
+      await fetchJSON(path, method === 'DELETE' ? { method: 'DELETE' } : {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      await hcRefresh();
+    } catch (err) { console.error(err); }
+  }
+
+  function hcSwitch(checked, disabled, onChange) {
+    const lab = el('label', 'tsw');
+    const inp = el('input');
+    inp.type = 'checkbox';
+    inp.checked = checked;
+    inp.disabled = !!disabled;
+    inp.addEventListener('change', () => { inp.disabled = true; onChange(inp.checked); });
+    lab.appendChild(inp);
+    lab.appendChild(el('i'));
+    return lab;
+  }
+
+  function hcNumInput(val, ph, disabled) {
+    const i = el('input');
+    i.type = 'number'; i.min = '0'; i.max = '50'; i.step = '0.01';
+    i.inputMode = 'decimal'; i.placeholder = ph;
+    if (val !== null && val !== undefined) i.value = val;
+    i.disabled = !!disabled;
+    return i;
+  }
+
+  function renderHomeCharge() {
+    const body = $('#hc-body');
+    if (!body) return;
+    body.textContent = '';
+    const hc = S.homeCharge;
+    if (!hc) return;
+    const canEdit = S.overview && S.overview.role === 'admin';
+
+    // 折叠头部的小统计:已启用家充数
+    const stats = $('#hc-stats');
+    stats.textContent = '';
+    if (hc.chargers.length) {
+      const t = el('span', 'mini-stat');
+      t.appendChild(el('span', '', '家充 '));
+      t.appendChild(el('b', '', `${hc.chargers.filter((c) => c.enabled).length}/${hc.chargers.length}`));
+      t.appendChild(el('span', '', ' 启用'));
+      stats.appendChild(t);
+    }
+
+    // 总开关:开启后,已启用家充地点的充电默认按峰谷电价计费
+    const master = el('div', 'hc-master');
+    master.appendChild(hcSwitch(hc.master, !canEdit,
+      (v) => hcSave('/api/charging/home/master', { enabled: v })));
+    const mt = el('div');
+    mt.appendChild(el('b', '', '家充自动计价'));
+    mt.appendChild(el('div', 'hc-hint', hc.master
+      ? '已开启:在已启用家充地点的充电按峰谷电价自动计费(手填费用仍优先)'
+      : '开启后,在已启用家充地点的充电默认按家充峰谷电价计费'));
+    master.appendChild(mt);
+    body.appendChild(master);
+
+    // 已配家充地点:开关 / 名称 / 峰谷电价 / 谷时段 / 删除
+    const list = el('div', 'hc-list');
+    hc.chargers.forEach((c) => {
+      const row = el('div', 'hc-row' + (c.enabled ? '' : ' off'));
+
+      const mid = el('div');
+      const nameInp = el('input', 'hc-name');
+      nameInp.type = 'text'; nameInp.value = c.name; nameInp.maxLength = 80;
+      nameInp.placeholder = '家充名称'; nameInp.disabled = !canEdit;
+      mid.appendChild(nameInp);
+      mid.appendChild(el('div', 'hc-loc', `${c.location || c.key} · ${c.sessions} 次充电`));
+
+      const prices = el('div', 'hc-prices');
+      const peakInp = hcNumInput(c.peak, '峰价', !canEdit);
+      const valleyInp = hcNumInput(c.valley, '谷价', !canEdit);
+      const vsInp = el('input'); vsInp.type = 'time'; vsInp.value = c.vstart; vsInp.disabled = !canEdit;
+      const veInp = el('input'); veInp.type = 'time'; veInp.value = c.vend; veInp.disabled = !canEdit;
+      prices.appendChild(el('span', '', '峰'));
+      prices.appendChild(peakInp);
+      prices.appendChild(el('span', '', '谷'));
+      prices.appendChild(valleyInp);
+      prices.appendChild(el('span', '', '¥/kWh · 谷时段'));
+      prices.appendChild(vsInp);
+      prices.appendChild(el('span', '', '–'));
+      prices.appendChild(veInp);
+
+      // 读取当前所有输入组装整条配置(switch 的勾选值由调用方传入)
+      const collect = (enabled) => ({
+        key: c.key, enabled,
+        name: nameInp.value.trim() || c.name,
+        peak: peakInp.value.trim() === '' ? null : parseFloat(peakInp.value),
+        valley: valleyInp.value.trim() === '' ? null : parseFloat(valleyInp.value),
+        vstart: vsInp.value || null,
+        vend: veInp.value || null,
+      });
+      const trySave = () => {
+        const p = collect(c.enabled);
+        const bad = (v) => v !== null && (isNaN(v) || v < 0 || v > 50);
+        if (bad(p.peak) || bad(p.valley) || (p.peak === null && p.valley === null)) {
+          peakInp.value = c.peak ?? ''; valleyInp.value = c.valley ?? '';
+          peakInp.title = valleyInp.title = '电价需在 0–50 之间,峰/谷至少填一个';
+          return;
+        }
+        [nameInp, peakInp, valleyInp, vsInp, veInp].forEach((i) => { i.disabled = true; });
+        hcSave('/api/charging/home/charger', p);
+      };
+      [nameInp, peakInp, valleyInp, vsInp, veInp].forEach((i) => i.addEventListener('change', trySave));
+
+      row.appendChild(hcSwitch(c.enabled, !canEdit,
+        (v) => hcSave('/api/charging/home/charger', collect(v))));
+      row.appendChild(mid);
+      row.appendChild(prices);
+      if (canEdit) {
+        const del = el('button', 'hc-del', '✕');
+        del.type = 'button';
+        del.title = '删除该家充';
+        del.addEventListener('click', () => {
+          del.disabled = true;
+          hcSave('/api/charging/home/charger?key=' + encodeURIComponent(c.key), null, 'DELETE');
+        });
+        prices.appendChild(del);
+      }
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+
+    if (!hc.chargers.length && !canEdit) {
+      body.appendChild(el('div', 'empty', '尚未添加家充地点'));
+      return;
+    }
+
+    // 添加家充:从有充电记录的地点中选择,至少填一个电价
+    if (canEdit) {
+      const avail = hc.candidates.filter((x) => !x.added);
+      const add = el('div', 'hc-add');
+      const sel = el('select');
+      if (avail.length) avail.forEach((x) => sel.appendChild(new Option(`${x.name}(${x.count} 次)`, x.key)));
+      else sel.appendChild(new Option('没有更多可添加的充电地点', ''));
+      const pk = hcNumInput(null, '峰价', false);
+      const vy = hcNumInput(null, '谷价', false);
+      const btn = el('button', '', '添加家充');
+      btn.type = 'button';
+      btn.addEventListener('click', () => {
+        if (!sel.value) return;
+        const peak = pk.value.trim() === '' ? null : parseFloat(pk.value);
+        const valley = vy.value.trim() === '' ? null : parseFloat(vy.value);
+        if ((peak === null || isNaN(peak)) && (valley === null || isNaN(valley))) {
+          pk.title = vy.title = '峰时电价与谷时电价至少填写一个';
+          return;
+        }
+        btn.disabled = true;
+        hcSave('/api/charging/home/charger', {
+          key: sel.value, name: '', enabled: true,
+          peak: isNaN(peak) ? null : peak, valley: isNaN(valley) ? null : valley,
+          vstart: null, vend: null,
+        });
+      });
+      add.appendChild(sel);
+      add.appendChild(el('span', '', '峰'));
+      add.appendChild(pk);
+      add.appendChild(el('span', '', '谷'));
+      add.appendChild(vy);
+      add.appendChild(el('span', '', '¥/kWh'));
+      add.appendChild(btn);
+      body.appendChild(add);
+    }
+  }
+
   function renderSessions() {
     const box = $('#cs-list');
     if (!box || !S.sessions) return;
@@ -1491,9 +1679,11 @@
     };
     if (charges.length) {
       stat('充电', charges.length, '次');
-      const paid = charges.filter((c) => c.cost !== null && c.cost !== undefined);
+      // 费用合计按有效费用(手填优先,家充自动计价其次)
+      const eff = (c) => (c.cost !== null && c.cost !== undefined) ? c.cost : c.cost_effective;
+      const paid = charges.filter((c) => eff(c) !== null && eff(c) !== undefined);
       if (paid.length) {
-        stat('费用合计', fmtNum(paid.reduce((s, c) => s + c.cost, 0), 2), '¥');
+        stat('费用合计', fmtNum(paid.reduce((s, c) => s + eff(c), 0), 2), '¥');
       }
     }
     if (!charges.length) {
@@ -1501,6 +1691,7 @@
       return;
     }
 
+    const canEdit = S.overview && S.overview.role === 'admin';
     charges.forEach((c) => {
       const item = el('div', 'cs-item');
 
@@ -1619,7 +1810,33 @@
       });
       costWrap.appendChild(costInp);
       costWrap.appendChild(el('span', 'cs-unit', '¥'));
+      // 未手填费用且命中家充计价时,标注自动算出的电费(哪个家充见下方「家充计价」行)
+      if ((c.cost === null || c.cost === undefined)
+          && c.cost_home !== null && c.cost_home !== undefined) {
+        costWrap.appendChild(el('span', 'cs-tag cs-tag-home', `家充 ¥${fmtNum(c.cost_home, 2)}`));
+      }
       field('充电费用', costWrap);
+
+      // 家充计价方式:自动(按地点)/ 本次不计 / 指定某个家充,改后自动重算电费
+      const hcCfg = S.homeCharge;
+      if (hcCfg && (hcCfg.chargers || []).length) {
+        const mode = c.home_mode || 'auto';
+        if (canEdit) {
+          const sel = el('select', 'cs-home-sel');
+          sel.appendChild(new Option('自动(按地点)', 'auto'));
+          sel.appendChild(new Option('本次不按家充计', 'off'));
+          hcCfg.chargers.forEach((h) => sel.appendChild(new Option(`按「${h.name}」计`, h.key)));
+          sel.value = hcCfg.chargers.some((h) => h.key === mode) || mode === 'off' ? mode : 'auto';
+          sel.addEventListener('change', () => {
+            sel.disabled = true;
+            csSave('/api/charging/home/assign', { charge_id: c.id, mode: sel.value }, [], true);
+          });
+          field('家充计价', sel);
+        } else {
+          field('家充计价', mode === 'off' ? '本次不按家充计'
+            : mode === 'auto' ? '自动(按地点)' : `按「${c.home_name}」计`);
+        }
+      }
 
       field('电费单价', c.rate_yuan_kwh !== null && c.rate_yuan_kwh !== undefined
         ? `¥${fmtNum(c.rate_yuan_kwh, 2)} /kWh` : '—');
@@ -1665,7 +1882,8 @@
       g.count += 1;
       if (c.energy_kwh !== null && c.energy_kwh !== undefined) g.energy += Number(c.energy_kwh);
       g.dur += Number(c.duration_min) || 0;
-      if (c.cost !== null && c.cost !== undefined) { g.cost += Number(c.cost); g.hasCost = true; }
+      const effC = (c.cost !== null && c.cost !== undefined) ? c.cost : c.cost_effective;
+      if (effC !== null && effC !== undefined) { g.cost += Number(effC); g.hasCost = true; }
       if (c.energy_kwh != null && c.total_kwh != null && Number(c.total_kwh) > 0) {
         g.ePaired += Number(c.energy_kwh);
         g.uPaired += Number(c.total_kwh);
@@ -1764,7 +1982,11 @@
           parts.push(`损耗 ${fmtNum((c.total_kwh - c.energy_kwh) / c.total_kwh * 100, 1)}%`);
         }
         parts.push(fmtDur(c.duration_min));
-        if (c.cost !== null && c.cost !== undefined) parts.push(`¥${fmtNum(c.cost, 2)}`);
+        const effCost = (c.cost !== null && c.cost !== undefined) ? c.cost : c.cost_effective;
+        if (effCost !== null && effCost !== undefined) {
+          parts.push(`¥${fmtNum(effCost, 2)}` +
+            ((c.cost === null || c.cost === undefined) ? '(家充)' : ''));
+        }
         line.appendChild(el('span', 'cg-line-sub', parts.join(' · ')));
         detail.appendChild(line);
       });
@@ -2609,7 +2831,7 @@
     try {
       const o = await api('overview');
       if (S.carId === null) S.carId = o.car_id;
-      const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm] = await Promise.all([
+      const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm, hm] = await Promise.all([
         api(`drives/daily?days=${S.days}`),
         api('charging/summary?limit=12'),
         api(`routes?days=${S.days}`),
@@ -2625,6 +2847,7 @@
         api('parking/fees'),
         api('vehicle/delivery'),
         api('charging/reminder'),
+        api('charging/home'),
       ]);
       S.overview = {
         ...o,
@@ -2644,6 +2867,7 @@
       S.parking = pk;
       S.delivery = del.date;
       S.reminder = rm;
+      S.homeCharge = hm;
       $('#state-badge').dataset.state = 'unknown';
       renderSys(sys);
       renderHeader();
@@ -2655,6 +2879,7 @@
       renderCsBatt();
       renderParking();
       renderReminder();
+      renderHomeCharge();
       renderDaily();
       renderCharging();
       renderRoutes();
@@ -2678,7 +2903,7 @@
     renderDaily(); renderCharging();
     renderRoutes(); renderRoutesList();
     renderActivity(); renderEvents(); renderSentry();
-    renderEfficiency(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder();
+    renderEfficiency(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge();
   }
 
   /* ---------- 功能分页(底部液态玻璃 Tab 栏) ---------- */
@@ -2873,6 +3098,19 @@
     pkHead.addEventListener('click', pkToggle);
     pkHead.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pkToggle(); }
+    });
+
+    // 家充设置:整卡可折叠,默认收起,展开状态跨会话记忆(与充电详情同款)
+    const hcCard = $('#hc-card');
+    if (localStorage.getItem('ttv-hc-open') === '1') hcCard.classList.add('open');
+    const hcHead = $('#hc-head');
+    const hcToggle = () => {
+      const open = hcCard.classList.toggle('open');
+      localStorage.setItem('ttv-hc-open', open ? '1' : '0');
+    };
+    hcHead.addEventListener('click', hcToggle);
+    hcHead.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hcToggle(); }
     });
 
     $('#events-toggle-btn').addEventListener('click', () => {

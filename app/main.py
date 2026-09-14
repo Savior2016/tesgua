@@ -452,13 +452,118 @@ def kwh_per_pct(car_id: int) -> float:
     return DEFAULT_KWH_PER_PCT
 
 
+# ---------- 家充设置:峰谷电价自动计价 ----------
+# 配置存 panel_manual(kind='settings', key='home_charge'):
+#   {master: 总开关, chargers: {loc_key: {name, enabled, peak, valley, vstart, vend}}}
+# 单次充电的手动指定存 kind='charge_home',key=充电会话 id,payload {mode}:
+#   mode = 'auto'(默认,按充电地点匹配)| 'off'(本次不按家充计)| loc_key(指定某个家充)。
+# 峰谷口径:谷时段默认 23:00–07:00(每个家充可改),按充电起止时长在峰/谷中的占比
+# 分摊计费电量(家充交流功率近似恒定);计费电量 = 总耗电(手填/车端)优先,退回充电量。
+
+HOME_CHARGE_DEFAULT_VSTART = "23:00"
+HOME_CHARGE_DEFAULT_VEND = "07:00"
+
+
+def _home_charge_cfg() -> dict:
+    rows = q("SELECT payload FROM panel_manual WHERE kind = 'settings' AND key = 'home_charge'")
+    cfg = rows[0]["payload"] if rows else {}
+    return {"master": bool(cfg.get("master")), "chargers": cfg.get("chargers") or {}}
+
+
+def _save_home_charge_cfg(cfg: dict) -> None:
+    _exec(
+        """
+        INSERT INTO panel_manual (kind, key, payload) VALUES ('settings', 'home_charge', %s)
+        ON CONFLICT (kind, key) DO UPDATE
+          SET payload = EXCLUDED.payload, updated_at = now()
+        """,
+        (Jsonb(cfg),),
+    )
+
+
+def _parse_hhmm(s) -> int | None:
+    """'HH:MM' → 一天中的分钟数,非法返回 None。"""
+    if not isinstance(s, str) or not re.fullmatch(r"\d{1,2}:\d{2}", s):
+        return None
+    h, m = int(s.split(":")[0]), int(s.split(":")[1])
+    return h * 60 + m if h < 24 and m < 60 else None
+
+
+def _tou_valley_share(start: datetime, end: datetime, vs: int, ve: int) -> float | None:
+    """谷时段占充电时长的比例(按日分段精确求交;vs/ve 为一天中的分钟数,支持跨零点)。"""
+    total = (end - start).total_seconds()
+    if total <= 0:
+        return None
+    valley_sec = 0.0
+    day = start.date() - timedelta(days=1)
+    while day <= end.date() + timedelta(days=1):
+        base = datetime.combine(day, datetime.min.time())
+        if vs <= ve:
+            wins = [(base + timedelta(minutes=vs), base + timedelta(minutes=ve))]
+        else:  # 跨零点:拆成 [vs, 24:00) 与 [00:00, ve) 两段
+            wins = [(base + timedelta(minutes=vs), base + timedelta(days=1)),
+                    (base, base + timedelta(minutes=ve))]
+        for a, b in wins:
+            lo, hi = max(a, start), min(b, end)
+            if lo < hi:
+                valley_sec += (hi - lo).total_seconds()
+        day += timedelta(days=1)
+    return valley_sec / total
+
+
+def _home_charge_cost(entry: dict, start: datetime, end: datetime | None,
+                      billed_kwh: float | None) -> tuple[float, float] | None:
+    """按家充峰谷配置算一次充电的 (费用, 加权单价);计费电量缺失或价格未配返回 None。"""
+    if not billed_kwh or billed_kwh <= 0:
+        return None
+    peak = entry.get("peak")
+    valley = entry.get("valley")
+    if peak is None and valley is None:
+        return None
+    if peak is None:
+        rate = float(valley)
+    elif valley is None:
+        rate = float(peak)
+    else:
+        vs = _parse_hhmm(entry.get("vstart")) or _parse_hhmm(HOME_CHARGE_DEFAULT_VSTART)
+        ve = _parse_hhmm(entry.get("vend")) or _parse_hhmm(HOME_CHARGE_DEFAULT_VEND)
+        share = _tou_valley_share(start, end, vs, ve) if end is not None else None
+        rate = (float(valley) * share + float(peak) * (1 - share)) if share is not None \
+            else float(peak)
+    return round(rate * billed_kwh, 2), round(rate, 4)
+
+
+def _home_charge_resolve(cfg: dict, assigns: dict, charge_id: int,
+                         loc_key: str | None) -> tuple[str, dict | None]:
+    """裁定一次充电的家充计价方式,返回 (mode, 家充配置|None)。
+
+    mode: 'off' = 手动关闭;'assigned' = 手动指定;'auto' = 地点自动匹配;'none' = 不计价。
+    手动指定优先于一切(即使该家充开关已关);自动匹配要求总开关与该家充开关都开。
+    """
+    mode = (assigns.get(str(charge_id)) or {}).get("mode", "auto")
+    if mode == "off":
+        return "off", None
+    chargers = cfg["chargers"]
+    if mode != "auto":
+        entry = chargers.get(mode)
+        return ("assigned", entry) if entry else ("none", None)
+    if cfg["master"] and loc_key and loc_key in chargers \
+            and chargers[loc_key].get("enabled"):
+        return "auto", chargers[loc_key]
+    return "none", None
+
+
 def charge_rate_timeline(car_id: int) -> list[dict]:
-    """全部充电会话按开始时间升序,带有效单价(用户录入优先,其次 TeslaMate 库内 cost)。"""
+    """全部充电会话按开始时间升序,带有效单价(用户录入优先,其次家充自动,最后库内 cost)。"""
     costs = _load_costs()
+    extras = _load_extras()["charges"]
+    home_cfg = _home_charge_cfg()
+    assigns = _manual_all("charge_home")
     rows = q(
         f"""
         SELECT cp.id, {local_ts('cp.start_date', 'start_date')},
-               cp.charge_energy_added, cp.cost
+               {local_ts('cp.end_date', 'end_date')},
+               cp.charge_energy_added, cp.cost, cp.address_id, cp.geofence_id
         FROM charging_processes cp
         WHERE cp.car_id = %s
         ORDER BY cp.start_date
@@ -471,12 +576,24 @@ def charge_rate_timeline(car_id: int) -> list[dict]:
         entered = costs.get(str(r["id"]))
         cost = entered if entered is not None else (
             float(r["cost"]) if r["cost"] is not None else None)
+        cost_home = None
+        if cost is None:  # 无家录费用时尝试家充自动计价(手动指定优先)
+            _, hentry = _home_charge_resolve(home_cfg, assigns, r["id"],
+                                             _loc_key(r["address_id"], r["geofence_id"]))
+            if hentry:
+                manual_total = (extras.get(str(r["id"])) or {}).get("total_kwh")
+                billed = (float(manual_total) if manual_total is not None else energy)
+                hc = _home_charge_cost(hentry, r["start_date_local"],
+                                       r["end_date_local"], billed)
+                if hc:
+                    cost_home, cost = hc[0], hc[0]
         rate = cost / energy if (cost is not None and energy and energy > 0) else None
         out.append({
             "id": r["id"], "start_ts": int(r["start_date_ts"]),
             "energy_kwh": round(energy, 2) if energy is not None else None,
             "cost": round(cost, 2) if cost is not None else None,
             "cost_entered": entered is not None,
+            "cost_home": cost_home is not None,
             "rate_yuan_kwh": round(rate, 4) if rate is not None else None,
         })
     return out
@@ -778,6 +895,25 @@ class ChargerIn(BaseModel):
     brand: str | None = None  # None = 不改动已存品牌;空串 = 清除
 
 
+class HomeMasterIn(BaseModel):
+    enabled: bool
+
+
+class HomeChargerIn(BaseModel):
+    key: str                       # 地点键 addr_<id> / geo_<id>
+    name: str = ""
+    enabled: bool = True
+    peak: float | None = None      # 峰时单价 ¥/kWh;与 valley 至少配一个
+    valley: float | None = None    # 谷时单价 ¥/kWh
+    vstart: str | None = None      # 谷时段起点 HH:MM,默认 23:00
+    vend: str | None = None        # 谷时段终点 HH:MM,默认 07:00
+
+
+class HomeAssignIn(BaseModel):
+    charge_id: int
+    mode: str = "auto"             # auto | off | loc_key(指定某个家充)
+
+
 @app.get("/api/charging/sessions")
 def charging_sessions(car_id: int | None = Query(default=None),
                       days: int = Query(default=30, ge=1, le=730)):
@@ -805,7 +941,8 @@ def charging_sessions(car_id: int | None = Query(default=None),
     )
     costs = _load_costs()
     extras = _load_extras()
-
+    home_cfg = _home_charge_cfg()
+    home_assigns = _manual_all("charge_home")
     # 充电后行驶里程:本次充电结束 → 下次充电开始之间的行程距离合计
     drives = q(
         f"""
@@ -841,9 +978,16 @@ def charging_sessions(car_id: int | None = Query(default=None),
         cost = costs.get(str(r["id"]))
         # 单价口径:优先总耗电(桩端计费电量),缺失时退回充电量
         denom = total_kwh if total_kwh and total_kwh > 0 else energy
-        rate = round(cost / denom, 4) if cost is not None and denom else None
-        per_km = (round(cost / after_km, 4)
-                  if cost is not None and after_km > 0 else None)
+        # 家充计价:手动指定 > 总开关+地点自动匹配;手填费用优先于一切自动计价
+        hmode_raw = (home_assigns.get(str(r["id"])) or {}).get("mode", "auto")
+        hentry = _home_charge_resolve(home_cfg, home_assigns, r["id"], key)[1]
+        hc = (_home_charge_cost(hentry, r["start_date_local"], r["end_date_local"], denom)
+              if hentry else None)
+        cost_home = hc[0] if hc else None
+        effective = cost if cost is not None else cost_home
+        rate = round(effective / denom, 4) if effective is not None and denom else None
+        per_km = (round(effective / after_km, 4)
+                  if effective is not None and after_km > 0 else None)
         out.append({
             "id": r["id"],
             "start_ts": start_ts,
@@ -863,6 +1007,10 @@ def charging_sessions(car_id: int | None = Query(default=None),
                                                           r["address_name"] or ""),
             "charger_brand": (saved_charger or {}).get("brand", ""),
             "cost": round(cost, 2) if cost is not None else None,
+            "cost_home": cost_home,
+            "cost_effective": round(effective, 2) if effective is not None else None,
+            "home_mode": hmode_raw,  # auto | off | 指定家充的 loc_key(hmode 为裁定结果)
+            "home_name": (hentry or {}).get("name", "") if hentry else "",
             "rate_yuan_kwh": rate,
             "after_km": after_km,
             "per_km_yuan": per_km,
@@ -911,6 +1059,128 @@ def set_charger(payload: ChargerIn):
         _save_charger(key, None)
     return {"ok": True, "loc_key": key, "name": name, "location": location,
             "brand": entry.get("brand", "")}
+
+
+# ---------- 家充设置接口(写操作由中间件限定管理员) ----------
+
+@app.get("/api/charging/home")
+def get_home_charge(request: Request, car_id: int | None = Query(default=None)):
+    """家充设置:总开关 + 已配地点列表 + 可添加的充电地点候选(按充电次数排序)。"""
+    cid = get_car_id(car_id)
+    cfg = _home_charge_cfg()
+    locs = q(
+        """
+        SELECT cp.address_id, cp.geofence_id, a.name AS address_name, g.name AS geofence_name,
+               count(*) AS n
+        FROM charging_processes cp
+        LEFT JOIN addresses a ON a.id = cp.address_id
+        LEFT JOIN geofences g ON g.id = cp.geofence_id
+        WHERE cp.car_id = %s AND (cp.address_id IS NOT NULL OR cp.geofence_id IS NOT NULL)
+        GROUP BY cp.address_id, cp.geofence_id, a.name, g.name
+        ORDER BY n DESC
+        LIMIT 50
+        """,
+        (cid,),
+    )
+    label_by_key, count_by_key = {}, {}
+    for r in locs:
+        k = _loc_key(r["address_id"], r["geofence_id"])
+        if not k:
+            continue
+        label_by_key[k] = r["address_name"] or r["geofence_name"] or k
+        count_by_key[k] = int(r["n"])
+    chargers = [{
+        "key": k,
+        "name": e.get("name") or label_by_key.get(k, k),
+        "enabled": bool(e.get("enabled")),
+        "peak": e.get("peak"), "valley": e.get("valley"),
+        "vstart": e.get("vstart") or HOME_CHARGE_DEFAULT_VSTART,
+        "vend": e.get("vend") or HOME_CHARGE_DEFAULT_VEND,
+        "location": label_by_key.get(k, ""),
+        "sessions": count_by_key.get(k, 0),
+    } for k, e in cfg["chargers"].items()]
+    chargers.sort(key=lambda c: -c["sessions"])
+    candidates = [{"key": k, "name": label_by_key[k], "count": count_by_key[k],
+                   "added": k in cfg["chargers"]} for k in label_by_key]
+    return {"master": cfg["master"], "chargers": chargers, "candidates": candidates,
+            "role": getattr(request.state, "role", "viewer"),
+            "vstart_default": HOME_CHARGE_DEFAULT_VSTART,
+            "vend_default": HOME_CHARGE_DEFAULT_VEND}
+
+
+@app.post("/api/charging/home/master")
+def set_home_master(payload: HomeMasterIn):
+    """家充自动计价总开关:开启后,在已开启家充地点的充电默认按峰谷电价计费。"""
+    cfg = _home_charge_cfg()
+    cfg["master"] = payload.enabled
+    _save_home_charge_cfg(cfg)
+    return {"ok": True, "master": cfg["master"]}
+
+
+@app.post("/api/charging/home/charger")
+def set_home_charger(payload: HomeChargerIn):
+    """添加/更新一个家充地点(峰谷电价、开关、谷时段);key 为充电地点键。"""
+    if not re.fullmatch(r"(addr|geo)_\d{1,10}", payload.key):
+        raise HTTPException(status_code=422, detail="地点键无效")
+    for p in (payload.peak, payload.valley):
+        if p is not None and not (0 <= p <= 50):
+            raise HTTPException(status_code=422, detail="电价需在 0–50 ¥/kWh 之间")
+    if payload.peak is None and payload.valley is None:
+        raise HTTPException(status_code=422, detail="峰时电价与谷时电价至少填写一个")
+    for t in (payload.vstart, payload.vend):
+        if t is not None and _parse_hhmm(t) is None:
+            raise HTTPException(status_code=422, detail="时段格式应为 HH:MM")
+    tbl = "addresses" if payload.key.startswith("addr_") else "geofences"
+    if not q(f"SELECT 1 FROM {tbl} WHERE id = %s", (int(payload.key.split("_")[1]),)):
+        raise HTTPException(status_code=404, detail="地点不存在")
+    cfg = _home_charge_cfg()
+    entry = dict(cfg["chargers"].get(payload.key) or {})
+    entry.update({
+        "name": payload.name.strip()[:80],
+        "enabled": payload.enabled,
+        "peak": round(float(payload.peak), 4) if payload.peak is not None else None,
+        "valley": round(float(payload.valley), 4) if payload.valley is not None else None,
+        "vstart": payload.vstart or None,
+        "vend": payload.vend or None,
+    })
+    cfg["chargers"][payload.key] = entry
+    _save_home_charge_cfg(cfg)
+    return {"ok": True, "key": payload.key}
+
+
+@app.delete("/api/charging/home/charger")
+def del_home_charger(key: str = Query(...)):
+    """删除一个家充地点;指向它的单次手动指定一并清除(回退自动)。"""
+    cfg = _home_charge_cfg()
+    if key not in cfg["chargers"]:
+        raise HTTPException(status_code=404, detail="家充地点不存在")
+    cfg["chargers"].pop(key, None)
+    _save_home_charge_cfg(cfg)
+    _exec("DELETE FROM panel_manual WHERE kind = 'charge_home' AND payload->>'mode' = %s",
+          (key,))
+    return {"ok": True}
+
+
+@app.post("/api/charging/home/assign")
+def set_home_assign(payload: HomeAssignIn):
+    """单次充电的家充计价指定:auto 跟随地点(默认)/ off 不计 / loc_key 指定某个家充。"""
+    if not q("SELECT 1 FROM charging_processes WHERE id = %s", (payload.charge_id,)):
+        raise HTTPException(status_code=404, detail="充电会话不存在")
+    if payload.mode == "auto":
+        _exec("DELETE FROM panel_manual WHERE kind = 'charge_home' AND key = %s",
+              (str(payload.charge_id),))
+    else:
+        if payload.mode != "off" and payload.mode not in _home_charge_cfg()["chargers"]:
+            raise HTTPException(status_code=422, detail="家充地点无效")
+        _exec(
+            """
+            INSERT INTO panel_manual (kind, key, payload) VALUES ('charge_home', %s, %s)
+            ON CONFLICT (kind, key) DO UPDATE
+              SET payload = EXCLUDED.payload, updated_at = now()
+            """,
+            (str(payload.charge_id), Jsonb({"mode": payload.mode})),
+        )
+    return {"ok": True, "charge_id": payload.charge_id, "mode": payload.mode}
 
 
 @app.get("/api/routes")

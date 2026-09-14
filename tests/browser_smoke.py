@@ -19,13 +19,15 @@ BASE = {
    "kwh_per_ideal_km":0.15,"kwh_per_pct":0.75,"totals":{"drives_total":3,"month_km":300,"week_km":100,"year_km":2000,"month_energy_kwh":45},"charging":{"sessions":2,"energy_kwh":40,"cost":30,"duration_min":60}},
  "drives/daily":{"days_rows":[{"day":"2026-09-01","distance":30,"drives":2}]},
  "charging/summary":{"totals":{},"sessions":[]},
+ "charging/sessions":{"charges":[{"id":7,"start_ts":NOW-7200000,"end_ts":NOW-3600000,"start_local":"2026-09-14 01:00:00","end_local":"2026-09-14 02:00:00","duration_min":60,"energy_kwh":10.0,"energy_used_kwh":None,"total_kwh":None,"total_kwh_manual":False,"start_battery_level":40,"end_battery_level":55,"loc_key":"addr_7","charger_name":"","charger_location":"家","charger_brand":"","cost":None,"cost_home":5.0,"cost_effective":5.0,"home_mode":"auto","home_name":"车位桩","rate_yuan_kwh":0.5,"after_km":60.0,"per_km_yuan":0.0833}]},
+ "charging/home":{"master":True,"role":"admin","chargers":[{"key":"addr_7","name":"车位桩","enabled":True,"peak":1.0,"valley":0.5,"vstart":"23:00","vend":"07:00","location":"家","sessions":12}],"candidates":[{"key":"addr_7","name":"家","count":12,"added":True},{"key":"addr_9","name":"公司","count":8,"added":False}],"vstart_default":"23:00","vend_default":"07:00"},
  "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"speed_max":80,"start_ideal_range_km":400,"end_ideal_range_km":388,"start_name":XSS,"end_name":"合成终点","points":[[0,0,50],[0.005,0.005,65],[0.01,0.01,80]]}]},
  "activity":{"days":7,"battery":[[NOW-3600000,80],[NOW,75]],"drives":[],"charges":[],"sentry":[],"idle":[],"kwh_per_pct":0.75},
  "efficiency/trend":{"points":[{"start_ts":NOW-3600000,"eff_wh_km":145,"distance":10,"duration_min":30,"start_name":XSS,"end_name":"合成终点"}]},
  "tpms/trend":{"wheels":{w:[[NOW-3600000,2.9],[NOW,2.9]] for w in ['fl','fr','rl','rr']}},
  "system":{"disk_pct":20,"mem_pct":30},
  "battery/health":{"health_pct":98,"current_kwh":75,"nominal_kwh":76.5,"samples":8,"last_ts":NOW},
- "charging/sessions":{"charges":[]},"energy/cycles":{"cycles":[]},
+ "energy/cycles":{"cycles":[]},
  "temp/trend":{"inside":[[NOW-3600000,22],[NOW,24]],"outside":[[NOW-3600000,18],[NOW,20]]},
  "parking/fees":{"fees":[],"month_total":0,"total":0},"vehicle/delivery":{"date":"2026-01-01"},
  "charging/reminder":{"ready":True,"overridden":False,"reason":"",
@@ -103,6 +105,28 @@ def run():
             assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
             assert page.locator('.rt-map.leaflet-container').count()==1
             assert '落差' in page.locator('.rt-elev-title').inner_text()
+            # 家充设置卡:总开关 + 地点行;管理员可见添加行与开关,viewer 全部只读
+            page.locator('.tab[data-page="charging"]').click()
+            page.locator('#hc-head').click()
+            page.wait_for_timeout(80)
+            assert page.locator('#hc-body .hc-master .tsw').count()==1
+            assert page.locator('#hc-body .hc-row').count()==1
+            if role=='admin':
+                assert page.locator('#hc-body .hc-add select').count()==1
+                assert not page.evaluate("document.querySelector('#hc-body .hc-master input').disabled")
+            else:
+                assert page.locator('#hc-body .hc-add').count()==0
+                assert page.evaluate("document.querySelector('#hc-body .hc-master input').disabled")
+                assert page.evaluate("document.querySelector('#hc-body .hc-row input.hc-name').disabled")
+            # 充电详情:家充自动电费标签 + 计价方式(admin 下拉 / viewer 文本)
+            page.locator('#cs-head').click()
+            page.wait_for_timeout(80)
+            assert page.locator('.cs-tag-home').count()==1
+            if role=='admin':
+                assert page.locator('.cs-home-sel').count()==1
+                assert page.locator('.cs-home-sel').input_value()=='auto'
+            else:
+                assert page.locator('.cs-home-sel').count()==0
             page.locator('.tab[data-page="activity"]').click()
             page.locator('#chart-efficiency').scroll_into_view_if_needed()
             page.evaluate("echarts.getInstanceByDom(document.getElementById('chart-efficiency')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0})")
