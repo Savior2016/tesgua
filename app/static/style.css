@@ -118,7 +118,7 @@ html, body {
 header {
   position: sticky;
   top: 0;
-  z-index: 1000;              /* 压过 Leaflet 图层(最高 800),低于 Tab 栏(1200) */
+  z-index: 1100;             /* 压过 Leaflet 控件容器(1000),低于 Tab 栏(1200) */
   margin: 0 -20px;            /* 满幅:盖住 .wrap 两侧 padding,防止边缘漏出滚动内容 */
   padding: 6px 20px 14px;     /* 下间距折进 padding,背景覆盖,不留缝隙 */
   border-radius: 0 0 14px 14px;
