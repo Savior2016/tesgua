@@ -1698,13 +1698,31 @@ button { touch-action: manipulation; }
 
 .rt-dist, .rt-dur { text-align: right; font-variant-numeric: tabular-nums; }
 
+/* 展开箭头:圆形徽章,悬停描边加深、展开变蓝翻转,明确「可展开」的入口 */
 .rt-chev {
-  color: var(--text-muted);
-  transition: transform 0.2s ease;
-  text-align: center;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  border-radius: 50%;
+  background: var(--tile-track);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-.rt-row.open .rt-chev { transform: rotate(180deg); }
+.rt-row:hover .rt-chev { border-color: var(--text-muted); color: var(--text-primary); }
+
+.rt-row.open .rt-chev {
+  transform: rotate(180deg);
+  background: var(--seq-blue-500);
+  border-color: var(--seq-blue-500);
+  color: #fff;
+}
 
 .rt-detail {
   display: none;
@@ -1714,7 +1732,23 @@ button { touch-action: manipulation; }
   border-top: 1px dashed var(--gridline);
 }
 
-.rt-row.open + .rt-detail { display: block; }
+.rt-row.open + .rt-detail {
+  display: block;
+  animation: rt-detail-in 0.22s ease;
+}
+
+@keyframes rt-detail-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 行程详情:小地图(只显示该条轨迹;顶部地图为全览) */
+.rt-map {
+  height: 220px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  margin-top: 10px;
+}
 
 /* 行程详情:表格式键值网格(桌面 3 列) */
 .rt-kv {
@@ -1763,12 +1797,14 @@ button { touch-action: manipulation; }
 #map { width: 100%; height: 420px; border-radius: 10px; }
 
 /* 深色主题:对 OSM 亮色瓦片做反色滤镜(轨迹等在 overlayPane,不受影响) */
-:root[data-theme="dark"] #map .leaflet-tile-pane {
+:root[data-theme="dark"] #map .leaflet-tile-pane,
+:root[data-theme="dark"] .rt-map .leaflet-tile-pane {
   filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.88) saturate(0.35);
 }
 /* 系统深色且未显式选浅色时同样生效 */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) #map .leaflet-tile-pane {
+  :root:not([data-theme="light"]) #map .leaflet-tile-pane,
+  :root:not([data-theme="light"]) .rt-map .leaflet-tile-pane {
     filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.88) saturate(0.35);
   }
 }
@@ -2248,6 +2284,7 @@ footer a { color: var(--text-muted); }
 
   /* 行程详情:窄屏键值网格改 2 列 */
   .rt-kv { grid-template-columns: repeat(2, 1fr); }
+  .rt-map { height: 170px; }
 
   /* 筛选栏吸顶,负外边距铺满到屏幕边缘 */
   .filter-row {

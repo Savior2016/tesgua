@@ -19,7 +19,9 @@
 
   const charts = {};
   const routeElev = {};  // 行程详情海拔图(行程 id → ECharts 实例),收起/重渲染时销毁
+  const routeMaps = {};  // 行程 id → 详情小地图实例,同上
   const routeRows = {};  // 行程 id → 列表行 DOM(地图点选轨迹时定位展开用)
+  const openRouteIds = new Set();  // 已展开的行程 id,60s 刷新重渲染后恢复展开状态
   let map = null;
   let mapTiles = {};
   let mapFit = false;
@@ -2331,7 +2333,7 @@
         : routesBase[k]);
     });
     selectedRouteId = id;
-    map.fitBounds(layer.getBounds(), { padding: [40, 40] });
+    // 顶部地图只作全览,不再缩放到单条轨迹;行程细节看详情里的小地图
   }
 
   function deselectRoute() {
@@ -2349,6 +2351,32 @@
     if (grp && !grp.classList.contains('open')) grp.classList.add('open');
     if (!row.classList.contains('open')) row.click();  // 走同一套展开逻辑(选中轨迹 + 渲染海拔图)
     row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  /* 行程详情:小地图(只显示该条轨迹 + 起终点;顶部地图仅作全览) */
+  function renderRouteMap(r, box) {
+    if (routeMaps[r.id]) { routeMaps[r.id].invalidateSize(); return; }
+    const pts = (r.points || []).filter((p) => p.length >= 2).map((p) => [p[0], p[1]]);
+    if (pts.length < 2) return;
+    const m = L.map(box, {
+      zoomControl: false,
+      attributionControl: false,
+      dragging: !L.Browser.mobile,  // 触屏禁用单指拖动,避免吞掉页面滚动
+      scrollWheelZoom: false,       // 小地图不响应滚轮,桌面滚动页面向下不被截住
+      tap: true,
+    });
+    L.tileLayer(`/api/tiles/${S.theme === 'dark' ? 'dark' : 'light'}/{z}/{x}/{y}.png`,
+      { maxZoom: 19 }).addTo(m);
+    const line = L.polyline(pts, {
+      color: cssVar('--seq-blue-500'), weight: 4, opacity: 1, lineCap: 'round', lineJoin: 'round',
+    }).addTo(m);
+    const mk = (p, fill) => L.circleMarker(p, {
+      radius: 5, color: cssVar('--surface-1'), weight: 2, fillColor: fill, fillOpacity: 1,
+    }).addTo(m);
+    mk(pts[0], cssVar('--series-1'));
+    mk(pts[pts.length - 1], cssVar('--series-2'));
+    m.fitBounds(line.getBounds(), { padding: [16, 16] });
+    routeMaps[r.id] = m;
   }
 
   /* 行程详情:海拔高度图(x = 累计里程 km,y = 海拔 m,平滑曲线 + 渐变填充) */
@@ -2383,7 +2411,8 @@
       grid: { left: 46, right: 18, top: 14, bottom: 24 },
       xAxis: Object.assign(axisCommon(), {
         type: 'value', min: 0, max: data[data.length - 1][0],
-        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value} km' },
+        // max 不是整刻度,ECharts 会额外补一个 max 标签与相邻刻度重叠,隐藏之
+        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value} km', showMaxLabel: false },
       }),
       yAxis: Object.assign(axisCommon(), {
         type: 'value', scale: true,
@@ -2429,6 +2458,12 @@
       return;
     }
     if (routeElev[id]) { routeElev[id].dispose(); delete routeElev[id]; }
+    if (routeMaps[id]) {
+      const box = routeMaps[id].getContainer();
+      routeMaps[id].remove();  // remove() 清内部 DOM 但保留容器上的 leaflet-* 类
+      delete routeMaps[id];
+      box.className = 'rt-map';  // 复位容器,便于「已销毁」断言与再次初始化
+    }
   }
 
   function renderRoutesList() {
@@ -2506,6 +2541,11 @@
           : '—');
         const detail = el('div', 'rt-detail');
         detail.appendChild(kv);
+        let mapBox = null;
+        if ((r.points || []).filter((p) => p.length >= 2).length >= 2) {
+          mapBox = el('div', 'rt-map');
+          detail.appendChild(mapBox);
+        }
         let elevBox = null;
         const elevPts = (r.points || []).filter((p) => p.length >= 3 && p[2] !== null && p[2] !== undefined);
         if (elevPts.length >= 2) {
@@ -2521,9 +2561,14 @@
         row.addEventListener('click', () => {
           const open = row.classList.toggle('open');
           if (open) {
+            openRouteIds.add(r.id);
             selectRoute(r.id);
-            if (elevBox) requestAnimationFrame(() => renderRouteElev(r, elevBox));
+            requestAnimationFrame(() => {
+              if (mapBox) renderRouteMap(r, mapBox);
+              if (elevBox) renderRouteElev(r, elevBox);
+            });
           } else {
+            openRouteIds.delete(r.id);
             if (selectedRouteId === r.id) deselectRoute();
             disposeRouteElev(r.id);
           }
@@ -2533,6 +2578,13 @@
       });
       grp.appendChild(body);
       box.appendChild(grp);
+    });
+
+    // 60s 刷新会重建列表:恢复此前展开的行程;已不在范围内的 id 清理掉
+    openRouteIds.forEach((id) => {
+      const row = routeRows[id];
+      if (row && !row.classList.contains('open')) row.click();
+      else if (!row) openRouteIds.delete(id);
     });
   }
 
@@ -2666,6 +2718,7 @@
       if (sec) Object.values(routeElev).forEach((c) => {
         if (c && sec.contains(c.getDom())) c.resize();
       });
+      if (name === 'drives') Object.values(routeMaps).forEach((m) => m && m.invalidateSize());
       if (name === 'drives' && map) {
         map.invalidateSize();
         if (!mapShown) {  // 首次显示:此前 fitBounds 基于 0 尺寸,按全部轨迹重算
@@ -2839,6 +2892,7 @@
     window.addEventListener('resize', () => {
       Object.values(charts).forEach((c) => c && c.resize());
       Object.values(routeElev).forEach((c) => c && c.resize());
+      Object.values(routeMaps).forEach((m) => m && m.invalidateSize());
       if (map) map.invalidateSize();
       renderCar();  // 引线与标注按舞台实际尺寸定位,需随布局重算
       placeTabBubble();  // 气泡宽度随 Tab 布局变化

@@ -90,15 +90,18 @@ def run():
             page.wait_for_timeout(150)
             assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==6
             assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
+            assert page.locator('.rt-map.leaflet-container').count()==1  # 详情小地图
             assert not page.evaluate('window.__auditXss===true')
             page.locator('.rt-row').first.click()
             page.wait_for_timeout(80)
             assert page.evaluate("!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
+            assert page.locator('.rt-map.leaflet-container').count()==0  # 收起后小地图销毁
             # 地图点选轨迹:对应行程行自动展开并渲染海拔图,标题含起终点落差
             page.evaluate("document.querySelector('#map path.leaflet-interactive').dispatchEvent(new MouseEvent('click',{bubbles:true}))")
             page.wait_for_timeout(150)
             assert page.locator('.rt-row.open').count()==1
             assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
+            assert page.locator('.rt-map.leaflet-container').count()==1
             assert '落差' in page.locator('.rt-elev-title').inner_text()
             page.locator('.tab[data-page="activity"]').click()
             page.locator('#chart-efficiency').scroll_into_view_if_needed()
