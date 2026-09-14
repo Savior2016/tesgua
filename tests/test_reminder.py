@@ -62,6 +62,8 @@ def rem(client, monkeypatch):
             return state["drives"]
         if "FROM charging_processes" in sql:
             return state["charges"]
+        if "is_climate_on" in sql:            # 停放拆分用的清醒采样查询
+            return state.get("positions", [])
         if "FROM positions" in sql:
             return state["latest"]
         return []
@@ -93,13 +95,56 @@ def test_predicts_charge_date_and_place(rem):
     state["latest"] = [{"battery_level": 40, "rated_battery_range_km": 130.0}]
     r = _get(client)
     assert r["ready"] is True
-    # 单程 27 km,阈值 = max(40, 1.5×27) = 40.5;每天约 54+11 km → 130 km 约 1.4 天
+    # 阈值:40% 表显 → 满电约 325 km,默认 20% → 65 km;每天约 54 km 通勤 + 约 11 km 掉电
+    assert r["min_pct"] == 20
+    assert r["threshold_km"] == pytest.approx(65, abs=1)
     assert 0.5 <= r["days_left"] <= 2.5
     assert r["charge_at"] in ("home", "work")
     assert r["charge_place"].startswith("家" if r["charge_at"] == "home" else "公司")
     assert r["leg_km"]["to_work"] == pytest.approx(27, abs=0.5)
     assert r["leg_km"]["to_home"] == pytest.approx(27, abs=0.5)
     assert r["sample_legs"] == 20
+
+
+def test_before_leg_semantics(rem):
+    """出发前必须充电:跑完这趟就跌破阈值 → kind=before_leg,next_leg 给出方向。"""
+    client, state = rem
+    state["drives"] = _commute_days(10)
+    state["latest"] = [{"battery_level": 40, "rated_battery_range_km": 100.0}]
+    r = _get(client)
+    assert r["ready"] is True
+    assert r["charge_kind"] in ("before_leg", "parked")
+    if r["charge_kind"] == "before_leg":
+        assert r["next_leg"] in ("to_work", "to_home")
+        # charge_by 是跌破阈值那趟的【上一趟】行程结束时刻(14:10 或 00:40 到达)
+        from datetime import datetime
+        lt = datetime.fromtimestamp(r["charge_by_ts"] / 1000, TZ)
+        assert (lt.hour, lt.minute) in ((14, 10), (0, 40))
+
+
+def test_min_pct_config_overrides_default(rem, monkeypatch):
+    client, state = rem
+    from app import main
+    saved = {}
+    monkeypatch.setattr(main, "_manual_all",
+                        lambda kind: {"settings": {"reminder": saved}}.get(kind, {}) if saved else {})
+    monkeypatch.setattr(main, "_exec", lambda sql, params=(): None)
+    state["drives"] = _commute_days(10)
+    state["latest"] = [{"battery_level": 40, "rated_battery_range_km": 130.0}]
+    assert client.post("/api/charging/reminder-config", json={"min_pct": 40}).status_code == 200
+    assert client.post("/api/charging/reminder-config", json={"min_pct": 3}).status_code == 422
+    saved.update({"min_pct": 40})
+    r = _get(client)
+    assert r["min_pct"] == 40
+    assert r["threshold_km"] == pytest.approx(130, abs=1)   # 325 × 40%
+    assert r["charge_kind"] == "now"                        # 当前已在阈值上
+
+
+def test_reminder_config_requires_admin(client, monkeypatch):
+    from app import main
+    monkeypatch.setattr(main, "q", lambda *a: [{"id": 1}])
+    login(client, "guest")
+    assert client.post("/api/charging/reminder-config", json={"min_pct": 25}).status_code == 403
 
 
 def test_special_trips_do_not_skew_model(rem):
@@ -178,3 +223,68 @@ def test_anchors_validation(rem):
     client, _ = rem
     r = client.post("/api/charging/anchors", json={"home": [1, 8], "work": [8]})
     assert r.status_code == 422   # 家与公司不能是同一地点
+
+
+def test_projection_lists_simulated_legs(rem):
+    """推测明细:逐趟行程的方向/耗电/剩余续航,最后一趟跑完跌破阈值。"""
+    client, state = rem
+    state["drives"] = _commute_days(10)
+    state["latest"] = [{"battery_level": 40, "rated_battery_range_km": 130.0}]
+    r = _get(client)
+    assert r["ready"] is True and r["days_left"] is not None
+    proj = r["projection"]
+    assert proj
+    prev_remain = 999.0
+    for p in proj:
+        assert p["direction"] in ("to_work", "to_home", None)
+        assert p["leg_km"] >= 0 and p["parked_km"] >= 0
+        assert 0 < p["remain_km"] < prev_remain   # 剩余续航单调下降
+        prev_remain = p["remain_km"]
+        assert "remain_pct" in p
+    # 最后一个事件跑完后跌破阈值(通勤腿或纯停放掉电)
+    assert proj[-1]["remain_km"] <= r["threshold_km"] + 0.5
+
+
+def test_projection_when_no_charge_needed(rem):
+    """30 天内无需充电时同样给出完整推演明细。"""
+    client, state = rem
+    state["drives"] = _commute_days(10)
+    state["latest"] = [{"battery_level": 100, "rated_battery_range_km": 3000.0}]
+    r = _get(client)
+    assert r["ready"] is True and r["days_left"] is None
+    assert len(r["projection"]) >= 20   # 推演满 30 天,每天两趟
+
+
+def test_projection_includes_sentry_split_and_distance(rem):
+    """推测明细:带行程距离、耗电%和哨兵/其他驻车耗电拆分。
+
+    合成采样:每晚停家 00:40–13:30 的间隙里,01:00–05:00 每 30 分钟一条
+    清醒采样(无空调 → 哨兵段,4 小时掉 0.8%),之后休眠无上报。
+    km_per_pct = 满电 325 km ÷ 100 = 3.25 → 哨兵约 0.65 km/h。
+    """
+    client, state = rem
+    state["drives"] = _commute_days(10)
+    state["latest"] = [{"battery_level": 40, "rated_battery_range_km": 130.0}]
+    pos = []
+    for i in range(10):
+        day = datetime(2026, 8, 1, 0, 0, tzinfo=TZ) + timedelta(days=i)
+        for h in range(1, 6):   # 01:00–05:00 哨兵清醒段
+            pos.append({"ts": _ts(day.replace(hour=h)),
+                        "lvl": 60.0 - (h - 1) * 0.2, "climate": False})
+    state["positions"] = pos
+    r = _get(client)
+    assert r["ready"] is True and r["days_left"] is not None
+    proj = r["projection"]
+    legs = [p for p in proj if p["direction"]]
+    assert legs and all(p["dist_km"] == pytest.approx(29, abs=0.5) for p in legs)
+    assert all(p["leg_pct"] > 0 for p in legs)
+    home_legs = [p for p in legs if p["direction"] == "to_work"]   # 出发地=家,带夜间停放
+    assert home_legs and all(p.get("sentry_km") is not None for p in home_legs)
+    for p in home_legs:
+        assert p["sentry_km"] >= 0 and p["idle_km"] >= 0
+        assert p["sentry_km"] + p["idle_km"] == pytest.approx(p["parked_km"], abs=0.3)
+        assert p["sentry_pct"] >= 0 and p["idle_pct"] >= 0
+        assert p["parked_h"] > 0
+    # 哨兵速率学到约 0.65 km/h;停家的停放时段应分到非零哨兵耗电
+    # (具体数值随测试运行的当前时刻变化,只断言非零)
+    assert any(p["sentry_km"] > 0 for p in home_legs)

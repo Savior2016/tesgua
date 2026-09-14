@@ -379,6 +379,10 @@ async def auth_and_headers(request: Request, call_next):
         "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
     if path.startswith("/api/") and not path.startswith("/api/tiles/"):
         response.headers["Cache-Control"] = "no-store"
+    elif path == "/" or path.endswith((".html", ".js", ".css")):
+        # 静态页面与脚本:不发 Cache-Control 时浏览器会按启发式缓存旧版本,
+        # 部署后用户可能长时间看不到新页面;no-cache 仍走 ETag 304,开销极小。
+        response.headers.setdefault("Cache-Control", "no-cache")
     return response
 
 # 将 UTC 时间戳转为本地墙钟时间 / 绝对毫秒时间戳的 SQL 片段

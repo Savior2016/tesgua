@@ -276,7 +276,7 @@
 
   /* ---------- 渲染:顶栏状态 ---------- */
 
-  // 服务器硬盘 / 内存占用(顶栏第二行)
+  // 服务器硬盘 / 内存占用(页脚最底部)
   function renderSys(sys) {
     if (!sys) return;
     // 可视化仪表条:填充宽度 = 使用率,数值文字 + 悬停显示用量详情;
@@ -1894,98 +1894,226 @@
 
   /* ---------- 充电提醒(家⇄公司通勤推算,数据来源 /api/charging/reminder) ---------- */
 
+  let rmPicker = null;   // 当前打开地点选择器的一侧:'home' | 'work' | null
+
   function renderReminder() {
     const body = $('#rm-body');
     if (!body || !S.reminder) return;
     const rm = S.reminder;
     body.textContent = '';
-    const editBtn = $('#rm-edit');
     const canEdit = S.overview && S.overview.role === 'admin';
-    editBtn.hidden = !canEdit || !(rm.candidates || []).length;
+    const short = (label) => (label || '未识别').split(/[,，]/)[0];
 
-    const anchors = el('div', 'rm-anchors');
-    anchors.appendChild(el('span', 'rm-anchor', `家:${rm.home ? rm.home.label : '未识别'}`));
-    anchors.appendChild(el('span', 'rm-anchor', `公司:${rm.work ? rm.work.label : '未识别'}`));
-    if (rm.overridden) anchors.appendChild(el('span', 'rm-tag', '已手动纠正'));
-
-    if (!rm.ready) {
-      body.appendChild(el('div', 'rm-line', rm.reason || '行程数据积累中,暂无法预测'));
-      body.appendChild(anchors);
-      return;
-    }
-
-    const line = el('div', 'rm-line');
-    if (rm.days_left === null || rm.days_left === undefined) {
-      line.appendChild(el('span', 'rm-big', rm.reason || '未来 30 天内无需充电'));
-    } else {
-      const days = el('b', 'rm-big' + (rm.days_left <= 2 ? ' rm-urgent' : ''), `还能用约 ${fmtNum(rm.days_left, 1)} 天`);
-      line.appendChild(days);
-      const when = dayLabel(rm.charge_by_ts);
-      const where = rm.charge_place || '';
-      const charger = rm.charger && rm.charger.name
-        ? `,${rm.charger.near_anchor === false ? '平时常去' : '附近常用'}:${rm.charger.name}${rm.charger.location ? `(${rm.charger.location})` : ''}`
-        : '';
-      line.appendChild(el('span', 'rm-when', ` · 建议 ${when} ${fmtClock(rm.charge_by_ts)} 前在 ${where} 充电${charger}`));
-    }
-    body.appendChild(line);
-
-    const detail = [];
-    if (rm.current_range_km) detail.push(`当前续航 ${fmtNum(rm.current_range_km)} km`);
-    if (rm.leg_km && rm.leg_km.to_work && rm.leg_km.to_home)
-      detail.push(`通勤单程 ≈${fmtNum((rm.leg_km.to_work + rm.leg_km.to_home) / 2, 1)} km 续航`);
-    if (rm.drain_km_day) {
-      const parts = [];
-      if (rm.drain_km_day.home) parts.push(`家 ${fmtNum(rm.drain_km_day.home, 1)}`);
-      if (rm.drain_km_day.work) parts.push(`公司 ${fmtNum(rm.drain_km_day.work, 1)}`);
-      if (parts.length) detail.push(`停放掉电 ≈${parts.join(' / ')} km/天`);
-    }
-    if (rm.sample_legs) detail.push(`样本 ${rm.sample_legs} 趟通勤`);
-    body.appendChild(el('div', 'rm-sub', detail.join(' · ')));
-    body.appendChild(anchors);
-  }
-
-  function initReminder() {
-    const btn = $('#rm-edit'), box = $('#rm-edit-box');
-    if (!btn || !box) return;
-    btn.addEventListener('click', () => {
-      const rm = S.reminder || {};
-      box.textContent = '';
-      box.hidden = !box.hidden;
-      if (box.hidden) return;
-      const selects = {};
-      [['家', 'home'], ['公司', 'work']].forEach(([label, key]) => {
-        const row = el('label', 'rm-edit-row', label + ' ');
-        const sel = el('select');
-        sel.appendChild(el('option', '', '自动识别')).value = '';
-        (rm.candidates || []).forEach((c) => {
-          const opt = el('option', '', `${c.label}(${c.visits} 次途经)`);
-          opt.value = c.address_ids.join(',');
-          const cur = rm[key];
-          if (cur && cur.address_ids.join(',') === opt.value) opt.selected = true;
-          sel.appendChild(opt);
+    // 第一行:家/公司双框。当前所在位置的框绿色、另一边红色;
+    // 预计需要充电的位置,框上方有黄色三角箭头;管理员点击框可修改
+    const places = el('div', 'rm-places');
+    [['home', '家', rm.home], ['work', '公司', rm.work]].forEach(([key, title, place]) => {
+      const wrap = el('div', 'rm-place-wrap');
+      if (rm.ready && rm.charge_at === key) wrap.appendChild(el('i', 'rm-place-flag'));
+      const state = rm.current_loc === key ? ' cur' : (rm.current_loc ? ' away' : '');
+      const box = el('div', 'rm-place' + state + (canEdit ? ' editable' : ''));
+      box.appendChild(el('span', 'rm-place-title', title));
+      box.appendChild(el('b', 'rm-place-name', short(place && place.label)));
+      if (canEdit) {
+        box.setAttribute('role', 'button');
+        box.tabIndex = 0;
+        box.title = '点击修改地点';
+        const toggle = () => { rmPicker = rmPicker === key ? null : key; renderReminder(); };
+        box.addEventListener('click', toggle);
+        box.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
         });
-        selects[key] = sel;
-        row.appendChild(sel);
-        box.appendChild(row);
-      });
-      const save = el('button', 'rm-edit-save', '保存');
-      save.addEventListener('click', async () => {
-        const ids = (v) => v ? v.split(',').map(Number) : [];
-        save.disabled = true;
+      }
+      wrap.appendChild(box);
+      places.appendChild(wrap);
+    });
+    body.appendChild(places);
+
+    // 地点选择器:点击家/公司框后展开,从常用地点聚类中选;另一侧已占用的地点不可选
+    if (canEdit && rmPicker) {
+      const otherKey = rmPicker === 'home' ? 'work' : 'home';
+      const otherIds = new Set((rm[otherKey] && rm[otherKey].address_ids) || []);
+      const curIds = new Set((rm[rmPicker] && rm[rmPicker].address_ids) || []);
+      const panel = el('div', 'rm-pick');
+      panel.appendChild(el('div', 'rm-pick-title',
+        `选择「${rmPicker === 'home' ? '家' : '公司'}」的位置`));
+      const save = async (ids) => {
+        panel.style.pointerEvents = 'none';
         try {
           await fetchJSON('/api/charging/anchors', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ home: ids(selects.home.value), work: ids(selects.work.value) }),
+            body: JSON.stringify({
+              home: rmPicker === 'home' ? ids : [...curIds0(rm.home)],
+              work: rmPicker === 'work' ? ids : [...curIds0(rm.work)],
+            }),
           });
+          rmPicker = null;
           S.reminder = await api('charging/reminder');
-          box.hidden = true;
           renderReminder();
-        } catch (err) { console.error(err); save.disabled = false; }
+        } catch (err) { console.error(err); panel.style.pointerEvents = ''; }
+      };
+      function curIds0(place) { return (place && place.address_ids) || []; }
+      (rm.candidates || []).filter((c) => c.address_ids && c.address_ids.length)
+        .slice(0, 8).forEach((c) => {
+          const taken = c.address_ids.some((id) => otherIds.has(id));
+          const isCur = c.address_ids.some((id) => curIds.has(id));
+          const item = el('div', 'rm-pick-item' + (isCur ? ' cur' : '') + (taken ? ' off' : ''));
+          item.appendChild(el('b', '', short(c.label)));
+          item.appendChild(el('span', '',
+            `到访 ${c.visits} 次 · 夜停 ${c.nights} · 日停 ${c.days}${isCur ? ' · 当前' : ''}`));
+          if (!taken && !isCur) {
+            item.setAttribute('role', 'button');
+            item.tabIndex = 0;
+            const choose = () => save(c.address_ids);
+            item.addEventListener('click', choose);
+            item.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); }
+            });
+          }
+          panel.appendChild(item);
+        });
+      const auto = el('div', 'rm-pick-item rm-pick-auto');
+      auto.appendChild(el('b', '', '恢复自动识别'));
+      auto.appendChild(el('span', '', '按夜间/白天停留自动判定'));
+      auto.setAttribute('role', 'button');
+      auto.tabIndex = 0;
+      const chooseAuto = () => save([]);
+      auto.addEventListener('click', chooseAuto);
+      auto.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chooseAuto(); }
       });
-      box.appendChild(save);
+      panel.appendChild(auto);
+      body.appendChild(panel);
+    }
+
+    if (!rm.ready) {
+      body.appendChild(el('div', 'rm-empty', rm.reason || '行程数据积累中,暂无法预测'));
+    } else if (rm.days_left === null || rm.days_left === undefined) {
+      body.appendChild(el('div', 'rm-ok', `✓ ${rm.reason || '未来 30 天内无需充电'}`));
+    } else {
+      // 第二行:日历样式的预计充电日期 + 时限与原因
+      const d = new Date(rm.charge_by_ts);
+      const wd = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+      const row = el('div', 'rm-calrow');
+      const cal = el('div', 'rm-cal' + (rm.days_left <= 1 ? ' rm-urgent' : ''));
+      cal.appendChild(el('div', 'rm-cal-m', `${d.getMonth() + 1}月`));
+      cal.appendChild(el('div', 'rm-cal-d', String(d.getDate())));
+      cal.appendChild(el('div', 'rm-cal-w', `周${wd}`));
+      row.appendChild(cal);
+      const side = el('div', 'rm-cal-side');
+      side.appendChild(el('b', '', rm.charge_kind === 'now' ? '现在就要充电' : `${fmtClock(rm.charge_by_ts)} 到达后充电`));
+      let why;
+      if (rm.charge_kind === 'now') why = `电量已接近 ${rm.min_pct}%`;
+      else if (rm.charge_kind === 'parked') why = `还能用约 ${fmtNum(rm.days_left, 1)} 天 · 停放掉电会先跌破 ${rm.min_pct}%`;
+      else why = `还能用约 ${fmtNum(rm.days_left, 1)} 天 · ${rm.next_leg === 'to_work' ? '家→公司' : '公司→家'} 后会低于 ${rm.min_pct}%`;
+      side.appendChild(el('span', '', why));
+      if (rm.charger && rm.charger.name)
+        side.appendChild(el('span', 'rm-cal-charger',
+          `${rm.charger.near_anchor === false ? '常去桩' : '附近桩'}:${rm.charger.name}${rm.charger.location ? `(${rm.charger.location})` : ''}`));
+      row.appendChild(side);
+      body.appendChild(row);
+    }
+
+    // 第三行:最低电量滑动条(管理员拖动调节,松开自动保存)
+    const pctRow = el('div', 'rm-slider');
+    pctRow.appendChild(el('span', 'rm-slider-label', '最低电量'));
+    const slider = el('input', 'rm-slider-input');
+    slider.type = 'range';
+    slider.min = 10;
+    slider.max = 40;
+    slider.step = 5;
+    slider.value = rm.min_pct || 20;
+    slider.disabled = !canEdit;
+    const val = el('b', 'rm-slider-val', `${slider.value}%`);
+    slider.addEventListener('input', () => { val.textContent = `${slider.value}%`; });
+    slider.addEventListener('change', async () => {
+      slider.disabled = true;
+      try {
+        await fetchJSON('/api/charging/reminder-config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ min_pct: Number(slider.value) }),
+        });
+        S.reminder = await api('charging/reminder');
+        renderReminder();
+      } catch (err) { console.error(err); slider.disabled = !canEdit; }
     });
+    pctRow.appendChild(slider);
+    pctRow.appendChild(val);
+    body.appendChild(pctRow);
+
+    // 第四行:推测的逐趟行程与耗电(默认折叠,状态存 localStorage)
+    const proj = rm.projection || [];
+    if (rm.ready && proj.length) {
+      const wrap = el('div', 'rm-legs-wrap'
+        + (localStorage.getItem('ttv-rm-legs-open') === '1' ? ' open' : ''));
+      const head = el('div', 'rm-legs-head');
+      head.setAttribute('role', 'button');
+      head.tabIndex = 0;
+      head.title = '点击展开 / 收起';
+      head.appendChild(el('span', 'rm-legs-title', `推测行程与耗电(${proj.length} 趟)`));
+      head.appendChild(el('span', 'chev rm-legs-chev', '▾'));
+      const toggleLegs = () => {
+        const open = wrap.classList.toggle('open');
+        localStorage.setItem('ttv-rm-legs-open', open ? '1' : '0');
+      };
+      head.addEventListener('click', toggleLegs);
+      head.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleLegs(); }
+      });
+      wrap.appendChild(head);
+      const list = el('div', 'rm-legs');
+      const pctTxt = (v) => (v === undefined || v === null) ? '' : `·${fmtNum(v, 1)}%`;
+      const colhead = el('div', 'rm-ev rm-legs-colhead');
+      colhead.appendChild(el('span', '', '时间'));
+      const colheadRight = el('div', 'rm-leg-main');
+      ['项目', '耗电', '剩余'].forEach((t) => colheadRight.appendChild(el('span', '', t)));
+      colhead.appendChild(colheadRight);
+      list.appendChild(colhead);
+      proj.forEach((p, idx) => {
+        const hit = rm.days_left !== null && rm.days_left !== undefined && idx === proj.length - 1;
+        const ev = el('div', 'rm-ev' + (hit ? ' hit' : ''));
+        // 左列:方向小标签 + 出发时刻,随整个事件块垂直居中
+        const timeCell = el('div', 'rm-ev-time');
+        timeCell.appendChild(el('span', 'rm-leg-dir2' + (p.direction ? '' : ' breach'), p.direction
+          ? (p.direction === 'to_work' ? '家→公司' : '公司→家')
+          : `跌破 ${rm.min_pct}%`));
+        timeCell.appendChild(el('span', '', fmtTime(p.ts)));
+        ev.appendChild(timeCell);
+        // 右侧:哨兵/驻车各一行(近零省略;无拆分时合并),最后是行程行
+        const rows = el('div', 'rm-ev-rows');
+        const parkRow = (label, hours, km, pct, cls) => {
+          const r = el('div', 'rm-leg-main rm-park ' + cls);
+          r.appendChild(el('span', 'rm-leg-dir', `${label} · ${fmtNum(hours, 1)}h`));
+          r.appendChild(el('span', 'rm-leg-used', `-${fmtNum(km, 1)} km${pctTxt(pct)}`));
+          r.appendChild(el('span', 'rm-leg-remain', ''));
+          return r;
+        };
+        if (p.sentry_km !== undefined && p.sentry_km !== null) {
+          if (p.sentry_km >= 0.05) rows.appendChild(parkRow('哨兵', p.sentry_h, p.sentry_km, p.sentry_pct, 'sentry'));
+          if (p.idle_km >= 0.05) rows.appendChild(parkRow('驻车', p.idle_h, p.idle_km, p.idle_pct, 'idle'));
+        } else if (p.parked_km > 0.05) {
+          rows.appendChild(parkRow('驻车', p.parked_h, p.parked_km, p.parked_pct, 'idle'));
+        }
+        const main = el('div', 'rm-leg-main');
+        main.appendChild(el('span', 'rm-leg-dir',
+          p.direction && p.dist_km ? `${fmtNum(p.dist_km, 0)} km` : ''));
+        main.appendChild(el('span', 'rm-leg-used',
+          p.direction ? `-${fmtNum(p.leg_km, 1)} km${pctTxt(p.leg_pct)}` : ''));
+        main.appendChild(el('span', 'rm-leg-remain',
+          `${fmtNum(p.remain_km, 0)} km`
+          + (p.remain_pct !== undefined ? `·${p.remain_pct}%` : '')
+          + (hit ? ' ⚡' : '')));
+        rows.appendChild(main);
+        ev.appendChild(rows);
+        list.appendChild(ev);
+      });
+      wrap.appendChild(list);
+      body.appendChild(wrap);
+    }
   }
+
 
   /* ---------- 陪伴天数(提车日期,存 panel_manual settings) ---------- */
 
@@ -2497,8 +2625,22 @@
       refresh();
     });
 
-    // 点击标题刷新;点击电量胶囊循环切换 电量% → 度数kWh → 续航km
-    $('#title-refresh').addEventListener('click', refresh);
+    // 点击车名刷新;点击电量胶囊循环切换 电量% → 度数kWh → 续航km
+    const carNameEl = $('#car-name');
+    carNameEl.addEventListener('click', refresh);
+    carNameEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); refresh(); }
+    });
+    // 顶栏随滚动收缩成紧凑徽章栏并钉在顶部,回顶展开(迟滞阈值防抖动)
+    const headerEl = $('#header');
+    let headerMini = false;
+    const onHeaderScroll = () => {
+      const y = window.scrollY || 0;
+      if (!headerMini && y > 40) { headerMini = true; headerEl.classList.add('mini'); }
+      else if (headerMini && y < 16) { headerMini = false; headerEl.classList.remove('mini'); }
+    };
+    window.addEventListener('scroll', onHeaderScroll, { passive: true });
+    onHeaderScroll();
     const pill = $('#batt-pill');
     const PILL_ORDER = ['pct', 'kwh', 'km'];
     const togglePill = () =>
@@ -2535,7 +2677,6 @@
     initParking();
     initCompanion();
     initControl();
-    initReminder();
 
     // 停车费:整卡可折叠,默认收起,展开状态跨会话记忆(与充电详情同款)
     const pkCard = $('#pk-card');

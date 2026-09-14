@@ -12,14 +12,11 @@
 <body>
 <div class="wrap">
 
-  <header>
+  <header id="header">
     <div class="header-main">
       <div class="header-left">
-        <div class="header-row">
-          <h1 id="title-refresh" title="点击刷新数据">TESLA Home</h1>
-          <span class="car-name" id="car-name">—</span>
-        </div>
-        <div class="header-sub">
+        <!-- 第一行:车型徽章 + 电量胶囊(收缩后保留) -->
+        <div class="header-line1">
           <span id="car-model"><span class="car-model-badge" id="car-model-badge" role="img" aria-label="Model Y L" hidden></span><span id="car-model-text" hidden></span></span>
           <span class="batt-pill" id="batt-pill" role="button" tabindex="0" data-level="unknown"
                 title="点击切换 电量 / 续航">
@@ -30,31 +27,19 @@
             </svg>
             <span id="batt-text">—</span>
           </span>
+        </div>
+        <!-- 第二行:车辆状态与车名合并为一个标签;数据更新在其后 -->
+        <div class="header-line2">
           <span class="badge" id="state-badge" data-state="unknown">
-            <span class="dot"></span><span id="state-text">加载中…</span>
+            <span class="dot"></span><span id="state-text">加载中…</span><span class="car-name" id="car-name" role="button" tabindex="0" title="点击刷新数据">—</span>
           </span>
           <span id="sw-version"></span>
-          <span id="updated-at">加载中…</span>
+          <span class="header-meta"><span id="updated-at">加载中…</span></span>
         </div>
       </div>
-      <img class="model-icon" src="/model-y-l.png" alt="Model Y L">
-    </div>
-    <div class="header-sys">
-      <span class="sys-meters" id="sys-stats">
-        <span class="meter" id="meter-disk" data-level="ok" hidden>
-          <span class="meter-label">硬盘</span>
-          <span class="meter-track"><i id="meter-disk-fill"></i></span>
-          <span class="meter-val" id="meter-disk-val">—</span>
-        </span>
-        <span class="meter" id="meter-mem" data-level="ok" hidden>
-          <span class="meter-label">内存</span>
-          <span class="meter-track"><i id="meter-mem-fill"></i></span>
-          <span class="meter-val" id="meter-mem-val">—</span>
-        </span>
-      </span>
-      <a class="acct-entry" href="/account.html" title="账号管理 / Tesla 授权指引">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4 0-8 2-8 5v3h16v-3c0-3-4-5-8-5z"/></svg>
-        个人中心
+      <!-- 车图即个人中心入口 -->
+      <a class="model-link" href="/account.html" title="个人中心 · 账号管理 / Tesla 授权指引">
+        <img class="model-icon" src="/model-y-l.png" alt="Model Y L">
       </a>
     </div>
   </header>
@@ -199,12 +184,10 @@
       <div class="card-head">
         <div>
           <h2>充电提醒</h2>
-          <div class="card-sub">只按家⇄公司通勤与停放(哨兵/空调)耗电推算,不含特殊行程;家与公司自动识别,识别错了可点「纠正」</div>
+          <div class="card-sub">按家⇄公司通勤与停放(哨兵/空调)耗电推算,不含特殊行程</div>
         </div>
-        <button class="rm-edit-btn" id="rm-edit" type="button" hidden>纠正地点</button>
       </div>
       <div id="rm-body"></div>
-      <div id="rm-edit-box" hidden></div>
     </div>
 
     <div class="card col-12 collapsible" id="cs-card">
@@ -587,6 +570,21 @@
       车辆图片与「MODEL Y L」徽章来自特斯拉官方(tesla.cn 设计工作室渲染图与官方发布的尾标特写)。
     </div>
     <button class="icon-btn" id="theme-btn" title="切换主题">☀ 浅色</button>
+    <!-- 服务器资源仪表条(自顶栏移入,页面最底部) -->
+    <div class="footer-sys">
+      <span class="sys-meters" id="sys-stats">
+        <span class="meter" id="meter-disk" data-level="ok" hidden>
+          <span class="meter-label">硬盘</span>
+          <span class="meter-track"><i id="meter-disk-fill"></i></span>
+          <span class="meter-val" id="meter-disk-val">—</span>
+        </span>
+        <span class="meter" id="meter-mem" data-level="ok" hidden>
+          <span class="meter-label">内存</span>
+          <span class="meter-track"><i id="meter-mem-fill"></i></span>
+          <span class="meter-val" id="meter-mem-val">—</span>
+        </span>
+      </span>
+    </div>
   </footer>
 </div>
 
