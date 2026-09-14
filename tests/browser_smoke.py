@@ -94,6 +94,12 @@ def run():
             page.locator('.rt-row').first.click()
             page.wait_for_timeout(80)
             assert page.evaluate("!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
+            # 地图点选轨迹:对应行程行自动展开并渲染海拔图,标题含起终点落差
+            page.evaluate("document.querySelector('#map path.leaflet-interactive').dispatchEvent(new MouseEvent('click',{bubbles:true}))")
+            page.wait_for_timeout(150)
+            assert page.locator('.rt-row.open').count()==1
+            assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
+            assert '落差' in page.locator('.rt-elev-title').inner_text()
             page.locator('.tab[data-page="activity"]').click()
             page.locator('#chart-efficiency').scroll_into_view_if_needed()
             page.evaluate("echarts.getInstanceByDom(document.getElementById('chart-efficiency')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0})")

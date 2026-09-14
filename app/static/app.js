@@ -19,6 +19,7 @@
 
   const charts = {};
   const routeElev = {};  // 行程详情海拔图(行程 id → ECharts 实例),收起/重渲染时销毁
+  const routeRows = {};  // 行程 id → 列表行 DOM(地图点选轨迹时定位展开用)
   let map = null;
   let mapTiles = {};
   let mapFit = false;
@@ -2296,6 +2297,7 @@
       line.bindPopup(`<b>${fmtTime(Number(r.start_date_ts), true)}</b><br>` +
         `${fmtNum(r.distance, 1)} km · ${fmtNum(r.duration_min, 0)} 分` +
         (r.start_name || r.end_name ? `<br>${escapeHTML(r.start_name || '—')} → ${escapeHTML(r.end_name || '—')}` : ''));
+      line.on('click', () => focusRouteRow(r.id));  // 点选轨迹:下方列表展开对应行程详情
       line.addTo(map);
       routesLayers[r.id] = line;
       routesBase[r.id] = style;
@@ -2339,6 +2341,16 @@
     selectedRouteId = null;
   }
 
+  /* 地图点选轨迹:展开列表中对应行程行(所在日组若为收起状态先展开)并滚动到位 */
+  function focusRouteRow(id) {
+    const row = routeRows[id];
+    if (!row) return;
+    const grp = row.closest('.day-group');
+    if (grp && !grp.classList.contains('open')) grp.classList.add('open');
+    if (!row.classList.contains('open')) row.click();  // 走同一套展开逻辑(选中轨迹 + 渲染海拔图)
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
   /* 行程详情:海拔高度图(x = 累计里程 km,y = 海拔 m,平滑曲线 + 渐变填充) */
   function renderRouteElev(r, box) {
     if (routeElev[r.id]) { routeElev[r.id].resize(); return; }
@@ -2362,11 +2374,15 @@
     const fade = (a) => `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
     const chart = echarts.init(box);
     routeElev[r.id] = chart;
+    // axis tooltip 在起终点处会多出散点系列的重复行,过滤掉
+    const tip = tooltipAxis({ '海拔': 'm' }, (v) => fmtNum(Number(v), 1) + ' km');
+    const tipFmt = tip.formatter;
+    tip.formatter = (params) => tipFmt(params.filter((p) => p.seriesName !== '起终点'));
     chart.setOption(Object.assign({}, chartTheme(), {
-      tooltip: tooltipAxis({ '海拔': 'm' }, (v) => fmtNum(Number(v), 1) + ' km'),
+      tooltip: tip,
       grid: { left: 46, right: 18, top: 14, bottom: 24 },
       xAxis: Object.assign(axisCommon(), {
-        type: 'value', min: 0,
+        type: 'value', min: 0, max: data[data.length - 1][0],
         axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value} km' },
       }),
       yAxis: Object.assign(axisCommon(), {
@@ -2377,6 +2393,7 @@
         Object.assign(lineSeries('海拔', data, c), {
           smooth: true,
           smoothMonotone: 'x',
+          endLabel: { show: false },  // 终点数值由起终点标注系列展示,避免重影
           areaStyle: {
             color: {
               type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
@@ -2387,6 +2404,21 @@
             },
           },
         }),
+        {  // 起点/终点圆点 + 海拔标注(起点标签在点右侧、终点在左侧,避免贴边裁剪)
+          name: '起终点', type: 'scatter',
+          data: [
+            { value: data[0], label: { position: 'right', distance: 6 } },
+            { value: data[data.length - 1], label: { position: 'left', distance: 6 } },
+          ],
+          symbolSize: 7, z: 3,
+          itemStyle: { color: c, borderColor: cssVar('--surface-1'), borderWidth: 1.5 },
+          label: {
+            show: true, fontSize: 11,
+            color: cssVar('--text-secondary'),
+            formatter: (p) => `${p.dataIndex === 0 ? '起点' : '终点'} ${fmtNum(p.value[1], 0)} m`,
+          },
+          tooltip: { show: false },
+        },
       ],
     }), { notMerge: true });
   }
@@ -2404,6 +2436,7 @@
     const box = $('#routes-list');
     if (!o || !o.routes) return;
     disposeRouteElev();
+    Object.keys(routeRows).forEach((k) => delete routeRows[k]);
     box.textContent = '';
     const routes = [...(o.routes.routes || [])].reverse();  // 新的在前
     if (!routes.length) {
@@ -2437,6 +2470,7 @@
       const body = el('div', 'day-body');
       rs.forEach((r) => {
         const row = el('div', 'rt-row');
+        routeRows[r.id] = row;
         row.appendChild(el('span', 'rt-time', fmtClock(Number(r.start_date_ts))));
         row.appendChild(el('span', 'rt-names', `${r.start_name || '—'} → ${r.end_name || '—'}`));
         row.appendChild(el('span', 'rt-dist', `${fmtNum(r.distance, 1)} km`));
@@ -2475,8 +2509,11 @@
         let elevBox = null;
         const elevPts = (r.points || []).filter((p) => p.length >= 3 && p[2] !== null && p[2] !== undefined);
         if (elevPts.length >= 2) {
+          // 落差 = 终点海拔 − 起点海拔(取原始采样值,未经曲线平滑)
+          const drop = elevPts[elevPts.length - 1][2] - elevPts[0][2];
+          const dropTxt = (drop > 0 ? '+' : '') + fmtNum(drop, 0) + ' m';
           const wrap = el('div', 'rt-elev-wrap');
-          wrap.appendChild(el('div', 'rt-elev-title', '海拔变化'));
+          wrap.appendChild(el('div', 'rt-elev-title', `海拔变化 · 落差 ${dropTxt}`));
           elevBox = el('div', 'rt-elev');
           wrap.appendChild(elevBox);
           detail.appendChild(wrap);
