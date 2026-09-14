@@ -179,3 +179,12 @@ git tag v1.x.y && git push origin v1.x.y
 - Self-calibrating energy model: kWh per ideal-range km is calibrated from charging history; parked drain uses "energy added ÷ displayed % gain" (includes charging losses)
 - Battery health: each charge estimates full-pack capacity as "energy added ÷ % gain × 100" (filters: gain ≥10%, estimate within 30–150 kWh); baseline = highest-ever estimate, current = latest estimate
 - Map tiles are proxied same-origin by the app (upstream: official OSM tiles, disk-cached), so maps load even on restrictive mobile networks
+
+## License
+
+This project is licensed under [PolyForm Noncommercial 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) (see [LICENSE](LICENSE)):
+
+- ✅ Permitted: personal use, research, use by nonprofits/schools/government, modification and redistribution (license text must be included)
+- ❌ Forbidden: any commercial use (including for-profit use, embedding in commercial products, paid services)
+
+For commercial licensing, please contact the author.
