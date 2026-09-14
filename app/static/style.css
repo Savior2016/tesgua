@@ -121,24 +121,28 @@ header {
   z-index: 1100;             /* 压过 Leaflet 控件容器(1000),低于 Tab 栏(1200) */
   margin: 0 -20px;            /* 满幅:盖住 .wrap 两侧 padding,防止边缘漏出滚动内容 */
   padding: 6px 20px 14px;     /* 下间距折进 padding,背景覆盖,不留缝隙 */
-  border-radius: 0 0 14px 14px;
-  border: 1px solid transparent;
-  transition: padding .35s ease, background .35s ease, border-color .35s ease,
-              box-shadow .35s ease;
+  transition: padding .35s ease;
 }
 
-/* 收缩态:液态玻璃底,无描边——靠模糊 + 柔和投影 + 底部内嵌微光分层 */
-header.mini {
-  padding: 4px 20px 12px;
+/* 玻璃底放在伪元素上:上实下虚渐隐(mask 同时作用于背景与 backdrop-filter),
+   底部没有分割线;不遮挡栏内内容;opacity 参与收缩过渡 */
+header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background: color-mix(in srgb, var(--page) 68%, transparent);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
   backdrop-filter: blur(20px) saturate(1.6);
-  border-color: transparent;
-  border-radius: 0 0 18px 18px;
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, .16),
-    inset 0 -1px 0 color-mix(in srgb, var(--text-primary) 7%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
+  opacity: 0;
+  transition: opacity .35s ease;
 }
+
+/* 收缩态:更紧凑,玻璃底淡入 */
+header.mini { padding: 4px 20px 10px; }
+header.mini::before { opacity: 1; }
 
 /* 顶栏主体:左侧两行,右侧车图 */
 .header-main {
