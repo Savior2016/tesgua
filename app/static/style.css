@@ -27,6 +27,9 @@
   --seq-blue-500: #256abf;
   --seq-blue-600: #184f95;
   --tile-track: rgba(11, 11, 11, 0.08);
+  /* 车模型部位用不透明实色(tile-track/baseline 压 surface-1 的等效色),轮子→车体→后视镜依次遮挡,不产生半透明叠加 */
+  --car-body: #e9e9e8;
+  --car-tire: #cccbc1;
   /* 活动分类色(参考调色板,黄/品红/绿/紫四色全配对校验通过):行驶=黄 充电=青 哨兵=品红 驻车空调=绿 驻车耗电=紫 */
   --cat-drive: #eda100;
   --cat-charge: #1baf7a;
@@ -56,6 +59,8 @@
   --seq-blue-500: #256abf;
   --seq-blue-600: #184f95;
   --tile-track: rgba(255, 255, 255, 0.10);
+  --car-body: #313130;
+  --car-tire: #343431;
   --cat-drive: #c98500;
   --cat-charge: #199e70;
   --cat-sentry: #d55181;
@@ -84,6 +89,8 @@
     --seq-blue-500: #256abf;
     --seq-blue-600: #184f95;
     --tile-track: rgba(255, 255, 255, 0.10);
+    --car-body: #313130;
+    --car-tire: #343431;
     --cat-drive: #c98500;
     --cat-charge: #199e70;
     --cat-sentry: #d55181;
@@ -480,7 +487,7 @@ button { touch-action: manipulation; }
   font-variant-numeric: tabular-nums;
 }
 
-.car-body-base { fill: var(--tile-track); }
+.car-body-base { fill: var(--car-body); }
 
 /* 玻璃区域(挡风玻璃 / 全景玻璃顶):两种主题下都是深色玻璃 */
 .car-glazing, .car-glass-base { fill: #12161d; }
@@ -492,7 +499,7 @@ button { touch-action: manipulation; }
   opacity: 0.55;
 }
 
-.car-mirror { fill: var(--tile-track); stroke: var(--baseline); stroke-width: 1.2; }
+.car-mirror { fill: var(--car-body); stroke: var(--baseline); stroke-width: 1.2; }
 
 /* 车头微光:白色低透明度罩层,两种主题下都只是一点光泽 */
 .car-sheen { fill: #fff; opacity: 0.05; }
@@ -556,7 +563,7 @@ button { touch-action: manipulation; }
   opacity: 0.75;
 }
 
-.car-tire { fill: var(--baseline); opacity: 0.85; }
+.car-tire { fill: var(--car-tire); }
 
 .car-body-line {
   fill: none;
@@ -1009,14 +1016,6 @@ button { touch-action: manipulation; }
   justify-content: flex-end;
 }
 
-.day-head .chev {
-  color: var(--text-muted);
-  transition: transform 0.2s ease;
-  flex: none;
-}
-
-.day-group.open .chev { transform: rotate(180deg); }
-
 .day-body {
   display: none;
   border-top: 1px solid var(--gridline);
@@ -1048,15 +1047,6 @@ button { touch-action: manipulation; }
 /* 可折叠卡片(充电详情/停车费):头部整行可点,默认折叠;
    子项垂直居中,缩略统计与箭头在同一水平线上 */
 .card.collapsible > .card-head { cursor: pointer; align-items: center; }
-
-.card-chev {
-  color: var(--text-muted);
-  transition: transform 0.2s ease;
-  align-self: center;
-  flex: none;
-}
-
-.card.collapsible.open .card-chev { transform: rotate(180deg); }
 
 #cs-card:not(.open) .cs-list,
 #cs-card:not(.open) .cg-divider,
@@ -1347,8 +1337,6 @@ button { touch-action: manipulation; }
   user-select: none;
 }
 .rm-legs-title { font-size: 13px; color: var(--text-secondary); }
-.rm-legs-chev { color: var(--text-muted); transition: transform .2s ease; }
-.rm-legs-wrap.open .rm-legs-chev { transform: rotate(180deg); }
 .rm-legs { display: none; flex-direction: column; padding: 0 12px 10px; gap: 4px; }
 .rm-legs-wrap.open .rm-legs { display: flex; }
 .rm-ev {
@@ -1709,15 +1697,6 @@ button { touch-action: manipulation; }
   user-select: none;
 }
 
-.cg-arrow {
-  flex: none;
-  font-size: 12px;
-  color: var(--text-muted);
-  transition: transform 0.15s ease;
-}
-
-.cg-item.open .cg-arrow { transform: rotate(90deg); }
-
 .cg-detail {
   margin-top: 8px;
   padding-top: 8px;
@@ -1822,7 +1801,7 @@ button { touch-action: manipulation; }
 
 .rt-row {
   display: grid;
-  grid-template-columns: 76px 1fr 84px 64px 20px;
+  grid-template-columns: 76px 1fr 84px 64px 24px;
   gap: 10px;
   align-items: baseline;
   padding: 8px 14px;
@@ -1848,26 +1827,38 @@ button { touch-action: manipulation; }
 
 .rt-dist, .rt-dur { text-align: right; font-variant-numeric: tabular-nums; }
 
-/* 展开箭头:圆形徽章,悬停描边加深、展开变蓝翻转,明确「可展开」的入口 */
-.rt-chev {
+/* 折叠标识:全站统一为圆形徽章(行程行同款),悬停描边加深、展开变蓝翻转,
+   明确「可展开」的入口;统一右对齐(各行布局的末尾) */
+.rt-chev, .card-chev, .day-head .chev, .rm-legs-chev, .cg-arrow {
   width: 22px;
   height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  justify-self: center;
   border-radius: 50%;
   background: var(--tile-track);
   border: 1px solid var(--border);
   color: var(--text-secondary);
   font-size: 11px;
   line-height: 1;
+  flex: none;
   transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
-.rt-row:hover .rt-chev { border-color: var(--text-muted); color: var(--text-primary); }
+/* 行程行的徽章落在 grid 末列,贴右对齐 */
+.rt-chev { justify-self: end; }
 
-.rt-row.open .rt-chev {
+.rt-row:hover .rt-chev,
+.card.collapsible > .card-head:hover .card-chev,
+.day-head:hover .chev,
+.rm-legs-head:hover .rm-legs-chev,
+.cg-row:hover .cg-arrow { border-color: var(--text-muted); color: var(--text-primary); }
+
+.rt-row.open .rt-chev,
+.card.collapsible.open .card-chev,
+.day-group.open .day-head .chev,
+.rm-legs-wrap.open .rm-legs-chev,
+.cg-item.open .cg-arrow {
   transform: rotate(180deg);
   background: var(--seq-blue-500);
   border-color: var(--seq-blue-500);
@@ -2429,7 +2420,7 @@ footer a { color: var(--text-muted); }
   .day-head .summary { gap: 8px; }
 
   /* 轨迹列表行:窄屏隐藏时长列,名称列省略 */
-  .rt-row { grid-template-columns: 68px 1fr 70px 20px; }
+  .rt-row { grid-template-columns: 68px 1fr 70px 24px; }
   .rt-row .rt-dur { display: none; }
 
   /* 行程详情:窄屏键值网格改 2 列 */

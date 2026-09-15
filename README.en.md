@@ -14,16 +14,20 @@ The dashboard reads TeslaMate's PostgreSQL database directly: FastAPI + psycopg3
 **Dashboard modules**
 - Vehicle overview: top-view car SVG, per-charge-cycle energy ring (remaining / driving / sentry / parked climate / parked drain / not-charged), cycle efficiency bar, tire pressure for all four wheels, in-cabin temperature sparkline; left column stats include rated range, monthly/weekly mileage and a compact **battery health** module (baseline = highest-ever full-pack estimate, current = latest charge's estimate)
 - Charging sessions: one card per charge; editable cost / metered total kWh / charger name, auto-computed unit price and per-km cost
+- Home-charger peak/valley pricing: per-location peak/off-peak rates and valley hours, precise day-segmented time-of-use allocation; manually entered cost always wins
+- Charge reminder: auto-detects home/work charging locations and predicts how many days the current charge will last (sentry drain listed separately)
 - Charger statistics: per-location aggregation of sessions / energy / losses / cost
 - Battery activity timeline: dual-lane segments for driving / charging / sentry / parked drain
 - Activity events, sentry timeline & drain curve, efficiency trend, tire pressure trend, in/out-cabin temperature, daily distance, charging log
-- Trip map: day-grouped collapsible drive list, click to zoom into a route
+- Trip map: day-grouped collapsible drive list; expanded detail shows a key-value table (avg speed / efficiency / cost), an elevation profile chart and a per-trip mini map; clicking a route on the map expands the matching trip
+- **Vehicle control** page: whitelisted commands for doors / windows / climate / charging / sentry / lights & horn / trunk & frunk, slide-to-toggle switches, automatic vehicle wake before commands, command audit log, scheduled sentry slots; the command backend works with the official tesla-http-proxy or hosted services (see [docs/CONTROL.md](docs/CONTROL.md))
 - Battery % ⇄ kWh ⇄ range km three-way toggle; mobile-friendly; dark/light themes
 
 **All-in-one deployment**
 - Single compose stack: TeslaMate + PostgreSQL + MQTT + dashboard (optional Grafana, Caddy HTTPS)
 - `setup.sh` one-step bootstrap (auto-generated secrets and dashboard account)
-- In-app **Account Center**: self-service Tesla authorization (step-by-step visual guide), password change, account management
+- In-app **Account Center**: self-service Tesla authorization (step-by-step visual guide), password change, account management, full-database backup/migration
+- Passwordless sign-in on iPhone via device certificates (mTLS), downloadable from the Account Center
 - Versioning via git tags; the dashboard image is built locally from source (amd64/arm64)
 
 ## Quick start (fresh machine)

@@ -1929,7 +1929,7 @@
       }
       if (g.hasCost) chip('费用', `¥${fmtNum(g.cost, 2)}`);
       row.appendChild(stats);
-      row.appendChild(el('span', 'cg-arrow', '▸'));
+      row.appendChild(el('span', 'cg-arrow', '▾'));
 
       /* 详情(默认折叠):品牌填写 + 每次充电明细 */
       const detail = el('div', 'cg-detail');
