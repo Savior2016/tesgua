@@ -266,23 +266,39 @@ def _states():
     return out
 
 
+_refresh_lock = threading.Lock()
+
+
 @router.post("/api/control/refresh")
 def refresh_vehicle(request: Request):
     global _snapshot, _snapshot_checked, _snapshot_vin, _snapshot_error
     _m().require_admin(request)
     vin = _vin()
+    # 节流判断只在锁内读时间戳;_states() 也要拿这把锁,绝不能在持锁时调用(非重入锁会自死锁)。
     with _snapshot_lock:
-        if vin == _snapshot_vin and time.time() - _snapshot_checked < 10:
-            return {"ok": not bool(_snapshot_error), "states": _states(), "detail": _snapshot_error}
-        _snapshot_checked, _snapshot_vin = time.time(), vin
+        throttled = vin == _snapshot_vin and time.time() - _snapshot_checked < 10
+    # 单飞:车辆查询是计费接口且可能耗时数十秒,并发 refresh 直接回当前快照,不重复查询。
+    if not throttled and _refresh_lock.acquire(blocking=False):
         try:
-            _snapshot = normalize_vehicle(vehicle_data(vin))
-            _snapshot_error = "" if _snapshot.get("reported_at") else "车辆未返回新鲜状态，请确认车辆在线后重试"
-        except HTTPException as e:
-            _snapshot = {k: None for k in CURRENT_FIELDS}
-            _snapshot_error = e.detail
+            with _snapshot_lock:
+                if vin == _snapshot_vin and time.time() - _snapshot_checked < 10:
+                    throttled = True
+                else:  # 先占位时间戳,查询期间其余 refresh 走节流分支
+                    _snapshot_checked, _snapshot_vin = time.time(), vin
+            if not throttled:
+                try:
+                    snap = normalize_vehicle(vehicle_data(vin))
+                    err = "" if snap.get("reported_at") else "车辆未返回新鲜状态，请确认车辆在线后重试"
+                except HTTPException as e:
+                    snap, err = {k: None for k in CURRENT_FIELDS}, e.detail
+                with _snapshot_lock:
+                    _snapshot, _snapshot_error = snap, err
+        finally:
+            _refresh_lock.release()
+    with _snapshot_lock:
+        detail = _snapshot_error
     # 快照之外补上乐观推测状态(锁/哨兵/车窗等不上报项),与 status 接口口径一致
-    return {"ok": not bool(_snapshot_error), "states": _states(), "detail": _snapshot_error}
+    return {"ok": not bool(detail), "states": _states(), "detail": detail}
 
 
 class CommandIn(BaseModel):

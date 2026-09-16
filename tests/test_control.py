@@ -1,3 +1,4 @@
+import threading
 import time
 import pytest
 from fastapi import HTTPException
@@ -205,3 +206,23 @@ def test_wake_timeout_returns_504(client,monkeypatch):
     response=client.post('/api/control/command',json={'cmd':'door_lock','args':{}})
     assert response.status_code==504
     assert '唤醒超时' in response.json()['detail']
+
+
+def test_refresh_throttled_second_call_does_not_deadlock(client,monkeypatch):
+    """回归:10 秒节流窗口内的第二次 refresh 曾在持有 _snapshot_lock 时调用 _states()
+    (同一把非重入锁),线程自死锁,随后所有 status 请求排队堵死,控制页瘫痪。"""
+    monkeypatch.setattr(control,'CONTROL_API_URL','http://backend.test')
+    monkeypatch.setattr(control,'CONTROL_API_TOKEN','test-token')
+    monkeypatch.setattr(control,'_vin',lambda:'vin-test')
+    monkeypatch.setattr(control,'vehicle_data',lambda vin:sample())
+    monkeypatch.setattr(control,'_snapshot',{})
+    monkeypatch.setattr(control,'_snapshot_checked',0.0)
+    monkeypatch.setattr(control,'_snapshot_vin','')
+    monkeypatch.setattr(control,'_snapshot_error','')
+    login(client)
+    assert client.post('/api/control/refresh').status_code==200
+    result={}
+    def again():result['r']=client.post('/api/control/refresh')
+    th=threading.Thread(target=again,daemon=True);th.start();th.join(10)
+    assert not th.is_alive(),'节流窗口内的 refresh 在 _snapshot_lock 上死锁'
+    assert result['r'].status_code==200 and result['r'].json()['ok'] is True
