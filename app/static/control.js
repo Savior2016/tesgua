@@ -195,6 +195,21 @@
     try{const data=await api('refresh',{});model.states=data.states;render();message(data.ok?'车辆状态已更新':data.detail,!data.ok);}
     catch(e){message(e.message,true);}finally{busy=false;render();}
   }
+  /* 指令成功后刷新车辆实报状态,让页面上其他模块同步更新。
+     车辆状态上报有延迟,分两次拉取;服务端对 refresh 有 10 秒节流,第二次需错开。
+     后台静默刷新:失败不打扰用户,周期性 load 会兜底。 */
+  function refreshLater(){
+    [2500,12000].forEach(ms=>setTimeout(async()=>{
+      if(document.hidden)return;
+      try{const data=await api('refresh',{});if(data&&data.states){model.states=data.states;render();}}catch(e){}
+    },ms));
+  }
+  /* 指令成功后:立即应用服务端返回的乐观状态(即时反馈),再延迟拉实报 */
+  function afterCommand(result){
+    if(!result||!result.ok)return;
+    if(result.states){model.states=result.states;render();}
+    refreshLater();
+  }
   const btn=(label,cmd,args={})=>({label,cmd,args});
   function addButtons(items){
     const row=document.createElement('div');row.className='ctl-actions';
@@ -370,6 +385,7 @@
     try{
       const result=await api('command',{cmd:item.cmd,args});
       message(result.ok?(result.woke?'车辆已唤醒，':'')+'指令已接受':result.reason||'车辆未接受指令',!result.ok);
+      afterCommand(result);
       return result;
     }
     catch(e){message(e.message,true);return null;}
@@ -390,7 +406,7 @@
       if(until)localStorage.setItem('ttv-nap-until',until);else localStorage.removeItem('ttv-nap-until');
     }
     busy=true;render();message(start?'正在开启露营模式…':'正在结束午休…');
-    try{model.nap=await api('nap/'+(start?'start':'stop'),start?{minutes,...(until?{until}:{})}:{});message(model.nap.error||'午休设置已更新',!!model.nap.error);}
+    try{model.nap=await api('nap/'+(start?'start':'stop'),start?{minutes,...(until?{until}:{})}:{});message(model.nap.error||'午休设置已更新',!!model.nap.error);if(!model.nap.error)refreshLater();}
     catch(e){message(e.message,true);}finally{busy=false;await load();renderNap();}
   }
   /* 模块瓦片滑动开关:右滑开、回滑关(无确认窗) */
@@ -404,6 +420,7 @@
     try{
       const result=await api('command',{cmd,args});
       message(result.ok?(result.woke?'车辆已唤醒，':'')+'指令已接受':result.reason||'车辆未接受指令',!result.ok);
+      afterCommand(result);
       return result.ok?target:cur;
     }
     catch(e){message(e.message,true);return cur;}
