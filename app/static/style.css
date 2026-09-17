@@ -417,12 +417,12 @@ button { touch-action: manipulation; }
 
 
 
-/* 车辆顶部:本周期平均能耗条状控件(文字内嵌于条内,官方能耗为刻度竖线) */
+/* 卡片顶部:本周期平均能耗条状控件(整卡宽度居中,文字内嵌于条内,官方能耗为刻度竖线) */
 .car-eff {
   width: 100%;
-  max-width: 420px;
-  margin: 0 auto;
-  padding: 0 4px 12px;
+  max-width: 480px;
+  margin: 0 auto 12px;
+  padding: 0 4px;
   box-sizing: border-box;
   container-type: inline-size;
 }
@@ -731,7 +731,8 @@ button { touch-action: manipulation; }
               opacity 0.16s ease, visibility 0.16s ease;
 }
 
-/* 收起/展开把手:收起时为整条窄条(竖排文字+箭头),展开时为外侧细条(仅箭头) */
+/* 收起/展开把手:收起时为整条窄条(渐变浮层 + 圆形箭头钮 + 竖排逐字标签),
+   展开时为外侧细条(仅箭头) */
 .car-side-btn {
   flex: 0 0 16px;
   align-self: stretch;
@@ -739,7 +740,7 @@ button { touch-action: manipulation; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 9px;
@@ -747,27 +748,60 @@ button { touch-action: manipulation; }
   color: var(--text-muted);
   cursor: pointer;
   transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-              background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+              background 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+              box-shadow 0.2s ease;
 }
 
 .car-side.collapsed .car-side-btn {
   flex: 1 1 auto;
-  background: var(--surface-1);
-  border-color: var(--border);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--text-primary) 7%, transparent),
+    color-mix(in srgb, var(--text-primary) 3%, transparent));
+  border-color: color-mix(in srgb, var(--text-primary) 14%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 9%, transparent),
+    0 6px 16px rgba(0, 0, 0, 0.10);
+  color: var(--text-secondary);
 }
 
-.car-side-btn:hover {
+.car-side.collapsed .car-side-btn:hover {
+  border-color: color-mix(in srgb, var(--series-1) 55%, transparent);
   color: var(--text-primary);
-  background: var(--surface-1);
-  border-color: var(--border);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 10%, transparent),
+    0 6px 18px rgba(0, 0, 0, 0.14),
+    0 0 0 3px color-mix(in srgb, var(--series-1) 10%, transparent);
 }
+
+/* 展开态(细条)悬停也要可见反馈 */
+.car-side-btn:hover { color: var(--text-primary); }
 
 .car-side-btn svg {
   width: 12px;
   height: 12px;
   flex: none;
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  border-radius: 50%;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+              border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
+
+/* 收起时箭头装进小圆钮,悬停染上主题蓝并往中央轻推 */
+.car-side.collapsed .car-side-btn svg {
+  width: 11px;
+  height: 11px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-1);
+}
+
+.car-side.collapsed .car-side-btn:hover svg {
+  border-color: var(--series-1);
+  color: var(--series-1);
+  background: color-mix(in srgb, var(--series-1) 12%, transparent);
+}
+
+.car-side-l.collapsed .car-side-btn:hover svg { transform: translateX(2px); }
+.car-side-r.collapsed .car-side-btn:hover svg { transform: rotate(180deg) translateX(2px); }
 
 /* 箭头指向:收起时指向中央(展开),展开时指向外侧(收起) */
 .car-side-l:not(.collapsed) .car-side-btn svg { transform: rotate(180deg); }
@@ -779,13 +813,14 @@ button { touch-action: manipulation; }
   flex-direction: column;
   align-items: center;
   font-size: 11px;
+  font-weight: 500;
   opacity: 0;
   transition: opacity 0.18s ease;
 }
 
 .car-side-btn .rail-label i {
   font-style: normal;
-  line-height: 1.45;
+  line-height: 1.6;
   letter-spacing: 1px;
 }
 
@@ -794,9 +829,9 @@ button { touch-action: manipulation; }
   transition-delay: 0.22s;
 }
 
-/* 两侧都收起时:舞台加高,车模随之变大(手机端按宽高比自适应,见 600px 断点) */
+/* 两侧都收起时:舞台略微加高,车模随之稍变大(手机端限高+微调缩放,见 600px 断点) */
 .car-stage { transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
-.carview.sides-stowed .car-stage { height: 590px; }
+.carview.sides-stowed .car-stage { height: 540px; }
 
 .cl-item {
   display: flex;
@@ -2533,7 +2568,7 @@ footer a { color: var(--text-muted); }
   .car-side.collapsed { flex-basis: 36px; }
   .car-legend { gap: 8px; }
   .car-stage { height: 440px; }
-  .carview.sides-stowed .car-stage { height: 520px; }
+  .carview.sides-stowed .car-stage { height: 470px; }
   /* 事件列表:窄屏改为 时间列 + 数值格 2×2(自带小标签),详情独占一行 */
   .ev-head { display: none; }
   .ev-row {
@@ -2628,13 +2663,15 @@ footer a { color: var(--text-muted); }
   .car-side.collapsed { flex-basis: 30px; }
   .car-legend { gap: 7px; }
   .car-stage { height: auto; aspect-ratio: 340 / 470; overflow: hidden; }
-  /* 手机端舞台按宽高比伸缩,两侧收起后车模自然变大,不再固定加高 */
-  .carview.sides-stowed .car-stage { height: auto; }
+  /* 手机端两侧收起:舞台限高 300px、缩放降到 1.18,车模只稍微放大且车头/车尾读数不被裁掉 */
+  .carview.sides-stowed .car-stage { height: 300px; aspect-ratio: auto; }
+  .carview.sides-stowed #car-zoom { transform: scale(1.18); }
   .car-hud { display: none; }
   #car-zoom {
     transform: scale(1.32);
     transform-origin: 170px 236px;
     transform-box: view-box;
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   }
   .cl-item { padding: 7px 6px; gap: 5px; }
   .cl-val { font-size: 15px; }
