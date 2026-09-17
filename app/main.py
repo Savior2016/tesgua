@@ -290,7 +290,7 @@ app = FastAPI(title="TeslaMate Telemetry Visualizer", lifespan=lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
-# Static assets needed before login; all data including tiles requires authentication.
+# Static assets needed before login; all data including map assets requires authentication.
 _AUTH_EXACT = {"/api/health", "/api/login", "/api/logout", "/login", "/login.js", "/theme.js", "/style.css",
                "/.well-known/appspecific/com.tesla.3p.public-key.pem"}
 _AUTH_PREFIX = ("/fonts/",)
@@ -377,7 +377,7 @@ async def auth_and_headers(request: Request, call_next):
         "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; "
         "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
-    if path.startswith("/api/") and not path.startswith("/api/tiles/"):
+    if path.startswith("/api/") and not path.startswith("/api/map/"):
         response.headers["Cache-Control"] = "no-store"
     elif path == "/" or path.endswith((".html", ".js", ".css")):
         # 静态页面与脚本:不发 Cache-Control 时浏览器会按启发式缓存旧版本,
@@ -608,56 +608,58 @@ def health():
         return JSONResponse({"status": "error", "database": "unavailable"}, status_code=503)
 
 
-# 地图瓦片同源代理:手机端只需连通本站即可出图(直连 CDN 在国内移动网络下不稳,
-# 会一直「连接中」);由本站中转并做磁盘缓存。
-# 上游用 OSM 官方瓦片(CARTO 无 key 的 basemaps 已全面加水印「API KEY REQUIRED」),
-# 深色主题在前端用 CSS 滤镜反色实现。
-TILE_CACHE_DIR = os.environ.get("TILE_CACHE_DIR", "/data/tiles")
-TILE_UPSTREAM = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-TILE_HEADERS = {
-    "User-Agent": "TeslaMateVisualizer/1.0 (self-hosted personal dashboard, single user)",
-    "Accept": "image/png,image/*;q=0.8",
-}
-_tile_lock = threading.Lock()
-_tile_fetch_slots = threading.BoundedSemaphore(4)
-from .tile_cache import TileCache
-_tile_cache = TileCache(TILE_CACHE_DIR)
+# MapLibre 矢量地图资源:PMTiles 单文件(Range 请求)+ 字体 glyphs + sprites。
+# 要求登录(同源 Cookie):数据是公开 OSM 地图,但不对匿名开放,避免被当免费瓦片站。
+MAP_DATA_DIR = os.environ.get("MAP_DATA_DIR", "/data/map")
+PMTILES_FILE = os.path.join(MAP_DATA_DIR, "china.pmtiles")
 
 
-@app.get("/api/tiles/{style}/{z}/{x}/{y}")
-def map_tile(style: str, z: int, x: int, y: str):
-    m = re.fullmatch(r"(\d{1,7})(@2x)?\.png", y)
-    if m is None or style not in ("dark", "light") or not (0 <= z <= 19) or not (0 <= x < 2 ** z):
-        raise HTTPException(status_code=404, detail="瓦片不存在")
-    yy = m.group(1)
-    if not (0 <= int(yy) < 2 ** z):
-        raise HTTPException(status_code=404, detail="瓦片不存在")
-    cache_path = os.path.join(TILE_CACHE_DIR, str(z), str(x), f"{yy}.png")
-    if os.path.isfile(cache_path):
-        return FileResponse(cache_path, headers={"Cache-Control": "private, max-age=86400"})
-    if not _tile_fetch_slots.acquire(blocking=False):
-        raise HTTPException(status_code=429, detail="地图请求繁忙，请稍后重试")
-    sub = "abc"[(x + int(yy)) % 3]
-    url = TILE_UPSTREAM.format(s=sub, z=z, x=x, y=yy)
-    try:
-        req = urllib.request.Request(url, headers=TILE_HEADERS)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = resp.read(1024 * 1024 + 1)
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=502, detail="地图暂时不可用") from exc
-    finally:
-        _tile_fetch_slots.release()
-    if len(data) > 1024 * 1024:
-        raise HTTPException(status_code=502, detail="地图瓦片过大")
-    if not data.startswith(b"\x89PNG"):
-        raise HTTPException(status_code=502, detail="上游返回的不是 PNG")
-    with _tile_lock:
-        _tile_cache.put(cache_path, data)
-    return Response(
-        content=data,
-        media_type="image/png",
-        headers={"Cache-Control": "private, max-age=86400"},
-    )
+@app.get("/api/map/china.pmtiles")
+def map_pmtiles(request: Request):
+    """PMTiles 归档的 Range 读取;pmtiles.js 每次只取索引/瓦片所在的一小段。"""
+    if not os.path.isfile(PMTILES_FILE):
+        raise HTTPException(status_code=503, detail="地图数据未安装：请运行 scripts/update-map-data.sh")
+    size = os.path.getsize(PMTILES_FILE)
+    headers = {"Accept-Ranges": "bytes", "Cache-Control": "private, max-age=86400"}
+    range_header = request.headers.get("range", "")
+    m = re.fullmatch(r"bytes=(\d+)-(\d*)", range_header)
+    if not m:
+        # pmtiles.js 总是带 Range;无 Range 的请求只回头部信息,避免误传整个归档
+        return Response(status_code=200, headers={**headers, "Content-Length": "0",
+                                                  "X-Archive-Size": str(size)})
+    start = int(m.group(1))
+    end = int(m.group(2)) if m.group(2) else size - 1
+    if start >= size or end < start:
+        return Response(status_code=416, headers={"Content-Range": f"bytes */{size}"})
+    end = min(end, size - 1)
+    length = end - start + 1
+    with open(PMTILES_FILE, "rb") as f:
+        f.seek(start)
+        data = f.read(length)
+    return Response(content=data, status_code=206, media_type="application/octet-stream",
+                    headers={**headers, "Content-Range": f"bytes {start}-{end}/{size}"})
+
+
+@app.get("/api/map/fonts/{fontstack}/{rangefile}")
+def map_font_glyph(fontstack: str, rangefile: str):
+    """SDF 字体分块(fontstack 形如 'Noto Sans Regular',rangefile 形如 '19968-20223.pbf')。"""
+    if not re.fullmatch(r"[\w .-]{1,64}", fontstack) or not re.fullmatch(r"\d{1,5}-\d{1,5}\.pbf", rangefile):
+        raise HTTPException(status_code=404, detail="字体不存在")
+    path = os.path.join(MAP_DATA_DIR, "fonts", fontstack, rangefile)
+    if not os.path.isfile(path):  # 某段字符集无字形属正常,404 由前端容错
+        raise HTTPException(status_code=404, detail="字体不存在")
+    return FileResponse(path, media_type="application/x-protobuf",
+                        headers={"Cache-Control": "private, max-age=604800"})
+
+
+@app.get("/api/map/sprites/{name}")
+def map_sprite(name: str):
+    if not re.fullmatch(r"(light|dark)(@2x)?\.(json|png)", name):
+        raise HTTPException(status_code=404, detail="资源不存在")
+    path = os.path.join(MAP_DATA_DIR, "sprites", name)
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="资源不存在")
+    return FileResponse(path, headers={"Cache-Control": "private, max-age=604800"})
 
 
 @app.get("/api/system")

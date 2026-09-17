@@ -60,8 +60,8 @@ def run():
                         route.fulfill(status=403, json={"detail":"test blocks mutations"})
                     elif key in failed:
                         route.fulfill(status=503, json={"detail":"simulated unavailable"})
-                    elif key.startswith("tiles/"):
-                        route.fulfill(status=200,content_type="image/png",body=bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000b49444154789c636000020000050001a5f645400000000049454e44ae426082'))
+                    elif key.startswith("map/"):
+                        route.fulfill(status=503, json={"detail":"simulated map data unavailable"})
                     else:
                         data = dict(BASE.get(key, {}))
                         if key in ["overview","account/status"]:data['role']=role
@@ -92,18 +92,23 @@ def run():
             page.wait_for_timeout(150)
             assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==6
             assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
-            assert page.locator('.rt-map.leaflet-container').count()==1  # 详情小地图
+            assert page.locator('.rt-map.maplibregl-map').count()==1  # 详情小地图
             assert not page.evaluate('window.__auditXss===true')
             page.locator('.rt-row').first.click()
             page.wait_for_timeout(80)
             assert page.evaluate("!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
-            assert page.locator('.rt-map.leaflet-container').count()==0  # 收起后小地图销毁
+            assert page.locator('.rt-map.maplibregl-map').count()==0  # 收起后小地图销毁
             # 地图点选轨迹:对应行程行自动展开并渲染海拔图,标题含起终点落差
-            page.evaluate("document.querySelector('#map path.leaflet-interactive').dispatchEvent(new MouseEvent('click',{bubbles:true}))")
+            page.wait_for_function("!!(window.__ttvMap && window.__ttvMap.getSource('ttv-routes'))")
+            page.evaluate("""() => {
+              const m = window.__ttvMap;
+              const p = m.project([0.005, 0.005]);
+              m.fire('click', {lngLat: m.unproject([p.x, p.y]), point: p});
+            }""")
             page.wait_for_timeout(150)
             assert page.locator('.rt-row.open').count()==1
             assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
-            assert page.locator('.rt-map.leaflet-container').count()==1
+            assert page.locator('.rt-map.maplibregl-map').count()==1
             assert '落差' in page.locator('.rt-elev-title').inner_text()
             # 家充设置卡:总开关 + 地点行;管理员可见添加行与开关,viewer 全部只读
             page.locator('.tab[data-page="charging"]').click()

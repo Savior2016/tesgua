@@ -24,8 +24,10 @@
   const routeRows = {};  // 行程 id → 列表行 DOM(地图点选轨迹时定位展开用)
   const openRouteIds = new Set();  // 已展开的行程 id,60s 刷新重渲染后恢复展开状态
   let map = null;
-  let mapTiles = {};
   let mapFit = false;
+  let mapInitPromise = null;
+  const mapStyleCache = {};  // light/dark → 已改写资源 URL 的 MapLibre style JSON
+  let routesBounds = null;   // 全部轨迹的视野范围(主题切换/首次显示时重算用)
 
   /* ---------- 工具 ---------- */
 
@@ -2454,40 +2456,151 @@
     });
   }
 
-  /* ---------- 渲染:地图 ---------- */
+  /* ---------- 渲染:地图(MapLibre 矢量瓦片,数据为本站托管的 PMTiles) ---------- */
+
+  // pmtiles 协议注册一次即可;两个库均为经典脚本,先于 app.js 加载(见 index.html)
+  if (window.maplibregl && window.pmtiles) {
+    maplibregl.addProtocol('pmtiles', new pmtiles.Protocol().tile);
+    // CSP 版默认 worker URL 为空,必须显式指向同目录的 worker 文件,否则 Worker 加载失败、GeoJSON 永不渲染
+    maplibregl.setWorkerUrl('/maplibre-gl-csp-worker.js');
+  }
+  const isCoarsePointer = () => window.matchMedia('(pointer: coarse)').matches;
+
+  async function loadMapStyle(name) {
+    if (!mapStyleCache[name]) {
+      const resp = await fetch(`/mapstyle-${name}.json`, { cache: 'no-store' });
+      const s = await resp.json();
+      // 样式内的占位符改写为本站绝对地址(worker 线程里相对路径不可靠)
+      s.sources.protomaps.url = 'pmtiles://' + location.origin + '/api/map/china.pmtiles';
+      s.glyphs = s.glyphs.replace('__ORIGIN__', location.origin);
+      s.sprite = s.sprite.replace('__ORIGIN__', location.origin);
+      mapStyleCache[name] = s;
+    }
+    return structuredClone(mapStyleCache[name]);
+  }
 
   function initMap() {
-    if (map) return;
-    map = L.map('map', {
-      zoomControl: true,
-      attributionControl: true,
-      // 触屏上禁用单指拖动,避免地图吞掉页面滚动;双指缩放仍可用,轨迹已 fitBounds 完整可见
-      dragging: !L.Browser.mobile,
-      tap: true,
-    });
-    // 瓦片走本站 /api/tiles/ 代理(手机直连 CDN 在国内网络下不稳);
-    // 上游为 OSM 官方瓦片,深色主题用 CSS 滤镜反色(见 style.css .leaflet-tile-pane)
-    const tileAttr = { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> 贡献者', maxZoom: 19 };
-    mapTiles.dark = L.tileLayer('/api/tiles/dark/{z}/{x}/{y}.png', tileAttr);
-    mapTiles.light = L.tileLayer('/api/tiles/light/{z}/{x}/{y}.png', tileAttr);
-    switchMapTheme();
+    if (map) return Promise.resolve();
+    if (mapInitPromise) return mapInitPromise;
+    mapInitPromise = (async () => {
+      const style = await loadMapStyle(S.theme === 'dark' ? 'dark' : 'light');
+      map = new maplibregl.Map({
+        container: 'map',
+        style,
+        attributionControl: { compact: true },
+        // 触屏上禁用单指拖动,避免地图吞掉页面滚动;双指缩放仍可用,轨迹已 fitBounds 完整可见
+        dragPan: !isCoarsePointer(),
+      });
+      window.__ttvMap = map;  // 测试钩子:离线回归用它投影轨迹点做精确点击
+      map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), 'top-right');
+      // setStyle(主题切换)会清空自定义图层,样式就绪后统一重绘
+      map.on('style.load', paintRoutes);
+      map.on('click', 'ttv-routes-line', (e) => {
+        const f = e.features && e.features[0];
+        if (!f) return;
+        new maplibregl.Popup({ closeButton: false, maxWidth: '320px' })
+          .setLngLat(e.lngLat).setHTML(f.properties.popup).addTo(map);
+        focusRouteRow(Number(f.id));  // 点选轨迹:下方列表展开对应行程详情
+      });
+      map.on('mouseenter', 'ttv-routes-line', () => { map.getCanvas().style.cursor = 'pointer'; });
+      map.on('mouseleave', 'ttv-routes-line', () => { map.getCanvas().style.cursor = ''; });
+    })().catch((e) => { mapInitPromise = null; throw e; });
+    return mapInitPromise;
   }
 
   function switchMapTheme() {
-    if (!map) return;
-    Object.values(mapTiles).forEach((t) => map.removeLayer(t));
-    map.addLayer(S.theme === 'dark' ? mapTiles.dark : mapTiles.light);
+    const name = S.theme === 'dark' ? 'dark' : 'light';
+    loadMapStyle(name).then((style) => {
+      if (map) map.setStyle(style);
+      Object.values(routeMaps).forEach((m) => m && m.setStyle(structuredClone(style)));
+    }).catch(() => {});
   }
 
-  let routesLayers = {};   // drive id -> polyline
-  let routesBase = {};     // drive id -> 原始样式(用于取消选中恢复)
   let routeSig = null;     // 轨迹集合签名,不变则不重绘(避免 60s 刷新重置视野)
   let selectedRouteId = null;
+
+  /* 主地图自定义图层:全部轨迹一个 GeoJSON 源 + 数据驱动配色;选中态走 feature-state */
+  function ensureRouteLayers() {
+    if (map.getSource('ttv-routes')) return;
+    const empty = { type: 'FeatureCollection', features: [] };
+    map.addSource('ttv-routes', { type: 'geojson', data: empty });
+    map.addSource('ttv-routes-ends', { type: 'geojson', data: empty });
+    map.addLayer({
+      id: 'ttv-routes-line', type: 'line', source: 'ttv-routes',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: {
+        'line-color': ['case', ['boolean', ['feature-state', 'selected'], false], cssVar('--seq-blue-500'), ['get', 'color']],
+        'line-width': ['case', ['boolean', ['feature-state', 'selected'], false], ['+', ['get', 'width'], 2], ['get', 'width']],
+        'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, ['get', 'opacity']],
+      },
+    });
+    map.addLayer({
+      id: 'ttv-routes-ends', type: 'circle', source: 'ttv-routes-ends',
+      paint: {
+        'circle-radius': 5,
+        'circle-color': ['get', 'fill'],
+        'circle-stroke-color': cssVar('--surface-1'),
+        'circle-stroke-width': 2,
+      },
+    });
+  }
+
+  /* 在样式就绪时(重)绘轨迹;setStyle 后本函数由 style.load 事件触发。
+     注意不能用 isStyleLoaded() 兜底:底图源失败时它永远为 false,轨迹会永远画不上 */
+  function paintRoutes() {
+    if (!map) return;
+    try { ensureRouteLayers(); } catch (e) { return; }  // 样式尚未就绪,等 style.load 再画
+    const o = S.overview;
+    const routes = (o && o.routes && o.routes.routes) || [];
+    const latestId = routes.length ? routes[routes.length - 1].id : null;
+    const features = [];
+    routesBounds = null;
+    routes.forEach((r) => {
+      // 轨迹点原始顺序为 [lat, lng],GeoJSON 需要 [lng, lat]
+      const pts = (r.points || []).filter((p) => p.length >= 2).map((p) => [p[1], p[0]]);
+      if (pts.length < 2) return;
+      const isLatest = r.id === latestId;
+      features.push({
+        type: 'Feature', id: r.id,
+        properties: {
+          color: cssVar(isLatest ? '--series-2' : '--series-1'),
+          width: isLatest ? 4 : 3,
+          opacity: isLatest ? 1 : 0.7,
+          popup: `<b>${fmtTime(Number(r.start_date_ts), true)}</b><br>` +
+            `${fmtNum(r.distance, 1)} km · ${fmtNum(r.duration_min, 0)} 分` +
+            (r.start_name || r.end_name ? `<br>${escapeHTML(r.start_name || '—')} → ${escapeHTML(r.end_name || '—')}` : ''),
+        },
+        geometry: { type: 'LineString', coordinates: pts },
+      });
+      pts.forEach((c) => { routesBounds = routesBounds ? routesBounds.extend(c) : new maplibregl.LngLatBounds(c, c); });
+    });
+    // 最近一次行程的起终点
+    const ends = [];
+    const last = routes[routes.length - 1];
+    if (last && (last.points || []).length >= 2) {
+      const p0 = last.points[0].slice(0, 2), p1 = last.points[last.points.length - 1].slice(0, 2);
+      [['--series-1', p0], ['--series-2', p1]].forEach(([colorVar, p]) => ends.push({
+        type: 'Feature',
+        properties: { fill: cssVar(colorVar) },
+        geometry: { type: 'Point', coordinates: [p[1], p[0]] },
+      }));
+    }
+    ensureRouteLayers();
+    map.getSource('ttv-routes').setData({ type: 'FeatureCollection', features });
+    map.getSource('ttv-routes-ends').setData({ type: 'FeatureCollection', features: ends });
+    if (selectedRouteId != null) {  // setStyle 后 feature-state 丢失,恢复选中态
+      map.setFeatureState({ source: 'ttv-routes', id: selectedRouteId }, { selected: true });
+    }
+    const canvas = map.getCanvas();
+    if (!mapFit && routesBounds && canvas.width && canvas.height) {  // 0 尺寸画布上 fitBounds 会得到退化视野
+      map.fitBounds(routesBounds, { padding: 30, animate: false });
+      mapFit = true;
+    }
+  }
 
   function renderRoutes() {
     const o = S.overview;
     if (!o || !o.routes) return;
-    initMap();
     const routes = o.routes.routes || [];
     const sig = routes.map((r) => r.id).join(',');
     const totalKm = routes.reduce((s, r) => s + Number(r.distance || 0), 0);
@@ -2499,69 +2612,22 @@
     routeSig = sig;
     selectedRouteId = null;
     mapFit = false;
-    routesLayers = {};
-    routesBase = {};
-    map.eachLayer((l) => {
-      if (l.__ttvRoute) map.removeLayer(l);
-    });
-
-    const latestId = routes.length ? routes[routes.length - 1].id : null;
-    let bounds = null;
-    routes.forEach((r) => {
-      const pts = (r.points || []).filter((p) => p.length >= 2).map((p) => [p[0], p[1]]);
-      if (pts.length < 2) return;
-      const isLatest = r.id === latestId;
-      const style = {
-        color: cssVar(isLatest ? '--series-2' : '--series-1'),
-        weight: isLatest ? 4 : 3,
-        opacity: isLatest ? 1 : 0.7,
-      };
-      const line = L.polyline(pts, Object.assign({ lineCap: 'round', lineJoin: 'round' }, style));
-      line.__ttvRoute = true;
-      line.bindPopup(`<b>${fmtTime(Number(r.start_date_ts), true)}</b><br>` +
-        `${fmtNum(r.distance, 1)} km · ${fmtNum(r.duration_min, 0)} 分` +
-        (r.start_name || r.end_name ? `<br>${escapeHTML(r.start_name || '—')} → ${escapeHTML(r.end_name || '—')}` : ''));
-      line.on('click', () => focusRouteRow(r.id));  // 点选轨迹:下方列表展开对应行程详情
-      line.addTo(map);
-      routesLayers[r.id] = line;
-      routesBase[r.id] = style;
-      bounds = bounds ? bounds.extend(line.getBounds()) : line.getBounds();
-    });
-
-    // 最近一次行程的起终点
-    const last = routes[routes.length - 1];
-    if (last && (last.points || []).length >= 2) {
-      const p0 = last.points[0].slice(0, 2), p1 = last.points[last.points.length - 1].slice(0, 2);
-      const mk = (p, fill) => L.circleMarker(p, {
-        radius: 5, color: cssVar('--surface-1'), weight: 2, fillColor: fill, fillOpacity: 1,
-      });
-      mk(p0, cssVar('--series-1')).addTo(map).__ttvRoute = true;
-      mk(p1, cssVar('--series-2')).addTo(map).__ttvRoute = true;
-    }
-
-    if (!mapFit && bounds) {
-      map.fitBounds(bounds, { padding: [30, 30] });
-      mapFit = true;
-    }
+    initMap().then(() => paintRoutes()).catch(() => {});
   }
 
   function selectRoute(id) {
-    const layer = routesLayers[id];
-    if (!layer) return;
-    Object.keys(routesLayers).forEach((k) => {
-      const l = routesLayers[k];
-      l.setStyle(Number(k) === id
-        ? { color: cssVar('--seq-blue-500'), weight: routesBase[k].weight + 2, opacity: 1 }
-        : routesBase[k]);
-    });
+    deselectRoute();
+    if (map && map.getSource('ttv-routes')) {
+      map.setFeatureState({ source: 'ttv-routes', id }, { selected: true });
+    }
     selectedRouteId = id;
     // 顶部地图只作全览,不再缩放到单条轨迹;行程细节看详情里的小地图
   }
 
   function deselectRoute() {
-    Object.keys(routesLayers).forEach((k) => {
-      routesLayers[k].setStyle(routesBase[k]);
-    });
+    if (map && selectedRouteId != null && map.getSource('ttv-routes')) {
+      map.setFeatureState({ source: 'ttv-routes', id: selectedRouteId }, { selected: false });
+    }
     selectedRouteId = null;
   }
 
@@ -2575,30 +2641,67 @@
     row.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  /* 行程详情:小地图(只显示该条轨迹 + 起终点;顶部地图仅作全览) */
+  /* 行程详情:小地图(只显示该条轨迹 + 起终点;顶部地图仅作全览)。
+     每个 MapLibre 实例占一个 WebGL 上下文(浏览器上限约 16 个),超出时回收最早的实例 */
+  const MINI_MAP_LIMIT = 8;
   function renderRouteMap(r, box) {
-    if (routeMaps[r.id]) { routeMaps[r.id].invalidateSize(); return; }
-    const pts = (r.points || []).filter((p) => p.length >= 2).map((p) => [p[0], p[1]]);
+    if (routeMaps[r.id]) { routeMaps[r.id].resize(); return; }
+    const pts = (r.points || []).filter((p) => p.length >= 2).map((p) => [p[1], p[0]]);
     if (pts.length < 2) return;
-    const m = L.map(box, {
-      zoomControl: false,
-      attributionControl: false,
-      dragging: !L.Browser.mobile,  // 触屏禁用单指拖动,避免吞掉页面滚动
-      scrollWheelZoom: false,       // 小地图不响应滚轮,桌面滚动页面向下不被截住
-      tap: true,
-    });
-    L.tileLayer(`/api/tiles/${S.theme === 'dark' ? 'dark' : 'light'}/{z}/{x}/{y}.png`,
-      { maxZoom: 19 }).addTo(m);
-    const line = L.polyline(pts, {
-      color: cssVar('--seq-blue-500'), weight: 4, opacity: 1, lineCap: 'round', lineJoin: 'round',
-    }).addTo(m);
-    const mk = (p, fill) => L.circleMarker(p, {
-      radius: 5, color: cssVar('--surface-1'), weight: 2, fillColor: fill, fillOpacity: 1,
-    }).addTo(m);
-    mk(pts[0], cssVar('--series-1'));
-    mk(pts[pts.length - 1], cssVar('--series-2'));
-    m.fitBounds(line.getBounds(), { padding: [16, 16] });
-    routeMaps[r.id] = m;
+    const liveIds = Object.keys(routeMaps);
+    if (liveIds.length >= MINI_MAP_LIMIT) disposeRouteMap(Number(liveIds[0]));
+    loadMapStyle(S.theme === 'dark' ? 'dark' : 'light').then((style) => {
+      if (routeMaps[r.id] || !box.isConnected) return;  // 等待样式期间行已收起/列表已重渲染
+      const m = new maplibregl.Map({
+        container: box,
+        style,
+        attributionControl: false,
+        dragPan: !isCoarsePointer(),  // 触屏禁用单指拖动,避免吞掉页面滚动
+        scrollZoom: false,            // 小地图不响应滚轮,桌面滚动页面向下不被截住
+      });
+      m.doubleClickZoom.disable();
+      const lineFC = {
+        type: 'FeatureCollection',
+        features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: pts } }],
+      };
+      const endsFC = {
+        type: 'FeatureCollection',
+        features: [[pts[0], cssVar('--series-1')], [pts[pts.length - 1], cssVar('--series-2')]].map(([c, fill]) => ({
+          type: 'Feature', properties: { fill }, geometry: { type: 'Point', coordinates: c },
+        })),
+      };
+      const paint = () => {
+        if (m.getSource('route')) return;
+        m.addSource('route', { type: 'geojson', data: lineFC });
+        m.addSource('route-ends', { type: 'geojson', data: endsFC });
+        m.addLayer({
+          id: 'route-line', type: 'line', source: 'route',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: { 'line-color': cssVar('--seq-blue-500'), 'line-width': 4, 'line-opacity': 1 },
+        });
+        m.addLayer({
+          id: 'route-ends', type: 'circle', source: 'route-ends',
+          paint: {
+            'circle-radius': 5, 'circle-color': ['get', 'fill'],
+            'circle-stroke-color': cssVar('--surface-1'), 'circle-stroke-width': 2,
+          },
+        });
+      };
+      m.on('style.load', paint);  // 主题切换 setStyle 后图层被清空,需要重绘
+      const b = new maplibregl.LngLatBounds();
+      pts.forEach((c) => b.extend(c));
+      m.fitBounds(b, { padding: 16, animate: false });
+      routeMaps[r.id] = m;
+    }).catch(() => {});
+  }
+
+  function disposeRouteMap(id) {
+    const m = routeMaps[id];
+    if (!m) return;
+    const box = m.getContainer();
+    m.remove();
+    delete routeMaps[id];
+    box.className = 'rt-map';  // 复位容器,便于「已销毁」断言与再次初始化
   }
 
   /* 行程详情:海拔高度图(x = 累计里程 km,y = 海拔 m,平滑曲线 + 渐变填充) */
@@ -2680,12 +2783,7 @@
       return;
     }
     if (routeElev[id]) { routeElev[id].dispose(); delete routeElev[id]; }
-    if (routeMaps[id]) {
-      const box = routeMaps[id].getContainer();
-      routeMaps[id].remove();  // remove() 清内部 DOM 但保留容器上的 leaflet-* 类
-      delete routeMaps[id];
-      box.className = 'rt-map';  // 复位容器,便于「已销毁」断言与再次初始化
-    }
+    disposeRouteMap(id);
   }
 
   function renderRoutesList() {
@@ -2909,7 +3007,7 @@
   /* ---------- 功能分页(底部液态玻璃 Tab 栏) ---------- */
 
   const PAGE_IDS = ['overview', 'charging', 'drives', 'activity', 'vehicle', 'control'];
-  let mapShown = false;  // 行程页首次显示时需 invalidateSize + 重新 fitBounds
+  let mapShown = false;  // 行程页首次显示时需 resize + 重新 fitBounds
 
   // 选中气泡跟随当前 Tab(首次定位不开动画,避免从 0 宽度弹入)
   function placeTabBubble() {
@@ -2943,16 +3041,13 @@
       if (sec) Object.values(routeElev).forEach((c) => {
         if (c && sec.contains(c.getDom())) c.resize();
       });
-      if (name === 'drives') Object.values(routeMaps).forEach((m) => m && m.invalidateSize());
+      if (name === 'drives') Object.values(routeMaps).forEach((m) => m && m.resize());
       if (name === 'drives' && map) {
-        map.invalidateSize();
-        if (!mapShown) {  // 首次显示:此前 fitBounds 基于 0 尺寸,按全部轨迹重算
+        map.resize();
+        if (!mapShown && routesBounds) {  // 首次显示:此前 fitBounds 基于 0 尺寸,按全部轨迹重算
           mapShown = true;
-          let b = null;
-          Object.values(routesLayers).forEach((l) => {
-            b = b ? b.extend(l.getBounds()) : l.getBounds();
-          });
-          if (b) map.fitBounds(b, { padding: [30, 30] });
+          mapFit = true;
+          map.fitBounds(routesBounds, { padding: 30, animate: false });
         }
       }
       if (name === 'overview') renderCar();  // 俯视图标注随舞台尺寸定位,重算一次
@@ -3130,8 +3225,8 @@
     window.addEventListener('resize', () => {
       Object.values(charts).forEach((c) => c && c.resize());
       Object.values(routeElev).forEach((c) => c && c.resize());
-      Object.values(routeMaps).forEach((m) => m && m.invalidateSize());
-      if (map) map.invalidateSize();
+      Object.values(routeMaps).forEach((m) => m && m.resize());
+      if (map) map.resize();
       renderCar();  // 引线与标注按舞台实际尺寸定位,需随布局重算
       placeTabBubble();  // 气泡宽度随 Tab 布局变化
     });

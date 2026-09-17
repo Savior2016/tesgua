@@ -48,3 +48,20 @@ python tests/browser_smoke.py
 ```
 
 数据库角色初始化使用 `scripts/configure-panel-db.sh`，仅用于标准 TeslaMate 数据库名 `teslamate`。自定义数据库部署应先适配该脚本再升级。
+
+## 矢量地图数据
+
+行程地图使用 MapLibre 矢量瓦片,数据文件在 `data/map/`(不进 Git,不进面板备份):
+
+- `china.pmtiles` — Protomaps 每日构建的中国区提取(约 13 GB,bbox 73.0,17.5 – 135.5,54.0)
+- `fonts/` — Noto Sans Regular/Medium/Italic 的 SDF 字体分块(含 CJK)
+- `sprites/` — 深浅色 POI 图标
+
+更新(地图数据会随 OSM 编辑陈旧,建议几个月一次):
+
+```sh
+scripts/update-map-data.sh            # 默认取 3 天前的每日构建
+scripts/update-map-data.sh 20260915   # 指定构建日期
+```
+
+文件缺失时地图区域返回 503,面板其余功能不受影响;补数据后无需重启。首次部署或换机必须运行一次该脚本,否则地图不出图。

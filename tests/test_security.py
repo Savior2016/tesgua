@@ -10,7 +10,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.auth import AccountStore, AuthConfigurationError
-from app.tile_cache import TileCache
 
 PASSWORD = "test-only-password-123"
 
@@ -126,9 +125,9 @@ def test_untrusted_proxy_cannot_supply_ip_or_https(client):
     assert main._client_ip(req) == "203.0.113.10"
     assert not main._https(req)
     login(client)
-    assert client.get("/api/tiles/light/0/1/0.png").status_code == 404
+    assert client.get("/api/map/fonts/evil%2F..%2F..%2Fetc%2Fpasswd/x.pbf").status_code in (404, 422)
     client.cookies.clear()
-    assert client.get("/api/tiles/light/0/0/0.png").status_code == 401
+    assert client.get("/api/map/china.pmtiles").status_code == 401
 
 
 def test_valid_session_not_locked_by_other_attempts(client):
@@ -137,17 +136,6 @@ def test_valid_session_not_locked_by_other_attempts(client):
     for _ in range(10):
         main._record_fail(("testclient", "owner"))
     assert client.get("/api/vehicle/delivery").status_code == 200
-
-
-def test_cache_eviction_and_restart(tmp_path):
-    cache = TileCache(tmp_path, max_bytes=10)
-    cache.put(tmp_path / "1/0/0.png", b"a" * 6)
-    cache.put(tmp_path / "1/0/1.png", b"b" * 6)
-    assert not (tmp_path / "1/0/0.png").exists()
-    assert sum(p.stat().st_size for p in tmp_path.rglob("*.png")) <= 10
-    cache = TileCache(tmp_path, max_bytes=10)
-    cache.put(tmp_path / "1/0/0.png", b"a" * 6)
-    assert not (tmp_path / "1/0/1.png").exists()
 
 
 @pytest.mark.parametrize("kind", ["symlink", "traversal", "duplicate", "oversize"])

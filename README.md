@@ -118,7 +118,7 @@ docker compose pull teslamate && docker compose up -d
 | 数据 | 位置 |
 |---|---|
 | 车辆遥测数据库 | docker 卷 `teslamate_teslamate-db` |
-| 面板账号 / 充电费用 / 充电桩信息 / 瓦片缓存 | `./data/` |
+| 面板账号 / 充电费用 / 充电桩信息 / 矢量地图数据 | `./data/` |
 | TeslaMate 数据导入目录 | `./import/` |
 | HTTPS 证书 | docker 卷 `teslamate-visualizer_caddy_data` |
 
@@ -182,7 +182,7 @@ git tag v1.x.y && git push origin v1.x.y
 - 哨兵模式推断:特斯拉不直接上报哨兵状态,面板用「驻车清醒 ≥30 分钟 + 非空调 + 不在行驶/充电区间」推断
 - 能耗自校准:每理想续航公里电量由充电历史校准;停放耗电按「充电量 ÷ 表显电量增幅」校准(含充电损耗)
 - 电池健康:每次充电按「充电量 ÷ 表显电量增幅 × 100」估算满电容量(过滤:增幅 ≥10%、估算 30–150 kWh),基准=历史最高估算,当前=最新一次估算
-- 地图瓦片由本站同源代理(上游 OSM 官方瓦片,磁盘缓存),国内移动网络下也能出图
+- 地图为 MapLibre 矢量瓦片(Protomaps 每日构建的中国区 PMTiles 单文件 + 字体/sprites 均自托管,`scripts/update-map-data.sh` 更新),深浅色主题均为原生配色,国内移动网络下也能出图
 
 ## 许可证
 
