@@ -1202,6 +1202,47 @@
     if (cv) cv.classList.toggle('has-sel', !!carSel);
   }
 
+  /* --- 总览两侧面板:默认收成窄条,点击展开,无操作几秒后自动收起 --- */
+  const SIDE_AUTO_MS = 4500;
+  const sideTimers = { l: 0, r: 0 };
+  function syncSidesStowed() {
+    const cv = $('#carview');
+    if (!cv) return;
+    const stowed = ['l', 'r'].every((s) => {
+      const box = $(`#car-side-${s}`);
+      return !box || box.classList.contains('collapsed');
+    });
+    cv.classList.toggle('sides-stowed', stowed);
+  }
+  function setCarSide(side, open) {
+    const box = $(`#car-side-${side}`);
+    if (!box) return;
+    box.classList.toggle('collapsed', !open);
+    const btn = $(`#car-side-btn-${side}`);
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    clearTimeout(sideTimers[side]);
+    if (open) sideTimers[side] = setTimeout(() => setCarSide(side, false), SIDE_AUTO_MS);
+    syncSidesStowed();
+  }
+  // 展开期间面板内的悬停/点按/键盘焦点都重置自动收起计时
+  function pokeCarSide(side) {
+    const box = $(`#car-side-${side}`);
+    if (!box || box.classList.contains('collapsed')) return;
+    clearTimeout(sideTimers[side]);
+    sideTimers[side] = setTimeout(() => setCarSide(side, false), SIDE_AUTO_MS);
+  }
+  function initCarSides() {
+    ['l', 'r'].forEach((side) => {
+      const box = $(`#car-side-${side}`);
+      const btn = $(`#car-side-btn-${side}`);
+      if (!box || !btn) return;
+      btn.addEventListener('click', () =>
+        setCarSide(side, box.classList.contains('collapsed')));
+      ['pointerenter', 'pointerdown', 'focusin'].forEach((ev) =>
+        box.addEventListener(ev, () => pokeCarSide(side)));
+    });
+  }
+
   function renderCar() {
     const o = S.overview;
     if (!o) return;
@@ -1349,7 +1390,7 @@
     $('#car-temp-val').textContent = outT === null ? '—' : `${fmtNum(outT, 1)}°`;
     renderCompanion();
 
-    // 车辆顶部:本周期平均能耗细长条(官方能耗=额定折算系数,作标点)
+    // 车辆顶部:本周期平均能耗条状控件(文字内嵌;官方能耗=额定折算系数,作刻度竖线)
     const effG = $('#car-eff');
     if (effG) {
       const dKwh = cyc && cyc.drive_kwh != null ? Number(cyc.drive_kwh) : 0;
@@ -1359,15 +1400,18 @@
         const eff = dKwh * 1000 / dKm;
         const LO = 100, HI = 200;   // 刻度 100..200 Wh/km
         const map = (v) => Math.max(0, Math.min(1, (v - LO) / (HI - LO))) * 100;
-        $('#car-eff-dot').style.left = map(eff).toFixed(1) + '%';
-        $('#car-eff-official').style.left = `calc(${map(official).toFixed(1)}% - 1px)`;
         // 低于官方绿 / 高 10% 内黄 / 再高红
         const rel = eff / official;
-        const dotColor = rel <= 1 ? '#3fae72' : rel <= 1.1 ? '#fab219' : '#d03b3b';
-        $('#car-eff-dot').style.background = dotColor;
+        const c = rel <= 1 ? '#3fae72' : rel <= 1.1 ? '#fab219' : '#d03b3b';
+        const bar = $('#car-eff-bar');
+        bar.style.setProperty('--eff-c', c);
+        bar.title = `本周期平均能耗 ${fmtNum(eff, 0)} Wh/km · 官方 ${fmtNum(official, 0)} Wh/km`;
         const fill = $('#car-eff-fill');
         fill.style.width = map(eff).toFixed(1) + '%';
-        fill.style.background = dotColor;
+        fill.style.background = `linear-gradient(90deg, ${c}14, ${c}30)`;
+        fill.style.boxShadow = `inset 0 -3px 0 ${c}`;
+        $('#car-eff-dot').style.left = map(eff).toFixed(1) + '%';
+        $('#car-eff-official').style.left = map(official).toFixed(1) + '%';
         const offVal = $('#car-eff-official-val');
         offVal.style.left = map(official).toFixed(1) + '%';
         offVal.textContent = `官方 ${fmtNum(official, 0)}`;
@@ -3119,6 +3163,9 @@
         if (!d || !d.dataset.k) return;  // 里程统计项不参与点选
         setCarSel(carSel === d.dataset.k ? null : d.dataset.k);
       }));
+
+    // 总览两侧面板:收起窄条 ⇄ 展开 切换 + 自动收起
+    initCarSides();
 
     $('#range-seg').addEventListener('click', (e) => {
       const btn = e.target.closest('button');

@@ -417,74 +417,106 @@ button { touch-action: manipulation; }
 
 
 
-/* 车辆顶部:本周期平均能耗细长条(官方能耗为标点) */
+/* 车辆顶部:本周期平均能耗条状控件(文字内嵌于条内,官方能耗为刻度竖线) */
 .car-eff {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 0 4px 12px;
+  box-sizing: border-box;
+  container-type: inline-size;
+}
+
+/* 条太窄时(手机端展开侧面板):只留填充+刻度线+读数,隐藏文字标注防相碰 */
+@container (max-width: 250px) {
+  .car-eff-label, .car-eff-official-val { display: none; }
+}
+
+.car-eff-bar {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  max-width: 236px;
-  margin: 0 auto;
-  padding: 0 4px 11px;
+  justify-content: space-between;
+  gap: 10px;
+  height: 34px;
+  padding: 0 13px;
   box-sizing: border-box;
+  border-radius: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  --eff-c: var(--series-1);
 }
 
-.car-eff-label { font-size: 10.5px; color: var(--text-muted); white-space: nowrap; }
-
-.car-eff-track {
-  position: relative;
-  flex: 1;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--tile-track);
-}
-
+/* 左端→当前值的柔光填充 + 底缘实线(颜色由 JS 随状态写入) */
 .car-eff-fill {
   position: absolute;
-  left: 0;
   top: 0;
   bottom: 0;
-  border-radius: 3px;
-  opacity: 0.8;
+  left: 0;
+  width: 0;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s ease, box-shadow 0.3s ease;
 }
 
+.car-eff-label {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* 官方能耗:刻度竖线 + 线顶小字 */
 .car-eff-official {
   position: absolute;
-  top: -4px;
-  bottom: -4px;
+  z-index: 1;
+  top: 14px;
+  bottom: 6px;
   width: 2px;
+  margin-left: -1px;
   border-radius: 1px;
   background: var(--text-primary);
-  opacity: 0.85;
+  opacity: 0.4;
+  transition: left 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .car-eff-official-val {
   position: absolute;
-  top: 8px;
-  transform: translateX(-50%);
-  font-size: 9px;
+  z-index: 1;
+  top: 2.5px;
+  transform: translateX(calc(-100% - 5px));  /* 小字贴刻度线左侧,避免与右侧读数相碰 */
+  font-size: 8.5px;
   line-height: 1;
   color: var(--text-muted);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  transition: left 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* 当前值圆点:骑在底缘实线上 */
 .car-eff-dot {
   position: absolute;
-  top: 50%;
+  z-index: 2;
+  bottom: 0.5px;
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  transform: translate(-50%, -50%);
+  background: var(--eff-c);
   border: 1.5px solid var(--surface-1);
+  box-shadow: 0 0 5px var(--eff-c);
+  transform: translateX(-50%);
+  transition: left 0.6s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s ease;
 }
 
 .car-eff-val {
-  font-size: 11px;
-  font-weight: 650;
-  color: var(--text-primary);
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--eff-c);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+  transition: color 0.3s ease;
 }
 
 .car-body-base { fill: var(--car-body); }
@@ -658,14 +690,113 @@ button { touch-action: manipulation; }
 }
 .companion-actions button:disabled { opacity: 0.5; cursor: default; }
 
-/* 两侧图例:左列里程统计+电池健康(不可点选),右列全部电耗分段 */
-.car-legend {
+/* 两侧可收起面板:左列里程统计+电池健康(不可点选),右列全部电耗分段。
+   默认收成窄条(.collapsed),点击展开,无操作数秒后自动收起;
+   面板宽度与舞台高度随展开状态过渡,中央车模随之缩放 */
+.car-side {
+  position: relative;
   flex: 0 0 178px;
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.car-side-r { flex-direction: row-reverse; }  /* 窄条贴右外侧 */
+
+.car-side.collapsed {
+  flex-basis: 40px;
+  gap: 0;
+}
+
+.car-legend {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   justify-content: space-evenly;
   gap: 10px;
+  opacity: 1;
+  transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.2s ease 0.14s, visibility 0.2s ease 0.14s;
 }
+
+.car-side.collapsed .car-legend {
+  flex: 0 0 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.16s ease, visibility 0.16s ease;
+}
+
+/* 收起/展开把手:收起时为整条窄条(竖排文字+箭头),展开时为外侧细条(仅箭头) */
+.car-side-btn {
+  flex: 0 0 16px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.car-side.collapsed .car-side-btn {
+  flex: 1 1 auto;
+  background: var(--surface-1);
+  border-color: var(--border);
+}
+
+.car-side-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border-color: var(--border);
+}
+
+.car-side-btn svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 箭头指向:收起时指向中央(展开),展开时指向外侧(收起) */
+.car-side-l:not(.collapsed) .car-side-btn svg { transform: rotate(180deg); }
+.car-side-r .car-side-btn svg { transform: rotate(180deg); }
+.car-side-r:not(.collapsed) .car-side-btn svg { transform: rotate(0deg); }
+
+.car-side-btn .rail-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+
+.car-side-btn .rail-label i {
+  font-style: normal;
+  line-height: 1.45;
+  letter-spacing: 1px;
+}
+
+.car-side.collapsed .car-side-btn .rail-label {
+  opacity: 1;
+  transition-delay: 0.22s;
+}
+
+/* 两侧都收起时:舞台加高,车模随之变大(手机端按宽高比自适应,见 600px 断点) */
+.car-stage { transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.carview.sides-stowed .car-stage { height: 590px; }
 
 .cl-item {
   display: flex;
@@ -2396,10 +2527,13 @@ footer a { color: var(--text-muted); }
   #map { height: 320px; }
   .chart-activity { height: 320px; }
   .sentry-split { grid-template-columns: 1fr; }
-  /* 车辆总览:窄屏仍保持左右两列夹车辆的布局,只收窄列宽与间距 */
+  /* 车辆总览:窄屏仍保持左右两条夹车辆的布局,只收窄条宽与间距 */
   .carview { gap: 10px; }
-  .car-legend { flex: 0 0 150px; gap: 8px; }
+  .car-side { flex-basis: 150px; }
+  .car-side.collapsed { flex-basis: 36px; }
+  .car-legend { gap: 8px; }
   .car-stage { height: 440px; }
+  .carview.sides-stowed .car-stage { height: 520px; }
   /* 事件列表:窄屏改为 时间列 + 数值格 2×2(自带小标签),详情独占一行 */
   .ev-head { display: none; }
   .ev-row {
@@ -2490,15 +2624,19 @@ footer a { color: var(--text-muted); }
      车图内容整体放大 1.32 倍(裁掉 HUD 角标与四周留白),让车在框内占比更大;
      胎压面板在车图下方一行四格,不再覆盖车身 */
   .carview { gap: 6px; }
-  .car-legend { flex: 0 0 88px; gap: 7px; }
+  .car-side { flex-basis: 106px; gap: 4px; }
+  .car-side.collapsed { flex-basis: 30px; }
+  .car-legend { gap: 7px; }
   .car-stage { height: auto; aspect-ratio: 340 / 470; overflow: hidden; }
+  /* 手机端舞台按宽高比伸缩,两侧收起后车模自然变大,不再固定加高 */
+  .carview.sides-stowed .car-stage { height: auto; }
   .car-hud { display: none; }
   #car-zoom {
     transform: scale(1.32);
     transform-origin: 170px 236px;
     transform-box: view-box;
   }
-  .cl-item { padding: 7px 8px; gap: 7px; }
+  .cl-item { padding: 7px 6px; gap: 5px; }
   .cl-val { font-size: 15px; }
 
   /* 事件列表:日期行允许换行,摘要芯片独占一行防溢出 */

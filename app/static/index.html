@@ -61,19 +61,28 @@
         </div>
       </div>
       <div class="cycle-strip" id="cycle-strip" hidden></div>
-      <div class="carview">
-        <div class="car-legend car-legend-l" id="car-legend-l"></div>
+      <!-- 两侧为可收起的侧边面板:默认收成窄条,点击展开,无操作数秒后自动收起;
+           收起/展开时中央车模随舞台宽度过渡缩放 -->
+      <div class="carview sides-stowed" id="carview">
+        <div class="car-side car-side-l collapsed" id="car-side-l">
+          <button class="car-side-btn" id="car-side-btn-l" type="button"
+                  aria-expanded="false" aria-controls="car-legend-l" title="里程统计 / 电池健康">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="rail-label"><i>统</i><i>计</i></span>
+          </button>
+          <div class="car-legend car-legend-l" id="car-legend-l"></div>
+        </div>
         <div class="car-mid">
-          <!-- 车辆顶部:本周期平均能耗细长条(官方能耗为标点) -->
+          <!-- 车辆顶部:本周期平均能耗条状控件(文字内嵌于条内,官方能耗为刻度竖线) -->
           <div class="car-eff" id="car-eff" hidden>
-            <span class="car-eff-label">均耗</span>
-            <div class="car-eff-track">
+            <div class="car-eff-bar" id="car-eff-bar">
               <i class="car-eff-fill" id="car-eff-fill"></i>
+              <span class="car-eff-label">平均能耗</span>
               <i class="car-eff-official" id="car-eff-official"></i>
               <span class="car-eff-official-val" id="car-eff-official-val"></span>
               <i class="car-eff-dot" id="car-eff-dot"></i>
+              <b class="car-eff-val" id="car-eff-val">—</b>
             </div>
-            <b class="car-eff-val" id="car-eff-val">—</b>
           </div>
           <div class="car-stage">
             <svg class="car-svg" viewBox="0 0 340 460" role="img" aria-label="Model Y 俯视图:玻璃顶环形能耗分布">
@@ -170,7 +179,14 @@
             </svg>
           </div>
         </div>
-        <div class="car-legend car-legend-r" id="car-legend-r"></div>
+        <div class="car-side car-side-r collapsed" id="car-side-r">
+          <button class="car-side-btn" id="car-side-btn-r" type="button"
+                  aria-expanded="false" aria-controls="car-legend-r" title="能量分布">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="rail-label"><i>能</i><i>耗</i></span>
+          </button>
+          <div class="car-legend car-legend-r" id="car-legend-r"></div>
+        </div>
       </div>
     </div>
   </div>
