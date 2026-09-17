@@ -1202,9 +1202,9 @@
     if (cv) cv.classList.toggle('has-sel', !!carSel);
   }
 
-  /* --- 总览两侧面板:默认收成窄条,点击展开,无操作几秒后自动收起 --- */
+  /* --- 总览两侧面板:默认只留小圆点,点任一侧两边一起展开,无操作几秒后自动收起 --- */
   const SIDE_AUTO_MS = 4500;
-  const sideTimers = { l: 0, r: 0 };
+  let sideTimer = 0;
   function syncSidesStowed() {
     const cv = $('#carview');
     if (!cv) return;
@@ -1214,22 +1214,25 @@
     });
     cv.classList.toggle('sides-stowed', stowed);
   }
-  function setCarSide(side, open) {
-    const box = $(`#car-side-${side}`);
-    if (!box) return;
-    box.classList.toggle('collapsed', !open);
-    const btn = $(`#car-side-btn-${side}`);
-    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-    clearTimeout(sideTimers[side]);
-    if (open) sideTimers[side] = setTimeout(() => setCarSide(side, false), SIDE_AUTO_MS);
+  // 两侧始终联动:一起展开 / 一起收起
+  function setCarSides(open) {
+    ['l', 'r'].forEach((side) => {
+      const box = $(`#car-side-${side}`);
+      const btn = $(`#car-side-btn-${side}`);
+      if (!box || !btn) return;
+      box.classList.toggle('collapsed', !open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    clearTimeout(sideTimer);
+    if (open) sideTimer = setTimeout(() => setCarSides(false), SIDE_AUTO_MS);
     syncSidesStowed();
   }
   // 展开期间面板内的悬停/点按/键盘焦点都重置自动收起计时
-  function pokeCarSide(side) {
-    const box = $(`#car-side-${side}`);
+  function pokeCarSides() {
+    const box = $('#car-side-l');
     if (!box || box.classList.contains('collapsed')) return;
-    clearTimeout(sideTimers[side]);
-    sideTimers[side] = setTimeout(() => setCarSide(side, false), SIDE_AUTO_MS);
+    clearTimeout(sideTimer);
+    sideTimer = setTimeout(() => setCarSides(false), SIDE_AUTO_MS);
   }
   function initCarSides() {
     ['l', 'r'].forEach((side) => {
@@ -1237,9 +1240,9 @@
       const btn = $(`#car-side-btn-${side}`);
       if (!box || !btn) return;
       btn.addEventListener('click', () =>
-        setCarSide(side, box.classList.contains('collapsed')));
+        setCarSides(box.classList.contains('collapsed')));
       ['pointerenter', 'pointerdown', 'focusin'].forEach((ev) =>
-        box.addEventListener(ev, () => pokeCarSide(side)));
+        box.addEventListener(ev, pokeCarSides));
     });
   }
 

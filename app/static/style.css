@@ -691,7 +691,8 @@ button { touch-action: manipulation; }
 .companion-actions button:disabled { opacity: 0.5; cursor: default; }
 
 /* 两侧可收起面板:左列里程统计+电池健康(不可点选),右列全部电耗分段。
-   默认收成窄条(.collapsed),点击展开,无操作数秒后自动收起;
+   面板高度与车身对齐(车身在 viewBox 460 中占 y52..418 ≈ 79.5%),垂直居中;
+   收起后只剩一个小圆点,点击任一侧圆点两边一起展开,无操作数秒后自动收起;
    面板宽度与舞台高度随展开状态过渡,中央车模随之缩放 */
 .car-side {
   position: relative;
@@ -699,13 +700,15 @@ button { touch-action: manipulation; }
   min-width: 0;
   display: flex;
   gap: 6px;
+  align-self: center;
+  height: 79.5%;
   transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.car-side-r { flex-direction: row-reverse; }  /* 窄条贴右外侧 */
+.car-side-r { flex-direction: row-reverse; }  /* 把手贴右外侧 */
 
 .car-side.collapsed {
-  flex-basis: 40px;
+  flex-basis: 14px;
   gap: 0;
 }
 
@@ -731,8 +734,7 @@ button { touch-action: manipulation; }
               opacity 0.16s ease, visibility 0.16s ease;
 }
 
-/* 收起/展开把手:收起时为整条窄条(渐变浮层 + 圆形箭头钮 + 竖排逐字标签),
-   展开时为外侧细条(仅箭头) */
+/* 收起/展开把手:收起时只剩一个小圆点(居中于车身腰线),展开时为外侧细条(仅箭头) */
 .car-side-btn {
   flex: 0 0 16px;
   align-self: stretch;
@@ -740,106 +742,57 @@ button { touch-action: manipulation; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
   padding: 0;
-  border: 1px solid transparent;
+  border: none;
   border-radius: 9px;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-              background 0.2s ease, border-color 0.2s ease, color 0.2s ease,
-              box-shadow 0.2s ease;
+  transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
 }
 
-/* 收起态:隐藏式渐变——从卡片外缘向内渐隐,无描边无投影,不抢眼;
-   悬停时才浮现主题蓝渐变与箭头高亮 */
 .car-side.collapsed .car-side-btn {
   flex: 1 1 auto;
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--text-primary) 5%, transparent),
-    transparent 75%);
-  border-color: transparent;
-  box-shadow: none;
-  color: var(--text-muted);
 }
 
-.car-side-r.collapsed .car-side-btn {
-  background: linear-gradient(-90deg,
-    color-mix(in srgb, var(--text-primary) 5%, transparent),
-    transparent 75%);
-}
-
-.car-side.collapsed .car-side-btn:hover {
-  border-color: transparent;
-  color: var(--text-primary);
-  box-shadow: none;
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--series-1) 13%, transparent),
-    transparent 75%);
-}
-
-.car-side-r.collapsed .car-side-btn:hover {
-  background: linear-gradient(-90deg,
-    color-mix(in srgb, var(--series-1) 13%, transparent),
-    transparent 75%);
-}
-
-/* 展开态(细条)悬停也要可见反馈 */
+/* 展开态(细条)悬停可见反馈 */
 .car-side-btn:hover { color: var(--text-primary); }
+
+/* 收起态的小圆点:淡淡一点,悬停放大并染主题蓝 */
+.rail-dot {
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.45;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+              background 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+}
+
+.car-side.collapsed .rail-dot { display: block; }
+
+.car-side.collapsed .car-side-btn:hover .rail-dot {
+  opacity: 1;
+  background: var(--series-1);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--series-1) 65%, transparent);
+  transform: scale(1.5);
+}
 
 .car-side-btn svg {
   width: 12px;
   height: 12px;
   flex: none;
   border-radius: 50%;
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
-              border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
 }
 
-/* 收起时箭头装进淡淡的小圆钮,悬停染上主题蓝并往中央轻推 */
-.car-side.collapsed .car-side-btn svg {
-  width: 11px;
-  height: 11px;
-  padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--text-primary) 13%, transparent);
-  background: transparent;
-}
+.car-side.collapsed .car-side-btn svg { display: none; }
 
-.car-side.collapsed .car-side-btn:hover svg {
-  border-color: var(--series-1);
-  color: var(--series-1);
-  background: color-mix(in srgb, var(--series-1) 12%, transparent);
-}
-
-.car-side-l.collapsed .car-side-btn:hover svg { transform: translateX(2px); }
-.car-side-r.collapsed .car-side-btn:hover svg { transform: rotate(180deg) translateX(2px); }
-
-/* 箭头指向:收起时指向中央(展开),展开时指向外侧(收起) */
+/* 箭头指向(展开态):指向外侧(点击收起) */
 .car-side-l:not(.collapsed) .car-side-btn svg { transform: rotate(180deg); }
 .car-side-r .car-side-btn svg { transform: rotate(180deg); }
 .car-side-r:not(.collapsed) .car-side-btn svg { transform: rotate(0deg); }
-
-.car-side-btn .rail-label {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 500;
-  opacity: 0;
-  transition: opacity 0.18s ease;
-}
-
-.car-side-btn .rail-label i {
-  font-style: normal;
-  line-height: 1.6;
-  letter-spacing: 1px;
-}
-
-.car-side.collapsed .car-side-btn .rail-label {
-  opacity: 1;
-  transition-delay: 0.22s;
-}
 
 /* 两侧都收起时:舞台略微加高,车模随之稍变大(手机端限高+微调缩放,见 600px 断点) */
 .car-stage { transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
@@ -2578,7 +2531,7 @@ footer a { color: var(--text-muted); }
   /* 车辆总览:窄屏仍保持左右两条夹车辆的布局,只收窄条宽与间距 */
   .carview { gap: 10px; }
   .car-side { flex-basis: 150px; }
-  .car-side.collapsed { flex-basis: 36px; }
+  .car-side.collapsed { flex-basis: 14px; }
   .car-legend { gap: 8px; }
   .car-stage { height: 440px; }
   .carview.sides-stowed .car-stage { height: 470px; }
@@ -2673,7 +2626,7 @@ footer a { color: var(--text-muted); }
      胎压面板在车图下方一行四格,不再覆盖车身 */
   .carview { gap: 6px; }
   .car-side { flex-basis: 106px; gap: 4px; }
-  .car-side.collapsed { flex-basis: 30px; }
+  .car-side.collapsed { flex-basis: 14px; }
   .car-legend { gap: 7px; }
   .car-stage { height: auto; aspect-ratio: 340 / 470; overflow: hidden; }
   /* 手机端两侧收起:舞台限高 300px、缩放降到 1.18,车模只稍微放大且车头/车尾读数不被裁掉 */
