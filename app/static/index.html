@@ -52,18 +52,13 @@
         <div>
           <h2>车辆总览</h2>
         </div>
-        <div class="card-head-right">
-          <div class="seg mini" id="car-mode-seg" role="group" aria-label="电量/度数/里程切换">
-            <button data-mode="pct" class="on">电量 %</button>
-            <button data-mode="kwh">度数 kWh</button>
-            <button data-mode="km">里程 km</button>
-          </div>
-        </div>
       </div>
       <!-- 卡片顶部:本周期平均能耗条状控件(整卡宽度,不受两侧面板收展影响) -->
       <div class="car-eff" id="car-eff" hidden>
         <div class="car-eff-bar" id="car-eff-bar">
           <i class="car-eff-fill" id="car-eff-fill"></i>
+          <span class="car-eff-end min" id="car-eff-min"></span>
+          <span class="car-eff-end max" id="car-eff-max"></span>
           <span class="car-eff-label">平均能耗</span>
           <i class="car-eff-official" id="car-eff-official"></i>
           <span class="car-eff-official-val" id="car-eff-official-val"></span>
@@ -159,9 +154,9 @@
               <text id="car-odo" class="car-odo-val" x="170" y="91">—</text>
               <!-- 前风挡:当前电量 -->
               <text id="car-batt-val" class="car-batt-val" x="170" y="131">—</text>
-              <!-- 玻璃顶中央:车型徽章(非 Y L 回退文字),下方车内温度 -->
-              <image id="car-badge" x="102" y="239.5" width="136" height="15.3" href="/model-yl-badge.png"/>
-              <text id="car-center-model" class="car-center-model" x="170" y="258" style="display:none">—</text>
+              <!-- 玻璃顶中央:Tesla 图形车标,下方陪伴天数与车内温度 -->
+              <path id="car-logo" class="car-logo" transform="translate(153 231) scale(1.4167)"
+                    d="M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362l-.004.002H12v-.002zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.349c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46v.003z"/>
               <!-- 车型下方空白处:陪伴天数(点击设置提车日期) -->
               <text id="car-companion" class="car-companion" x="170" y="278" role="button" tabindex="0">—</text>
               <text id="car-center-temp" class="car-center-temp" x="170" y="296">—</text>
@@ -177,6 +172,13 @@
               </g>
             </svg>
           </div>
+        </div>
+        <!-- 电量/度数/里程切换:浮在车模底部中央(相对整行定位,展开侧面板时也不被夹),
+             两侧面板收起时一起收起 -->
+        <div class="seg mini" id="car-mode-seg" role="group" aria-label="电量/度数/里程切换">
+          <button data-mode="pct" class="on">电量 %</button>
+          <button data-mode="kwh">度数 kWh</button>
+          <button data-mode="km">里程 km</button>
         </div>
         <div class="car-side car-side-r collapsed" id="car-side-r">
           <button class="car-side-btn" id="car-side-btn-r" type="button"

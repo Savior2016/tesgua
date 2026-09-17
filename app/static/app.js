@@ -1366,7 +1366,7 @@
     bhItem.appendChild(bhTx);
     statCol.appendChild(bhItem);
 
-    /* --- 车身读数:车头总里程 / 前风挡电量横向填充 / 玻璃中央徽章+车内温度 / 后风挡车外温度 --- */
+    /* --- 车身读数:车头总里程 / 前风挡电量横向填充 / 玻璃中央车标+车内温度 / 后风挡车外温度 --- */
     $('#car-odo').textContent = odo === null ? '—' : `${fmtNum(odo, 0)} km`;
     const wr = $('#carfill-batt');
     if (wr) {
@@ -1377,16 +1377,7 @@
       wr.closest('svg').classList.toggle('charging', o.state === 'charging');
     }
     $('#car-batt-val').textContent = usable === null ? '—' : `${fmtNum(usable, 0)}%`;
-    // 车型徽章:Model Y L 显示官方尾标图,其他车型回退字标文字
-    const car0 = o.cars.find((c) => c.id === S.carId) || o.cars[0];
-    const cmi = carModelInfo(car0);
-    const badgeImg = $('#car-badge');
-    if (badgeImg) badgeImg.style.display = cmi.isYL ? '' : 'none';
-    const cm = $('#car-center-model');
-    if (cm) {
-      cm.style.display = cmi.isYL ? 'none' : '';
-      if (!cmi.isYL) cm.textContent = cmi.label.toUpperCase();
-    }
+    // 玻璃顶中央固定 Tesla 图形车标(见 index.html #car-logo),不再随车型切换徽章
     const inT = lat && lat.inside_temp != null ? Number(lat.inside_temp) : null;
     const outT = lat && lat.outside_temp != null ? Number(lat.outside_temp) : null;
     $('#car-center-temp').textContent = inT === null ? '—' : `车内 ${fmtNum(inT, 1)}°`;
@@ -1403,6 +1394,9 @@
         const eff = dKwh * 1000 / dKm;
         const LO = 100, HI = 200;   // 刻度 100..200 Wh/km
         const map = (v) => Math.max(0, Math.min(1, (v - LO) / (HI - LO))) * 100;
+        // 两端刻度数字:量程端点,随 LO/HI 同步
+        $('#car-eff-min').textContent = LO;
+        $('#car-eff-max').textContent = HI;
         // 低于官方绿 / 高 10% 内黄 / 再高红
         const rel = eff / official;
         const c = rel <= 1 ? '#3fae72' : rel <= 1.1 ? '#fab219' : '#d03b3b';
@@ -3155,6 +3149,12 @@
 
     // 俯视图能量环 ⇄ 图例:点击互相定位高亮
     $('.car-svg').addEventListener('click', (e) => {
+      // 两侧收起时,点车体 = 展开两侧面板(陪伴天数文字除外,它有自己的日期弹层)
+      const sideL = $('#car-side-l');
+      if (sideL && sideL.classList.contains('collapsed') && !e.target.closest('#car-companion')) {
+        setCarSides(true);
+        return;
+      }
       const r = e.target.closest('.carring');
       if (!r) { setCarSel(null); return; }
       const k = r.id.replace('carring-', '');

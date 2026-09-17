@@ -385,6 +385,7 @@ button { touch-action: manipulation; }
 .car-mid {
   flex: 1 1 300px;
   min-width: 0;
+  max-width: 1600px;  /* 一个不生效的上限,仅为收起态 max-width 过渡可插值 */
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -429,7 +430,7 @@ button { touch-action: manipulation; }
 
 /* 条太窄时(手机端展开侧面板):只留填充+刻度线+读数,隐藏文字标注防相碰 */
 @container (max-width: 250px) {
-  .car-eff-label, .car-eff-official-val { display: none; }
+  .car-eff-label, .car-eff-official-val, .car-eff-end { display: none; }
 }
 
 .car-eff-bar {
@@ -465,6 +466,19 @@ button { touch-action: manipulation; }
   color: var(--text-muted);
   white-space: nowrap;
 }
+
+/* 刻度范围端点:条内左上/右上角小字(与官方刻度数字同款,数值由 JS 随量程写入) */
+.car-eff-end {
+  position: absolute;
+  z-index: 1;
+  top: 2.5px;
+  font-size: 8.5px;
+  line-height: 1;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.car-eff-end.min { left: 6px; }
+.car-eff-end.max { right: 6px; }
 
 /* 官方能耗:刻度竖线 + 线顶小字 */
 .car-eff-official {
@@ -613,9 +627,11 @@ button { touch-action: manipulation; }
 /* 深色玻璃上的文字固定浅色 */
 .car-batt-val { fill: #fff; font-size: 14px; font-weight: 650; }
 .car-temp-val { fill: var(--series-1); font-size: 11px; font-weight: 600; }
-.car-center-model { fill: #f5f5f3; font-size: 15px; font-weight: 600; letter-spacing: 3.5px; }
 
-/* 非 Y L 车型的字标文字:Tesla 字标风格(全大写 + 宽字距) */
+/* 玻璃顶中央的 Tesla 图形车标(玻璃两种主题下都是深色,固定品牌红) */
+.car-logo { fill: #e82127; }
+
+/* 顶栏非 Y L 车型的字标文字:Tesla 字标风格(全大写 + 宽字距) */
 #car-model-text {
   font-size: 13px;
   font-weight: 600;
@@ -799,15 +815,36 @@ button { touch-action: manipulation; }
 .car-side-r .car-side-btn svg { transform: rotate(180deg); }
 .car-side-r:not(.collapsed) .car-side-btn svg { transform: rotate(0deg); }
 
-/* 两侧都收起时:舞台略微加高,车模随之稍变大(手机端限高+微调缩放,见 600px 断点);
-   同时整体放大 1.1 倍并淡出 HUD 角标——viewBox 顶部固有 52 单位留白,
-   不放大时收起态车头上方空一大截 */
+/* 两侧都收起时:车模放大 1.2 倍并淡出 HUD 角标——viewBox 顶部固有 52 单位留白,
+   不放大时收起态车头上方空一大截;同时车+圆点居中聚合,两侧不再留大片空地 */
 .car-stage { transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
-.carview.sides-stowed .car-stage { height: 540px; }
+
+/* 电量/度数/里程切换:浮在车模底部中央(相对 carview 整行定位,手机端展开侧面板
+   舞台被夹窄时也不会被裁),两侧面板收起时一起淡出(点击车体即展开) */
+.carview { position: relative; }
+#car-mode-seg {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  z-index: 2;
+  white-space: nowrap;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.carview.sides-stowed #car-mode-seg {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.car-mid { transition: max-width 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.carview.sides-stowed { justify-content: center; }
+.carview.sides-stowed .car-mid { max-width: 560px; }
+.carview.sides-stowed .car-svg { cursor: pointer; }  /* 点车体可展开两侧 */
 
 #car-zoom { transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
 .carview.sides-stowed #car-zoom {
-  transform: scale(1.1);
+  transform: scale(1.2);
   transform-origin: 170px 236px;
   transform-box: view-box;
 }
@@ -2550,7 +2587,6 @@ footer a { color: var(--text-muted); }
   .car-side.collapsed { flex-basis: 14px; }
   .car-legend { gap: 8px; }
   .car-stage { height: 440px; }
-  .carview.sides-stowed .car-stage { height: 470px; }
   /* 事件列表:窄屏改为 时间列 + 数值格 2×2(自带小标签),详情独占一行 */
   .ev-head { display: none; }
   .ev-row {
@@ -2640,11 +2676,13 @@ footer a { color: var(--text-muted); }
   /* 车辆总览:手机端仍两列夹车辆;舞台按车图比例伸缩;
      车图内容整体放大 1.32 倍(裁掉 HUD 角标与四周留白),让车在框内占比更大;
      胎压面板在车图下方一行四格,不再覆盖车身 */
-  .carview { gap: 6px; }
+  .carview { gap: 6px; transition: padding-bottom 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
   .car-side { flex-basis: 106px; gap: 4px; }
   .car-side.collapsed { flex-basis: 14px; }
   .car-legend { gap: 7px; }
   .car-stage { height: auto; aspect-ratio: 340 / 470; overflow: hidden; }
+  /* 手机端展开侧面板:底部留出一行空间放 电量/度数/里程 切换条,避免盖住面板下缘 */
+  .carview:not(.sides-stowed) { padding-bottom: 40px; }
   /* 手机端两侧收起:舞台限高 300px、缩放降到 1.18,车模只稍微放大且车头/车尾读数不被裁掉 */
   .carview.sides-stowed .car-stage { height: 300px; aspect-ratio: auto; }
   .carview.sides-stowed #car-zoom { transform: scale(1.18); }
