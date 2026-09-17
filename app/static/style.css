@@ -727,6 +727,11 @@ button { touch-action: manipulation; }
 
 .car-side.collapsed .car-legend {
   flex: 0 0 0;
+  /* 高度也归零:宽度 0 时面板文字逐字换行,固有内容高度可达数千 px,
+     而 carview 自动高度下侧边栏的 79.5% 按内容高度参与计算,会把整个
+     容器撑高,在车模上下留出大片空白。归零后容器只由车模高度决定 */
+  height: 0;
+  min-height: 0;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
