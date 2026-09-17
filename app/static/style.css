@@ -794,9 +794,20 @@ button { touch-action: manipulation; }
 .car-side-r .car-side-btn svg { transform: rotate(180deg); }
 .car-side-r:not(.collapsed) .car-side-btn svg { transform: rotate(0deg); }
 
-/* 两侧都收起时:舞台略微加高,车模随之稍变大(手机端限高+微调缩放,见 600px 断点) */
+/* 两侧都收起时:舞台略微加高,车模随之稍变大(手机端限高+微调缩放,见 600px 断点);
+   同时整体放大 1.1 倍并淡出 HUD 角标——viewBox 顶部固有 52 单位留白,
+   不放大时收起态车头上方空一大截 */
 .car-stage { transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
 .carview.sides-stowed .car-stage { height: 540px; }
+
+#car-zoom { transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.carview.sides-stowed #car-zoom {
+  transform: scale(1.1);
+  transform-origin: 170px 236px;
+  transform-box: view-box;
+}
+.car-hud { transition: opacity 0.3s ease; }
+.carview.sides-stowed .car-hud { opacity: 0; }
 
 .cl-item {
   display: flex;
