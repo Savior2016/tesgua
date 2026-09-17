@@ -1414,7 +1414,7 @@
         $('#car-eff-official').style.left = map(official).toFixed(1) + '%';
         const offVal = $('#car-eff-official-val');
         offVal.style.left = map(official).toFixed(1) + '%';
-        offVal.textContent = `官方 ${fmtNum(official, 0)}`;
+        offVal.textContent = fmtNum(official, 0);
         $('#car-eff-val').textContent = `${fmtNum(eff, 0)} Wh/km`;
         effG.hidden = false;
       } else {

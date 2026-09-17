@@ -484,7 +484,7 @@ button { touch-action: manipulation; }
   position: absolute;
   z-index: 1;
   top: 2.5px;
-  transform: translateX(calc(-100% - 5px));  /* 小字贴刻度线左侧,避免与右侧读数相碰 */
+  transform: translateX(-50%);  /* 只标数字,居中于刻度线 */
   font-size: 8.5px;
   line-height: 1;
   color: var(--text-muted);
@@ -752,25 +752,37 @@ button { touch-action: manipulation; }
               box-shadow 0.2s ease;
 }
 
+/* 收起态:隐藏式渐变——从卡片外缘向内渐隐,无描边无投影,不抢眼;
+   悬停时才浮现主题蓝渐变与箭头高亮 */
 .car-side.collapsed .car-side-btn {
   flex: 1 1 auto;
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--text-primary) 7%, transparent),
-    color-mix(in srgb, var(--text-primary) 3%, transparent));
-  border-color: color-mix(in srgb, var(--text-primary) 14%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 9%, transparent),
-    0 6px 16px rgba(0, 0, 0, 0.10);
-  color: var(--text-secondary);
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--text-primary) 5%, transparent),
+    transparent 75%);
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+
+.car-side-r.collapsed .car-side-btn {
+  background: linear-gradient(-90deg,
+    color-mix(in srgb, var(--text-primary) 5%, transparent),
+    transparent 75%);
 }
 
 .car-side.collapsed .car-side-btn:hover {
-  border-color: color-mix(in srgb, var(--series-1) 55%, transparent);
+  border-color: transparent;
   color: var(--text-primary);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--text-primary) 10%, transparent),
-    0 6px 18px rgba(0, 0, 0, 0.14),
-    0 0 0 3px color-mix(in srgb, var(--series-1) 10%, transparent);
+  box-shadow: none;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--series-1) 13%, transparent),
+    transparent 75%);
+}
+
+.car-side-r.collapsed .car-side-btn:hover {
+  background: linear-gradient(-90deg,
+    color-mix(in srgb, var(--series-1) 13%, transparent),
+    transparent 75%);
 }
 
 /* 展开态(细条)悬停也要可见反馈 */
@@ -785,13 +797,13 @@ button { touch-action: manipulation; }
               border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 
-/* 收起时箭头装进小圆钮,悬停染上主题蓝并往中央轻推 */
+/* 收起时箭头装进淡淡的小圆钮,悬停染上主题蓝并往中央轻推 */
 .car-side.collapsed .car-side-btn svg {
   width: 11px;
   height: 11px;
   padding: 4px;
-  border: 1px solid var(--border);
-  background: var(--surface-1);
+  border: 1px solid color-mix(in srgb, var(--text-primary) 13%, transparent);
+  background: transparent;
 }
 
 .car-side.collapsed .car-side-btn:hover svg {
@@ -895,12 +907,13 @@ button { touch-action: manipulation; }
 }
 
 /* 充电周期横条:横向滑动点选每次充电 */
+/* 充电周期横滑选择条(卡片底部) */
 .cycle-strip {
   display: flex;
   gap: 8px;
   overflow-x: auto;
-  padding: 2px 2px 10px;
-  margin: 2px 0 8px;
+  padding: 8px 2px 2px;
+  margin: 10px 0 0;
   scroll-snap-type: x proximity;
   scrollbar-width: thin;
 }
