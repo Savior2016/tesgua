@@ -9,7 +9,15 @@ An all-in-one self-hosted solution for Tesla vehicle data: **TeslaMate** (data c
 
 The dashboard reads TeslaMate's PostgreSQL database directly: FastAPI + psycopg3 backend, ECharts + Leaflet frontend, read-only.
 
-**Live demo**: once deployed, open `/demo.html` for a mock-data demo page (no login required) showcasing the Liquid Glass UI and page-switch animations.
+## UI demo
+
+Once deployed, open `/demo.html` for a **mock-data demo page** (no login required) showcasing the Liquid Glass UI and page-switch animations — the bottom tab bar supports both tapping and horizontal drag-to-select:
+
+![Page-switch animation](docs/screenshots/demo-switch.gif)
+
+![Overview page](docs/screenshots/demo-overview.png)
+
+![Control page](docs/screenshots/demo-control.png)
 
 ## Features
 

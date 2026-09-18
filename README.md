@@ -9,7 +9,15 @@
 
 面板基于 TeslaMate 数据库构建:FastAPI + psycopg3 后端,ECharts + Leaflet 前端,只读访问 PostgreSQL。
 
-**在线演示**:部署后访问 `/demo.html` 可打开虚拟数据演示页(无需登录),预览液态玻璃界面与分页切换动效。
+## 界面演示
+
+部署后访问 `/demo.html` 可打开**虚拟数据演示页**(无需登录),交互体验液态玻璃界面与分页切换动效(底部 Tab 栏支持点按与横向滑动选页):
+
+![分页切换动效](docs/screenshots/demo-switch.gif)
+
+![总览页](docs/screenshots/demo-overview.png)
+
+![控制页](docs/screenshots/demo-control.png)
 
 ## 功能
 
