@@ -1205,6 +1205,32 @@ button { touch-action: manipulation; }
 
 .day-group.open .day-donut { display: none; }
 
+/* 行程页:当日轨迹地图铺满日组整行作为背景;蒙板在最右侧留一条清晰带
+   (避开右端箭头区),向左与上下渐隐;快照时轨迹被缩放进该清晰带(见 app.js)。
+   背景用 100% 100% 填满,保证任何屏宽下轨迹与蒙板清晰带严格对齐 */
+#routes-list .day-head { position: relative; }
+
+#routes-list .rt-day-thumb {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-size: 100% 100%;
+  opacity: 0.7;
+  -webkit-mask-image:
+    linear-gradient(to left, transparent 2%, #000 12%, #000 40%, transparent 58%),
+    linear-gradient(to bottom, transparent 0%, #000 26%, #000 74%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to left, transparent 2%, #000 12%, #000 40%, transparent 58%),
+    linear-gradient(to bottom, transparent 0%, #000 26%, #000 74%, transparent 100%);
+  mask-composite: intersect;
+}
+
+#routes-list .day-head > :not(.rt-day-thumb) { position: relative; z-index: 1; }
+
+/* 浅色主题底图接近行底色,提高整体不透明度保证可见 */
+:root[data-theme="light"] #routes-list .rt-day-thumb { opacity: 0.9; }
+
 /* 可折叠卡片(充电详情/停车费):头部整行可点,默认折叠;
    子项垂直居中,缩略统计与箭头在同一水平线上 */
 .card.collapsible > .card-head { cursor: pointer; align-items: center; }

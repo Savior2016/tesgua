@@ -2744,6 +2744,184 @@
     box.className = 'rt-map';  // 复位容器,便于「已销毁」断言与再次初始化
   }
 
+  /* 行程页:每个日组头部右侧的当日轨迹缩略图。
+     不能每天一个 MapLibre 实例(WebGL 上下文上限),改用一个屏外隐藏实例
+     (preserveDrawingBuffer)逐日快照成 PNG,设为元素的 background-image。
+     缩略图懒生成:滚动到视口附近才入队,串行处理;按 主题+轨迹id 缓存,
+     60s 列表重渲染后直接复用 */
+  const dayThumbCache = new Map();    // key → dataURL
+  const dayThumbPending = new Map();  // key → [{ box, rs }] 等待本次快照完成的元素
+  const dayThumbQueue = [];
+  let thumbMap = null, thumbMapPromise = null, thumbSnapping = false;
+  let dayThumbObserver = null;
+  let lastThumbDim = '';
+
+  function applyDayThumb(box, url) {
+    // 列表渲染期间组元素尚未挂载,isConnected 为 false;inline 样式挂上后依然生效,直接设
+    box.style.backgroundImage = `url("${url}")`;
+  }
+
+  /* 快照画布跟随日期行的实际渲染尺寸:背景图等比无变形,且与蒙板清晰带逐像素对齐。
+     列表渲染期间元素未挂载,需在挂载后(observer 触发/出队)才能测量 */
+  function thumbRowSize() {
+    const head = document.querySelector('#routes-list .day-head');
+    const w0 = head ? head.clientWidth : 0, h0 = head ? head.clientHeight : 0;
+    const w = Math.max(280, Math.round((w0 || 1040) / 20) * 20);  // 20px 一档,细微变化不触发重生成
+    const h = Math.max(36, Math.round((h0 || 60) / 4) * 4);
+    return { w, h, dim: `${w}x${h}` };
+  }
+
+  function requestDayThumb(box, rs) {
+    if (!box.isConnected) return;
+    const { dim } = thumbRowSize();
+    lastThumbDim = dim;
+    const key = `${S.theme}:${dim}:${rs.map((r) => r.id).join(',')}`;  // 主题/尺寸/轨迹任一变化都重生成
+    if (dayThumbCache.has(key)) { applyDayThumb(box, dayThumbCache.get(key)); return; }
+    enqueueDayThumb(key, rs, box);
+  }
+
+  function observeDayThumb(box, rs) {
+    if (!('IntersectionObserver' in window)) { requestDayThumb(box, rs); return; }
+    if (!dayThumbObserver) {
+      dayThumbObserver = new IntersectionObserver((entries) => {
+        entries.forEach((en) => {
+          if (!en.isIntersecting) return;
+          const t = en.target;
+          dayThumbObserver.unobserve(t);
+          if (t.__thumbRs) requestDayThumb(t, t.__thumbRs);  // 此刻元素已挂载,可测量行尺寸
+        });
+      }, { rootMargin: '300px' });  // 提前一屏生成,滚到即见
+    }
+    box.__thumbRs = rs;
+    dayThumbObserver.observe(box);
+  }
+
+  /* 窗口尺寸变化:行宽档位变了才重新生成(缓存 key 含尺寸,旧条目自然淘汰) */
+  function checkThumbResize() {
+    if (!document.querySelector('#routes-list .rt-day-thumb')) return;
+    const { dim } = thumbRowSize();
+    if (!lastThumbDim || dim === lastThumbDim) { lastThumbDim = dim || lastThumbDim; return; }
+    lastThumbDim = dim;
+    document.querySelectorAll('#routes-list .rt-day-thumb').forEach((t) => {
+      if (t.__thumbRs) requestDayThumb(t, t.__thumbRs);
+    });
+  }
+
+  function enqueueDayThumb(key, rs, box) {
+    if (dayThumbCache.has(key)) { applyDayThumb(box, dayThumbCache.get(key)); return; }
+    if (!dayThumbPending.has(key)) {
+      dayThumbPending.set(key, []);
+      dayThumbQueue.push(key);
+    }
+    dayThumbPending.get(key).push({ box, rs });
+    pumpDayThumbs();  // 注意必须在 waiter 入列后调用:pump 同步段会 shift + delete
+  }
+
+  async function pumpDayThumbs() {
+    if (thumbSnapping) return;
+    thumbSnapping = true;
+    while (dayThumbQueue.length) {
+      const key = dayThumbQueue.shift();
+      const waiters = (dayThumbPending.get(key) || []).filter((w) => w.box.isConnected);
+      dayThumbPending.delete(key);
+      if (!waiters.length) continue;  // 列表已重渲染,旧元素被丢弃
+      try {
+        const url = await snapDayThumb(waiters[0].rs);
+        if (url) {
+          if (dayThumbCache.size > 240) dayThumbCache.clear();  // 换时间范围后防无限增长
+          dayThumbCache.set(key, url);
+          waiters.forEach((w) => applyDayThumb(w.box, url));
+        }
+      } catch (e) { console.warn('[day-thumb] snapshot failed:', e); /* 快照失败留空,不影响列表 */ }
+    }
+    thumbSnapping = false;
+  }
+
+  function ensureThumbMap() {
+    if (thumbMap) return Promise.resolve(thumbMap);
+    if (thumbMapPromise) return thumbMapPromise;
+    thumbMapPromise = (async () => {
+      const style = await loadMapStyle(S.theme === 'dark' ? 'dark' : 'light');
+      const holder = el('div');
+      const initSize = thumbRowSize();
+      holder.style.cssText = `position:fixed;left:-10000px;top:0;width:${initSize.w}px;height:${initSize.h}px;pointer-events:none;`;
+      holder.__tw = initSize.w; holder.__th = initSize.h;
+      document.body.appendChild(holder);
+      const m = new maplibregl.Map({
+        container: holder,
+        style,
+        interactive: false,            // 纯截图,不响应任何交互
+        attributionControl: false,
+        preserveDrawingBuffer: true,   // toDataURL 必需
+        fadeDuration: 0,               // 关掉标注淡入,快照即刻完整
+      });
+      // 底图切片失败也会触发 error 事件,不能拿它当初始化失败;load 在样式就绪后即触发
+      await new Promise((res) => {
+        const t = setTimeout(res, 10000);
+        m.once('load', () => { clearTimeout(t); res(); });
+      });
+      thumbMap = m;
+      thumbMap.__theme = S.theme === 'dark' ? 'dark' : 'light';
+      return m;
+    })().catch((e) => { thumbMapPromise = null; throw e; });
+    return thumbMapPromise;
+  }
+
+  function addThumbLayers(m) {
+    m.addSource('thumb', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+    m.addLayer({
+      id: 'thumb-line', type: 'line', source: 'thumb',
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': cssVar('--series-1'), 'line-width': 2.5, 'line-opacity': 1 },
+    });
+  }
+
+  async function snapDayThumb(rs) {
+    const m = await ensureThumbMap();
+    const themeName = S.theme === 'dark' ? 'dark' : 'light';
+    if (m.__theme !== themeName) {  // 主题切换后 setStyle 会清空自定义源/图层,需重建
+      const style = await loadMapStyle(themeName);
+      m.setStyle(style);
+      // 底图资源(切片/sprite)失败时 style.load 可能不触发,超时兜底防队列卡死
+      await new Promise((res) => {
+        const t = setTimeout(res, 5000);
+        m.once('style.load', () => { clearTimeout(t); res(); });
+      });
+      m.__theme = themeName;
+    }
+    if (!m.getSource('thumb')) addThumbLayers(m);
+    // 画布尺寸跟随当前行尺寸(窗口 resize 后重新生成时会变化)
+    const { w, h } = thumbRowSize();
+    const holder = m.getContainer();
+    if (holder.__tw !== w || holder.__th !== h) {
+      holder.style.width = w + 'px'; holder.style.height = h + 'px';
+      holder.__tw = w; holder.__th = h;
+      m.resize();
+    }
+    const fc = { type: 'FeatureCollection', features: [] };
+    let b = null;
+    rs.forEach((r) => {
+      const pts = (r.points || []).filter((p) => p.length >= 2).map((p) => [p[1], p[0]]);
+      if (pts.length < 2) return;
+      fc.features.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: pts } });
+      pts.forEach((c) => { b = b ? b.extend(c) : new maplibregl.LngLatBounds(c, c); });
+    });
+    if (!fc.features.length) return null;
+    m.getSource('thumb').setData(fc);
+    // 把当日全部轨迹等比缩放进蒙板的清晰带:画布 60%–88% 宽、26%–74% 高的矩形
+    // (对应 CSS mask 的 opaque 区);背景 100% 100% 填满整行,二者逐像素对齐
+    m.fitBounds(b, { padding: {
+      left: Math.round(w * 0.60), right: Math.round(w * 0.12),
+      top: Math.round(h * 0.26), bottom: Math.round(h * 0.26),
+    }, animate: false });
+    // idle = 所有源加载并渲染完毕;兜底超时防止极端情况下队列卡死
+    await new Promise((res) => {
+      const t = setTimeout(res, 6000);
+      m.once('idle', () => { clearTimeout(t); res(); });
+    });
+    return m.getCanvas().toDataURL('image/png');
+  }
+
   /* 行程详情:海拔高度图(x = 累计里程 km,y = 海拔 m,平滑曲线 + 渐变填充) */
   function renderRouteElev(r, box) {
     if (routeElev[r.id]) { routeElev[r.id].resize(); return; }
@@ -2858,6 +3036,11 @@
       const km = rs.reduce((s, r) => s + Number(r.distance || 0), 0);
       sum.appendChild(el('span', 'chip', `${rs.length} 条轨迹 · ${fmtNum(km, 1)} km`));
       head.appendChild(sum);
+      if (rs.some((r) => (r.points || []).length >= 2)) {  // 右侧:当日全部轨迹的地图缩略图
+        const thumb = el('span', 'rt-day-thumb');
+        observeDayThumb(thumb, rs);
+        head.appendChild(thumb);
+      }
       head.appendChild(el('span', 'chev', '▾'));
       head.addEventListener('click', () => grp.classList.toggle('open'));
       grp.appendChild(head);
@@ -3264,17 +3447,11 @@
       $('#events-toggle-btn').textContent = anyClosed ? '全部收起' : '全部展开';
     });
 
-    $('#routes-toggle-btn').addEventListener('click', () => {
-      const groups = document.querySelectorAll('#routes-list .day-group');
-      const anyClosed = Array.from(groups).some((g) => !g.classList.contains('open'));
-      groups.forEach((g) => g.classList.toggle('open', anyClosed));
-      $('#routes-toggle-btn').textContent = anyClosed ? '全部收起' : '全部展开';
-    });
-
     window.addEventListener('resize', () => {
       Object.values(charts).forEach((c) => c && c.resize());
       Object.values(routeElev).forEach((c) => c && c.resize());
       Object.values(routeMaps).forEach((m) => m && m.resize());
+      checkThumbResize();
       if (map) map.resize();
       renderCar();  // 引线与标注按舞台实际尺寸定位,需随布局重算
       placeTabBubble();  // 气泡宽度随 Tab 布局变化
