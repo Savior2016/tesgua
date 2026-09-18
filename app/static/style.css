@@ -740,7 +740,7 @@ button { touch-action: manipulation; }
               opacity 0.16s ease, visibility 0.16s ease;
 }
 
-/* 收起/展开把手:收起时为一条细竖条+指向内侧的箭头(居中于车身腰线),展开时为外侧细条(仅箭头) */
+/* 收起/展开把手:收起时只剩一个小圆点(居中于车身腰线),展开时为外侧细条(仅箭头) */
 .car-side-btn {
   flex: 0 0 16px;
   align-self: stretch;
@@ -748,7 +748,6 @@ button { touch-action: manipulation; }
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
   padding: 0;
   border: none;
   border-radius: 9px;
@@ -765,20 +764,17 @@ button { touch-action: manipulation; }
 /* 展开态(细条)悬停可见反馈 */
 .car-side-btn:hover { color: var(--text-primary); }
 
-/* 收起态的细竖条:淡淡一条,悬停加深 */
-.rail-line {
+/* 收起态的小圆点:固定淡色,悬停不变色、无发光(用户明确要求) */
+.rail-dot {
   display: none;
-  width: 3px;
-  height: 44px;
-  border-radius: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   background: var(--text-muted);
-  opacity: 0.28;
-  transition: opacity 0.2s ease;
+  opacity: 0.45;
 }
 
-.car-side.collapsed .rail-line { display: block; }
-
-.car-side.collapsed .car-side-btn:hover .rail-line { opacity: 0.6; }
+.car-side.collapsed .rail-dot { display: block; }
 
 .car-side-btn svg {
   width: 12px;
@@ -788,7 +784,9 @@ button { touch-action: manipulation; }
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
 }
 
-/* 箭头指向:展开态指向外侧(点击收起),收起态指向内侧(点击展开) */
+.car-side.collapsed .car-side-btn svg { display: none; }
+
+/* 箭头指向(展开态):指向外侧(点击收起) */
 .car-side-l:not(.collapsed) .car-side-btn svg { transform: rotate(180deg); }
 .car-side-r .car-side-btn svg { transform: rotate(180deg); }
 .car-side-r:not(.collapsed) .car-side-btn svg { transform: rotate(0deg); }
