@@ -13,11 +13,35 @@ The dashboard reads TeslaMate's PostgreSQL database directly: FastAPI + psycopg3
 
 **Live demo (mock data, no login)**: <https://savior2016.github.io/teslamate-visualizer/> — a GitHub Pages demo showcasing the Liquid Glass UI and page-switch animations (the bottom tab bar supports both tapping and horizontal drag-to-select). Self-hosted deployments serve the same demo at `/demo.html`:
 
-![Page-switch animation](docs/screenshots/demo-switch.gif)
+<table>
+  <tr>
+    <td><img src="docs/screenshots/demo-switch.gif" alt="Desktop: page transitions"></td>
+    <td><img src="docs/screenshots/demo-mobile.gif" alt="Mobile: drag-to-select tabs"></td>
+  </tr>
+  <tr>
+    <td align="center">Desktop · page transitions</td>
+    <td align="center">Mobile · drag-to-select (bubble follows finger, snaps on release)</td>
+  </tr>
+</table>
 
 ![Overview page](docs/screenshots/demo-overview.png)
 
 ![Control page](docs/screenshots/demo-control.png)
+
+## What the official Tesla app doesn't give you
+
+The official app is about *controlling* the car; TESLA Home is about *understanding* it:
+
+- **Sentry Mode drain metering**: the app only has an on/off switch — the panel infers sentry sessions and totals their energy and cost per day
+- **Battery health**: self-calibrated full-pack capacity estimates from charge history, current vs. all-time baseline
+- **Home-charging TOU pricing**: per-location peak/valley rates with exact time-split billing; per-session price, per-km cost, and charger loss
+- **Parked drain breakdown**: sentry vs. parked climate vs. sleep drain, answering "how much did it lose overnight, and why"
+- **Charge reminder**: predicts how many days the battery lasts from commute patterns + parked drain, and where to charge
+- **Drive elevation profiles**: per-trip elevation chart — see how climbs and descents move your consumption
+- **Efficiency benchmarking**: live Wh/km against the official rated figure on the same scale
+- **TPMS & temperature history**: the app shows only current tire pressure; the panel keeps full history of all four tires plus cabin/outside temperature
+- **Activity timeline**: dual-lane replay of driving / charging / sentry / parked, every event with energy and cost
+- **Your data stays yours**: everything lives in a local PostgreSQL with one-click full backup/migration — no vendor cloud involved
 
 ## Features
 
