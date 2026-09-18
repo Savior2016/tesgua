@@ -3431,13 +3431,6 @@
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); hcToggle(); }
     });
 
-    $('#events-toggle-btn').addEventListener('click', () => {
-      const groups = document.querySelectorAll('#events-list .day-group');
-      const anyClosed = Array.from(groups).some((g) => !g.classList.contains('open'));
-      groups.forEach((g) => g.classList.toggle('open', anyClosed));
-      $('#events-toggle-btn').textContent = anyClosed ? '全部收起' : '全部展开';
-    });
-
     window.addEventListener('resize', () => {
       Object.values(charts).forEach((c) => c && c.resize());
       Object.values(routeElev).forEach((c) => c && c.resize());
