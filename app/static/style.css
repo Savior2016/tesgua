@@ -37,6 +37,17 @@
   --cat-climate: #008300;
   --cat-idle: #4a3aa7;
   --success: #006300;
+  /* ===== iOS 27 液态玻璃材质令牌 =====
+     玻璃卡片 = 半透底 + 背景模糊/饱和 + 发丝描边 + 顶部镜面高光 + 暗化底缘(可读性) */
+  --glass-card: color-mix(in srgb, var(--surface-1) 68%, transparent);
+  --glass-hi: rgba(255, 255, 255, 0.9);
+  --glass-edge: rgba(11, 11, 11, 0.12);
+  --glass-edge-dark: rgba(11, 11, 11, 0.09);
+  --glass-shadow: 0 14px 38px rgba(23, 32, 44, 0.12);
+  /* 环境色晕:让玻璃有内容可折射(相当于 iOS 壁纸) */
+  --glow-1: color-mix(in srgb, var(--series-1) 21%, transparent);
+  --glow-2: color-mix(in srgb, var(--cat-sentry) 15%, transparent);
+  --glow-3: color-mix(in srgb, var(--series-3) 17%, transparent);
 }
 
 /* ===== 主题令牌:dark(默认)===== */
@@ -67,6 +78,15 @@
   --cat-climate: #008300;
   --cat-idle: #9085e9;
   --success: #0ca30c;
+  /* 暗色玻璃:更通透、高光更克制、底缘更暗(iOS 27 暗化边缘提可读性) */
+  --glass-card: color-mix(in srgb, var(--surface-1) 56%, transparent);
+  --glass-hi: rgba(255, 255, 255, 0.15);
+  --glass-edge: rgba(255, 255, 255, 0.13);
+  --glass-edge-dark: rgba(0, 0, 0, 0.4);
+  --glass-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+  --glow-1: color-mix(in srgb, var(--series-1) 34%, transparent);
+  --glow-2: color-mix(in srgb, var(--cat-sentry) 21%, transparent);
+  --glow-3: color-mix(in srgb, var(--series-3) 23%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -97,6 +117,15 @@
     --cat-climate: #008300;
     --cat-idle: #9085e9;
     --success: #0ca30c;
+    /* 暗色玻璃令牌(同 :root[data-theme="dark"]) */
+    --glass-card: color-mix(in srgb, var(--surface-1) 56%, transparent);
+    --glass-hi: rgba(255, 255, 255, 0.15);
+    --glass-edge: rgba(255, 255, 255, 0.13);
+    --glass-edge-dark: rgba(0, 0, 0, 0.4);
+    --glass-shadow: 0 16px 44px rgba(0, 0, 0, 0.5);
+    --glow-1: color-mix(in srgb, var(--series-1) 34%, transparent);
+    --glow-2: color-mix(in srgb, var(--cat-sentry) 21%, transparent);
+    --glow-3: color-mix(in srgb, var(--series-3) 23%, transparent);
   }
 }
 
@@ -119,6 +148,20 @@ html, body {
   max-width: 1320px;
   margin: 0 auto;
   padding: 24px 20px 108px; /* 底部留白:避开浮动分页导航栏 */
+}
+
+/* 环境光背景:固定的柔和色晕,让液态玻璃有内容可折射(相当于 iOS 壁纸);
+   颜色取调色板蓝/品红/青,双主题下都保持很低的存在感,不干扰数据阅读 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 42% at 12% -4%, var(--glow-1), transparent 70%),
+    radial-gradient(48% 40% at 88% 6%, var(--glow-2), transparent 72%),
+    radial-gradient(70% 55% at 50% 108%, var(--glow-3), transparent 75%);
 }
 
 /* ===== 顶栏:sticky,下滑收缩成紧凑徽章栏并钉在顶部,回顶展开 ===== */
@@ -217,9 +260,10 @@ header.mini .header-main .model-icon { height: 44px; }
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-edge);
   color: var(--text-primary);
-  background: var(--surface-1);
+  background: color-mix(in srgb, var(--surface-1) 62%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-hi);
   cursor: pointer;
   user-select: none;
   touch-action: manipulation;
@@ -357,14 +401,15 @@ header.mini #sw-version, header.mini .header-meta { max-height: 0; max-width: 0;
 .badge[data-state="online"]   .dot { background: var(--series-2); }
 
 .icon-btn {
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  border: 1px solid var(--glass-edge);
   color: var(--text-secondary);
   border-radius: 8px;
   padding: 5px 12px;
   font-size: 13px;
   cursor: pointer;
   font-family: inherit;
+  box-shadow: inset 0 1px 0 var(--glass-hi);
 }
 
 .icon-btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
@@ -443,8 +488,8 @@ button { touch-action: manipulation; }
   padding: 0 13px;
   box-sizing: border-box;
   border-radius: 10px;
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface-1) 52%, transparent);
+  border: 1px solid var(--glass-edge);
   overflow: hidden;
   --eff-c: var(--series-1);
 }
@@ -653,9 +698,13 @@ button { touch-action: manipulation; }
   width: min(300px, calc(100vw - 48px));
   padding: 20px;
   border-radius: 16px;
-  background: var(--surface-1);
-  border: 1px solid var(--tile-track, rgba(255, 255, 255, 0.12));
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  background: color-mix(in srgb, var(--surface-1) 74%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.7);
+  backdrop-filter: blur(24px) saturate(1.7);
+  border: 1px solid var(--glass-edge);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -1023,12 +1072,29 @@ button { touch-action: manipulation; }
   gap: 12px;
 }
 
+/* 卡片 = iOS 27 液态玻璃材质:半透底 + 背景模糊/饱和提升 + 发丝描边
+   + 顶部镜面高光(更亮)+ 暗化底缘(更实,压住复杂背景保证可读)+ 悬浮投影 */
 .card {
-  background: var(--surface-1);
-  border: 1px solid var(--border);
+  background: var(--glass-card);
+  border: 1px solid var(--glass-edge);
   border-radius: 14px;
   padding: 16px 18px;
   min-width: 0;
+  box-shadow: var(--glass-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+}
+
+/* 支持背景模糊的浏览器才启用磨砂;不支持的退回近实色底,保证可读 */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card {
+    -webkit-backdrop-filter: blur(20px) saturate(1.7);
+    backdrop-filter: blur(20px) saturate(1.7);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card { background: color-mix(in srgb, var(--surface-1) 94%, transparent); }
 }
 
 .card h2 {
@@ -1116,13 +1182,14 @@ button { touch-action: manipulation; }
 }
 
 .mini-stat {
-  background: var(--page);
-  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--page) 48%, transparent);
+  border: 1px solid var(--glass-edge);
   border-radius: 10px;
   padding: 6px 12px;
   font-size: 12px;
   color: var(--text-secondary);
   white-space: nowrap;
+  box-shadow: inset 0 1px 0 var(--glass-hi);
 }
 
 .mini-stat b { color: var(--text-primary); font-weight: 600; }
@@ -2201,8 +2268,8 @@ footer a { color: var(--text-muted); }
 .page { display: none; }
 .page.active { display: block; }
 
-/* 底部居中浮动 Tab 栏(iOS 26 液态玻璃风格):
-   高通透 + 强模糊/饱和度/亮度提升 + 顶部边缘高光 + 斜向镜面扫光 + 选中气泡滑动回弹 */
+/* 底部居中浮动 Tab 栏(iOS 27 液态玻璃):
+   高通透 + 强模糊/饱和度/亮度提升 + 顶部更亮的镜面高光 + 暗化底缘(可读性)+ 斜向扫光 + 选中气泡滑动回弹 */
 .tabbar {
   position: fixed;
   left: 50%;
@@ -2215,12 +2282,12 @@ footer a { color: var(--text-muted); }
   border-radius: 999px;
   overflow: hidden;
   background: color-mix(in srgb, var(--surface-1) 40%, transparent);
-  -webkit-backdrop-filter: blur(24px) saturate(200%) brightness(1.1);
-  backdrop-filter: blur(24px) saturate(200%) brightness(1.1);
+  -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(1.1);
+  backdrop-filter: blur(28px) saturate(220%) brightness(1.1);
   border: 0.5px solid color-mix(in srgb, var(--text-primary) 16%, transparent);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.38),
-              inset 0 1px 1px rgba(255, 255, 255, 0.30),
-              inset 0 -1px 1px rgba(0, 0, 0, 0.18);
+              inset 0 1.5px 1px rgba(255, 255, 255, 0.42),
+              inset 0 -1.5px 2px rgba(0, 0, 0, 0.3);
 }
 /* 斜向镜面扫光(液态玻璃的反射高光) */
 .tabbar::before {
@@ -2234,8 +2301,8 @@ footer a { color: var(--text-muted); }
 :root[data-theme="light"] .tabbar {
   background: color-mix(in srgb, var(--surface-1) 52%, transparent);
   box-shadow: 0 16px 44px rgba(0, 0, 0, 0.16),
-              inset 0 1px 1px rgba(255, 255, 255, 0.85),
-              inset 0 -1px 1px rgba(0, 0, 0, 0.05);
+              inset 0 1.5px 1px rgba(255, 255, 255, 0.95),
+              inset 0 -1.5px 2px rgba(0, 0, 0, 0.1);
 }
 :root[data-theme="light"] .tabbar::before {
   background: linear-gradient(115deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.12) 28%, transparent 45%);
@@ -2293,9 +2360,9 @@ footer a { color: var(--text-muted); }
   align-items: center;
   padding: 10px 14px;
   margin: 4px 0 14px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--glass-edge);
   border-radius: 12px;
-  background: var(--page);
+  background: color-mix(in srgb, var(--page) 50%, transparent);
   font-size: 13px;
   color: var(--text-secondary);
 }
