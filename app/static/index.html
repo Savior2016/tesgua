@@ -62,7 +62,6 @@
           <span class="car-eff-label">平均能耗</span>
           <i class="car-eff-official" id="car-eff-official"></i>
           <span class="car-eff-official-val" id="car-eff-official-val"></span>
-          <i class="car-eff-dot" id="car-eff-dot"></i>
           <b class="car-eff-val" id="car-eff-val">—</b>
         </div>
       </div>
@@ -72,7 +71,7 @@
         <div class="car-side car-side-l collapsed" id="car-side-l">
           <button class="car-side-btn" id="car-side-btn-l" type="button"
                   aria-expanded="false" aria-controls="car-legend-l car-legend-r" title="展开统计 / 能耗面板">
-            <i class="rail-dot" aria-hidden="true"></i>
+            <i class="rail-line" aria-hidden="true"></i>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="car-legend car-legend-l" id="car-legend-l"></div>
@@ -183,7 +182,7 @@
         <div class="car-side car-side-r collapsed" id="car-side-r">
           <button class="car-side-btn" id="car-side-btn-r" type="button"
                   aria-expanded="false" aria-controls="car-legend-l car-legend-r" title="展开统计 / 能耗面板">
-            <i class="rail-dot" aria-hidden="true"></i>
+            <i class="rail-line" aria-hidden="true"></i>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="car-legend car-legend-r" id="car-legend-r"></div>
@@ -596,26 +595,29 @@
   </div>
 
   <footer>
+    <!-- 主题切换 + 服务器资源仪表条:同一行 -->
+    <div class="footer-row">
+      <button class="icon-btn" id="theme-btn" title="切换主题">☀ 浅色</button>
+      <div class="footer-sys">
+        <span class="sys-meters" id="sys-stats">
+          <span class="meter" id="meter-disk" data-level="ok" hidden>
+            <span class="meter-label">硬盘</span>
+            <span class="meter-track"><i id="meter-disk-fill"></i></span>
+            <span class="meter-val" id="meter-disk-val">—</span>
+          </span>
+          <span class="meter" id="meter-mem" data-level="ok" hidden>
+            <span class="meter-label">内存</span>
+            <span class="meter-track"><i id="meter-mem-fill"></i></span>
+            <span class="meter-val" id="meter-mem-val">—</span>
+          </span>
+        </span>
+      </div>
+    </div>
+    <!-- 版权/说明文字:页面最底部,弱化配色融入背景 -->
     <div class="footer-text">
       本面板直接读取 TeslaMate 的 PostgreSQL 数据库(只读查询)。
       时间均为 Asia/Shanghai;能耗按「理想续航差值 × 每理想续航公里电量(由充电历史校准)」估算。
       车辆图片与「MODEL Y L」徽章来自特斯拉官方(tesla.cn 设计工作室渲染图与官方发布的尾标特写)。
-    </div>
-    <button class="icon-btn" id="theme-btn" title="切换主题">☀ 浅色</button>
-    <!-- 服务器资源仪表条(自顶栏移入,页面最底部) -->
-    <div class="footer-sys">
-      <span class="sys-meters" id="sys-stats">
-        <span class="meter" id="meter-disk" data-level="ok" hidden>
-          <span class="meter-label">硬盘</span>
-          <span class="meter-track"><i id="meter-disk-fill"></i></span>
-          <span class="meter-val" id="meter-disk-val">—</span>
-        </span>
-        <span class="meter" id="meter-mem" data-level="ok" hidden>
-          <span class="meter-label">内存</span>
-          <span class="meter-track"><i id="meter-mem-fill"></i></span>
-          <span class="meter-val" id="meter-mem-val">—</span>
-        </span>
-      </span>
     </div>
   </footer>
 </div>

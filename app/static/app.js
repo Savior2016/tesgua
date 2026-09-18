@@ -1407,7 +1407,6 @@
         fill.style.width = map(eff).toFixed(1) + '%';
         fill.style.background = `linear-gradient(90deg, ${c}14, ${c}30)`;
         fill.style.boxShadow = `inset 0 -3px 0 ${c}`;
-        $('#car-eff-dot').style.left = map(eff).toFixed(1) + '%';
         $('#car-eff-official').style.left = map(official).toFixed(1) + '%';
         const offVal = $('#car-eff-official-val');
         offVal.style.left = map(official).toFixed(1) + '%';
