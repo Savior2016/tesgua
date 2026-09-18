@@ -11,7 +11,7 @@
 
 ## 界面演示
 
-部署后访问 `/demo.html` 可打开**虚拟数据演示页**(无需登录),交互体验液态玻璃界面与分页切换动效(底部 Tab 栏支持点按与横向滑动选页):
+**在线演示(虚拟数据,点开即看)**:<https://savior2016.github.io/teslamate-visualizer/> —— GitHub Pages 托管的演示页,可交互体验液态玻璃界面与分页切换动效(底部 Tab 栏支持点按与横向滑动选页)。自行部署后也可访问 `/demo.html` 打开同一演示页:
 
 ![分页切换动效](docs/screenshots/demo-switch.gif)
 

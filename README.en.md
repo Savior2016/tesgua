@@ -11,7 +11,7 @@ The dashboard reads TeslaMate's PostgreSQL database directly: FastAPI + psycopg3
 
 ## UI demo
 
-Once deployed, open `/demo.html` for a **mock-data demo page** (no login required) showcasing the Liquid Glass UI and page-switch animations — the bottom tab bar supports both tapping and horizontal drag-to-select:
+**Live demo (mock data, no login)**: <https://savior2016.github.io/teslamate-visualizer/> — a GitHub Pages demo showcasing the Liquid Glass UI and page-switch animations (the bottom tab bar supports both tapping and horizontal drag-to-select). Self-hosted deployments serve the same demo at `/demo.html`:
 
 ![Page-switch animation](docs/screenshots/demo-switch.gif)
 
