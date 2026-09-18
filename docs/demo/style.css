@@ -1,0 +1,2829 @@
+/* ===== 主题令牌:参考调色板(light)===== */
+/* 特斯拉官网同款字体:tesla.cn 的「Model Y L」标题用 Universal Sans Display Medium */
+@font-face {
+  font-family: 'Universal Sans Display';
+  src: url('fonts/Universal-Sans-Display-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #fcfcfb;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --gridline: #e1e0d9;
+  --baseline: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --seq-blue-300: #6da7ec;
+  --seq-blue-400: #3987e5;
+  --seq-blue-500: #256abf;
+  --seq-blue-600: #184f95;
+  --tile-track: rgba(11, 11, 11, 0.08);
+  /* 车模型部位用不透明实色(tile-track/baseline 压 surface-1 的等效色),轮子→车体→后视镜依次遮挡,不产生半透明叠加 */
+  --car-body: #e9e9e8;
+  --car-tire: #cccbc1;
+  /* 活动分类色(参考调色板,黄/品红/绿/紫四色全配对校验通过):行驶=黄 充电=青 哨兵=品红 驻车空调=绿 驻车耗电=紫 */
+  --cat-drive: #eda100;
+  --cat-charge: #1baf7a;
+  --cat-sentry: #e87ba4;
+  --cat-climate: #008300;
+  --cat-idle: #4a3aa7;
+  --success: #006300;
+  /* ===== iOS 27 液态玻璃材质令牌 =====
+     玻璃卡片 = 半透底 + 背景模糊/饱和 + 发丝描边 + 顶部镜面高光 + 暗化底缘(可读性) */
+  --glass-card: color-mix(in srgb, var(--surface-1) 58%, transparent);
+  --glass-hi: rgba(255, 255, 255, 0.95);
+  --glass-edge: rgba(11, 11, 11, 0.14);
+  --glass-edge-dark: rgba(11, 11, 11, 0.12);
+  --glass-shadow: 0 18px 48px rgba(23, 32, 44, 0.17), 0 2px 8px rgba(23, 32, 44, 0.07);
+  --glass-sheen: rgba(255, 255, 255, 0.5);
+  /* 立体控件:顶部受光渐变 + 外投影 */
+  --ctl-top: color-mix(in srgb, var(--surface-1) 82%, transparent);
+  --ctl-bot: color-mix(in srgb, var(--page) 58%, transparent);
+  --ctl-shadow: 0 2px 7px rgba(23, 32, 44, 0.15);
+  /* 环境色晕:让玻璃有内容可折射(相当于 iOS 壁纸) */
+  --glow-1: color-mix(in srgb, var(--series-1) 30%, transparent);
+  --glow-2: color-mix(in srgb, var(--cat-sentry) 22%, transparent);
+  --glow-3: color-mix(in srgb, var(--series-3) 24%, transparent);
+}
+
+/* ===== 主题令牌:dark(默认)===== */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface-1: #1a1a19;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #898781;
+  --gridline: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.10);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --seq-blue-300: #6da7ec;
+  --seq-blue-400: #3987e5;
+  --seq-blue-500: #256abf;
+  --seq-blue-600: #184f95;
+  --tile-track: rgba(255, 255, 255, 0.10);
+  --car-body: #313130;
+  --car-tire: #343431;
+  --cat-drive: #c98500;
+  --cat-charge: #199e70;
+  --cat-sentry: #d55181;
+  --cat-climate: #008300;
+  --cat-idle: #9085e9;
+  --success: #0ca30c;
+  /* 暗色玻璃:更通透、高光更克制、底缘更暗(iOS 27 暗化边缘提可读性) */
+  --glass-card: color-mix(in srgb, var(--surface-1) 46%, transparent);
+  --glass-hi: rgba(255, 255, 255, 0.22);
+  --glass-edge: rgba(255, 255, 255, 0.16);
+  --glass-edge-dark: rgba(0, 0, 0, 0.5);
+  --glass-shadow: 0 22px 60px rgba(0, 0, 0, 0.62), 0 2px 10px rgba(0, 0, 0, 0.42);
+  --glass-sheen: rgba(255, 255, 255, 0.07);
+  --ctl-top: color-mix(in srgb, var(--surface-1) 85%, transparent);
+  --ctl-bot: color-mix(in srgb, var(--page) 62%, transparent);
+  --ctl-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+  --glow-1: color-mix(in srgb, var(--series-1) 46%, transparent);
+  --glow-2: color-mix(in srgb, var(--cat-sentry) 30%, transparent);
+  --glow-3: color-mix(in srgb, var(--series-3) 32%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface-1: #1a1a19;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --baseline: #383835;
+    --border: rgba(255, 255, 255, 0.10);
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --seq-blue-300: #6da7ec;
+    --seq-blue-400: #3987e5;
+    --seq-blue-500: #256abf;
+    --seq-blue-600: #184f95;
+    --tile-track: rgba(255, 255, 255, 0.10);
+    --car-body: #313130;
+    --car-tire: #343431;
+    --cat-drive: #c98500;
+    --cat-charge: #199e70;
+    --cat-sentry: #d55181;
+    --cat-climate: #008300;
+    --cat-idle: #9085e9;
+    --success: #0ca30c;
+    /* 暗色玻璃令牌(同 :root[data-theme="dark"]) */
+    --glass-card: color-mix(in srgb, var(--surface-1) 46%, transparent);
+    --glass-hi: rgba(255, 255, 255, 0.22);
+    --glass-edge: rgba(255, 255, 255, 0.16);
+    --glass-edge-dark: rgba(0, 0, 0, 0.5);
+    --glass-shadow: 0 22px 60px rgba(0, 0, 0, 0.62), 0 2px 10px rgba(0, 0, 0, 0.42);
+    --glass-sheen: rgba(255, 255, 255, 0.07);
+    --ctl-top: color-mix(in srgb, var(--surface-1) 85%, transparent);
+    --ctl-bot: color-mix(in srgb, var(--page) 62%, transparent);
+    --ctl-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+    --glow-1: color-mix(in srgb, var(--series-1) 46%, transparent);
+    --glow-2: color-mix(in srgb, var(--cat-sentry) 30%, transparent);
+    --glow-3: color-mix(in srgb, var(--series-3) 32%, transparent);
+  }
+}
+
+/* ===== 基础 ===== */
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  transition: background 0.25s ease, color 0.25s ease;
+  /* 移动端:去掉点按高亮、防止旋转屏幕时 iOS 自动放大字体 */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+.wrap {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 24px 20px 108px; /* 底部留白:避开浮动分页导航栏 */
+}
+
+/* 环境光背景:固定的柔和色晕,让液态玻璃有内容可折射(相当于 iOS 壁纸);
+   颜色取调色板蓝/品红/青,双主题下都保持很低的存在感,不干扰数据阅读 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 42% at 12% -4%, var(--glow-1), transparent 70%),
+    radial-gradient(48% 40% at 88% 6%, var(--glow-2), transparent 72%),
+    radial-gradient(70% 55% at 50% 108%, var(--glow-3), transparent 75%);
+}
+
+/* ===== 顶栏:sticky,下滑收缩成紧凑徽章栏并钉在顶部,回顶展开 ===== */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 1100;             /* 压过 Leaflet 控件容器(1000),低于 Tab 栏(1200) */
+  margin: 0 -20px;            /* 满幅:盖住 .wrap 两侧 padding,防止边缘漏出滚动内容 */
+  padding: 6px 20px 14px;     /* 下间距折进 padding,背景覆盖,不留缝隙 */
+  transition: padding .35s ease;
+}
+
+/* 玻璃底放在伪元素上:顶部不透明实色 → 向下渐变半透明磨砂(模糊只在半透明区可见),
+   并向下多出一段渐隐尾巴,底部分界线柔和过渡;不遮挡栏内内容;opacity 参与收缩过渡 */
+header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  height: calc(100% + 26px);
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(to bottom,
+    var(--page) 0%,
+    color-mix(in srgb, var(--page) 82%, transparent) 38%,
+    color-mix(in srgb, var(--page) 42%, transparent) 100%);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+  opacity: 0;
+  transition: opacity .35s ease;
+}
+
+/* 收缩态:更紧凑,玻璃底淡入 */
+header.mini { padding: 4px 20px 10px; }
+header.mini::before { opacity: 1; }
+
+/* 顶栏主体:左侧两行,右侧车图 */
+.header-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.header-left { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+/* 第一行:车型徽章 + 电量胶囊——永不换行,电量始终与徽章同行 */
+.header-line1 { display: flex; align-items: center; gap: 12px; flex-wrap: nowrap; }
+
+.header-line2 {
+  display: flex;
+  align-items: center;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+/* 车图 = 个人中心入口:右侧垂直居中,高度随收缩连续变化 */
+.model-link {
+  flex: none;
+  align-self: center;
+  display: block;
+  border-radius: 10px;
+  transition: filter .15s ease;
+}
+.model-link:hover { filter: brightness(1.15); }
+.model-link:active { opacity: .7; }
+.header-main .model-icon {
+  height: 84px;
+  width: auto;
+  display: block;
+  transition: height .35s ease;
+}
+header.mini .header-main .model-icon { height: 44px; }
+
+/* 车名:并入车辆状态标签,细分隔线 + 主色加粗;点击刷新 */
+.car-name {
+  font-weight: 700;
+  color: var(--text-primary);
+  border-left: 1px solid var(--border);
+  padding-left: 7px;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+.car-name:hover { color: var(--series-1); }
+.car-name:active { opacity: 0.55; }
+
+/* 电量胶囊:图标 + 百分比/续航,点击切换 */
+.batt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-edge);
+  color: var(--text-primary);
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  font-variant-numeric: tabular-nums;
+}
+
+.batt-pill:hover { border-color: var(--text-muted); }
+
+.batt-icon { width: 30px; height: 14px; flex: none; }
+.batt-icon .batt-shell { fill: none; stroke: var(--text-muted); stroke-width: 1.4; }
+.batt-icon .batt-cap { fill: var(--text-muted); }
+.batt-icon .batt-fill { fill: var(--series-3); transition: width 0.5s ease, fill 0.5s ease; }
+.batt-pill[data-level="low"] .batt-fill { fill: #fab219; }
+.batt-pill[data-level="critical"] .batt-fill { fill: #d03b3b; }
+.batt-pill[data-level="unknown"] .batt-fill { fill: var(--text-muted); }
+
+/* 数据更新行:固定独占一行(不与状态行混排,避免文本出现时换行闪动);
+   收缩时以 max-height/max-width/opacity 连续收起(不用 display:none,避免跳动) */
+.header-meta {
+  display: flex;
+  align-items: center;
+  flex: 0 0 100%;
+  min-width: 0;
+  overflow: hidden;
+  max-height: 26px;
+  max-width: 100%;
+  opacity: 1;
+  transition: max-height .3s ease, max-width .3s ease, opacity .22s ease;
+}
+
+/* 数据更新文本:刷新时淡入(配合 app.js 重启动画) */
+#updated-at.fade-in { animation: rmFadeUp .5s ease; }
+@keyframes rmFadeUp {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+
+#sw-version { overflow: hidden; max-width: 120px; opacity: 1; transition: max-width .3s ease, opacity .22s ease; }
+
+/* 收缩态:只留 状态(含车名)标签 */
+header.mini #sw-version, header.mini .header-meta { max-height: 0; max-width: 0; opacity: 0; }
+
+
+.car-model-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 550;
+  color: var(--text-secondary);
+}
+
+/* 车型字样:Model Y L 用官方尾标徽章(官图提取的 PNG 蒙版,
+   background: currentColor 随主题变色);其他车型回退为 Universal Sans 文字 */
+#car-model {
+  font-family: 'Universal Sans Display', system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+}
+
+#car-model-badge[hidden] { display: none; }
+
+#car-model-badge {
+  display: block;
+  height: 15px;
+  width: 134px; /* 徽章比例 701:79 */
+  background: currentColor;
+  -webkit-mask: url('model-yl-badge.png') center / contain no-repeat;
+  mask: url('model-yl-badge.png') center / contain no-repeat;
+}
+
+/* 服务器资源:可视化仪表条(与 KPI 卡片 meter 同一视觉语言) */
+.sys-meters { display: inline-flex; align-items: center; gap: 14px; }
+
+.sys-meters .meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.sys-meters .meter-track {
+  width: 56px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--tile-track);
+  overflow: hidden;
+  display: inline-block;
+}
+
+.sys-meters .meter-track > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: var(--series-1);
+  transition: width 0.6s ease, background 0.6s ease;
+}
+
+.sys-meters .meter[data-level="warn"] .meter-track > i { background: #fab219; }
+.sys-meters .meter[data-level="critical"] .meter-track > i { background: #d03b3b; }
+.sys-meters .meter-val { font-variant-numeric: tabular-nums; min-width: 3.2ch; }
+
+#sys-stats { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+#sw-version, #updated-at { white-space: nowrap; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 550;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  background: var(--surface-1);
+}
+
+.badge .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.badge[data-state="driving"]  .dot { background: var(--series-1); }
+.badge[data-state="charging"] .dot { background: var(--series-3); }
+.badge[data-state="online"]   .dot { background: var(--series-2); }
+
+.icon-btn {
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  border: 1px solid var(--glass-edge);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  padding: 5px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1.5px 0 var(--glass-edge-dark);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.icon-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18),
+              inset 0 1px 0 var(--glass-hi);
+}
+
+.icon-btn:hover { color: var(--text-primary); border-color: var(--text-muted); }
+
+/* 移动端:按钮禁用双击缩放,保证点按即时响应 */
+button { touch-action: manipulation; }
+
+/* ===== 车辆总览:Model Y 俯视图(玻璃顶=能量显示区)+ 两侧图例 + 四轮胎压 ===== */
+/* 布局约束:图例与信息永远分列车辆两侧,任何宽度下都不许换行堆到下面 */
+.carview {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 16px;
+  align-items: stretch;
+}
+
+/* 中央列:俯视图舞台(车头朝上) */
+.car-mid {
+  flex: 1 1 300px;
+  min-width: 0;
+  max-width: 1600px;  /* 一个不生效的上限,仅为收起态 max-width 过渡可插值 */
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.car-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 500px;
+}
+
+.car-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 车内温度曲线:直接画在玻璃上(温度读数下方) */
+.car-tpms-tire {
+  font-size: 11.5px;
+  font-weight: 650;
+  text-anchor: middle;
+  dominant-baseline: central;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  user-select: none;
+}
+
+
+
+/* 卡片顶部:本周期平均能耗条状控件(整卡宽度居中,文字内嵌于条内,官方能耗为刻度竖线) */
+.car-eff {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto 12px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  container-type: inline-size;
+}
+
+/* 条太窄时(手机端展开侧面板):只留填充+刻度线+读数,隐藏文字标注防相碰 */
+@container (max-width: 250px) {
+  .car-eff-label, .car-eff-official-val, .car-eff-end { display: none; }
+}
+
+.car-eff-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  height: 34px;
+  padding: 0 13px;
+  box-sizing: border-box;
+  border-radius: 10px;
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -2px 3px var(--glass-edge-dark);
+  overflow: hidden;
+  --eff-c: var(--series-1);
+}
+
+/* 左端→当前值的柔光填充 + 底缘实线(颜色由 JS 随状态写入) */
+.car-eff-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1), background 0.3s ease, box-shadow 0.3s ease;
+}
+
+.car-eff-label {
+  position: relative;
+  z-index: 1;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* 刻度范围端点:条内左上/右上角小字(与官方刻度数字同款,数值由 JS 随量程写入) */
+.car-eff-end {
+  position: absolute;
+  z-index: 1;
+  top: 2.5px;
+  font-size: 8.5px;
+  line-height: 1;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.car-eff-end.min { left: 6px; }
+.car-eff-end.max { right: 6px; }
+
+/* 官方能耗:刻度竖线 + 线顶小字 */
+.car-eff-official {
+  position: absolute;
+  z-index: 1;
+  top: 14px;
+  bottom: 6px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text-primary);
+  opacity: 0.4;
+  transition: left 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.car-eff-official-val {
+  position: absolute;
+  z-index: 1;
+  top: 2.5px;
+  transform: translateX(-50%);  /* 只标数字,居中于刻度线 */
+  font-size: 8.5px;
+  line-height: 1;
+  color: var(--text-muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  transition: left 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.car-eff-val {
+  position: relative;
+  z-index: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--eff-c);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.3s ease;
+}
+
+.car-body-base { fill: var(--car-body); }
+
+/* 玻璃区域(挡风玻璃 / 全景玻璃顶):两种主题下都是深色玻璃 */
+.car-glazing, .car-glass-base { fill: #12161d; }
+
+.car-glass-line {
+  fill: none;
+  stroke: var(--baseline);
+  stroke-width: 1.5;
+  opacity: 0.55;
+}
+
+.car-mirror { fill: var(--car-body); stroke: var(--baseline); stroke-width: 1.2; }
+
+/* 车头微光:白色低透明度罩层,两种主题下都只是一点光泽 */
+.car-sheen { fill: #fff; opacity: 0.05; }
+
+/* 机盖缝线 */
+.car-seam {
+  fill: none;
+  stroke: var(--baseline);
+  stroke-width: 1.2;
+  opacity: 0.35;
+}
+
+/* 前风挡:当前电量横向填充(左→右);充电时变绿 + 循环扫光 + 呼吸 */
+.car-ws-fill {
+  fill: var(--series-1);
+  opacity: 0.85;
+  transition: width 0.6s ease, fill 0.4s ease;
+}
+.car-charge-shine {
+  fill: url(#car-charge-grad);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.car-svg.charging .car-ws-fill {
+  fill: var(--cat-charge);
+  animation: car-charge-pulse 1.8s ease-in-out infinite;
+}
+.car-svg.charging .car-charge-shine { opacity: 1; animation: car-charge-sweep 1.8s linear infinite; }
+@keyframes car-charge-sweep {
+  from { transform: translateX(0) skewX(-16deg); }
+  to { transform: translateX(205px) skewX(-16deg); }
+}
+@keyframes car-charge-pulse { 50% { opacity: 1; } }
+
+/* 能量占比环:围绕玻璃顶一圈,各段用 dasharray 沿环分布 */
+.carring {
+  fill: none;
+  stroke-width: 13;
+  cursor: pointer;
+  transition: stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease, opacity 0.25s ease;
+}
+
+.carring-remaining { stroke: var(--series-1); }
+.carring-drive { stroke: var(--cat-drive); }
+.carring-sentry { stroke: var(--cat-sentry); }
+.carring-climate { stroke: var(--cat-climate); }
+.carring-idle { stroke: var(--cat-idle); }
+
+/* 分段点选联动:未选中的环段压暗 */
+.car-svg .carring.dim { opacity: 0.22; }
+
+/* 未充部分:斜纹(pattern 内元素用类以便随主题变色) */
+.hatch-bg { fill: var(--surface-1); }
+.hatch-line { stroke: var(--baseline); stroke-width: 1.6; opacity: 0.85; }
+
+/* HUD 角标 / 轮胎 / 车身描边 */
+.car-hud {
+  fill: none;
+  stroke: var(--baseline);
+  stroke-width: 1.5;
+  opacity: 0.75;
+}
+
+.car-tire { fill: var(--car-tire); }
+
+.car-body-line {
+  fill: none;
+  stroke: var(--baseline);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+/* 车身上的读数文字(居中、等宽数字) */
+.car-svg text { text-anchor: middle; font-variant-numeric: tabular-nums; }
+
+.car-odo-label { fill: var(--text-muted); font-size: 9px; }
+.car-odo-val { fill: var(--text-primary); font-size: 15px; font-weight: 650; }
+
+/* 深色玻璃上的文字固定浅色 */
+.car-batt-val { fill: #fff; font-size: 14px; font-weight: 650; }
+.car-temp-val { fill: var(--series-1); font-size: 11px; font-weight: 600; }
+
+/* 玻璃顶中央的 Tesla 图形车标(玻璃两种主题下都是深色,固定品牌红) */
+.car-logo { fill: #e82127; }
+
+/* 顶栏非 Y L 车型的字标文字:Tesla 字标风格(全大写 + 宽字距) */
+#car-model-text {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  color: var(--text-primary);
+}
+.car-center-temp { fill: var(--series-2); font-size: 12px; font-weight: 600; }
+
+/* 陪伴天数(玻璃顶徽章下方,点击设置提车日期) */
+.car-companion {
+  fill: rgba(255, 255, 255, 0.62);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.car-companion:hover { fill: rgba(255, 255, 255, 0.9); }
+.car-companion.is-empty { fill: var(--series-1); text-decoration: underline; }
+
+/* 提车日期设置弹层 */
+.companion-pop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.companion-pop[hidden] { display: none; }
+.companion-card {
+  width: min(300px, calc(100vw - 48px));
+  padding: 20px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-1) 74%, transparent);
+  -webkit-backdrop-filter: blur(24px) saturate(1.7);
+  backdrop-filter: blur(24px) saturate(1.7);
+  border: 1px solid var(--glass-edge);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.companion-card h3 { margin: 0; font-size: 15px; color: var(--text-primary); }
+.companion-card input[type="date"] {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--tile-track, rgba(255, 255, 255, 0.14));
+  background: var(--surface-2, rgba(255, 255, 255, 0.06));
+  color: var(--text-primary);
+  font-size: 14px;
+  color-scheme: dark;
+}
+[data-theme="light"] .companion-card input[type="date"] { color-scheme: light; }
+.companion-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.companion-actions button {
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--series-1) 85%, #fff),
+    var(--series-1));
+  color: #fff;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--series-1) 45%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.companion-actions button:active { transform: translateY(1px); box-shadow: 0 1px 3px color-mix(in srgb, var(--series-1) 40%, transparent); }
+.companion-actions button.ghost {
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  color: var(--text-secondary);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+}
+.companion-actions button:disabled { opacity: 0.5; cursor: default; }
+
+/* 两侧可收起面板:左列里程统计+电池健康(不可点选),右列全部电耗分段。
+   面板高度与车身对齐(车身在 viewBox 460 中占 y52..418 ≈ 79.5%),垂直居中;
+   收起后只剩一个小圆点,点击任一侧圆点两边一起展开,无操作数秒后自动收起;
+   面板宽度与舞台高度随展开状态过渡,中央车模随之缩放 */
+.car-side {
+  position: relative;
+  flex: 0 0 178px;
+  min-width: 0;
+  display: flex;
+  gap: 6px;
+  align-self: center;
+  height: 79.5%;
+  transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.car-side-r { flex-direction: row-reverse; }  /* 把手贴右外侧 */
+
+.car-side.collapsed {
+  flex-basis: 14px;
+  gap: 0;
+}
+
+.car-legend {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 10px;
+  opacity: 1;
+  transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.2s ease 0.14s, visibility 0.2s ease 0.14s;
+}
+
+.car-side.collapsed .car-legend {
+  flex: 0 0 0;
+  /* 高度也归零:宽度 0 时面板文字逐字换行,固有内容高度可达数千 px,
+     而 carview 自动高度下侧边栏的 79.5% 按内容高度参与计算,会把整个
+     容器撑高,在车模上下留出大片空白。归零后容器只由车模高度决定 */
+  height: 0;
+  min-height: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+              opacity 0.16s ease, visibility 0.16s ease;
+}
+
+/* 收起/展开把手:收起时只剩一个小圆点(居中于车身腰线),展开时为外侧细条(仅箭头) */
+.car-side-btn {
+  flex: 0 0 16px;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: flex-basis 0.45s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
+}
+
+.car-side.collapsed .car-side-btn {
+  flex: 1 1 auto;
+}
+
+/* 展开态(细条)悬停可见反馈 */
+.car-side-btn:hover { color: var(--text-primary); }
+
+/* 收起态的小圆点:固定淡色,悬停不变色、无发光(用户明确要求) */
+.rail-dot {
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.45;
+}
+
+.car-side.collapsed .rail-dot { display: block; }
+
+.car-side-btn svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  border-radius: 50%;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
+}
+
+.car-side.collapsed .car-side-btn svg { display: none; }
+
+/* 箭头指向(展开态):指向外侧(点击收起) */
+.car-side-l:not(.collapsed) .car-side-btn svg { transform: rotate(180deg); }
+.car-side-r .car-side-btn svg { transform: rotate(180deg); }
+.car-side-r:not(.collapsed) .car-side-btn svg { transform: rotate(0deg); }
+
+/* 两侧都收起时:车模放大 1.2 倍并淡出 HUD 角标——viewBox 顶部固有 52 单位留白,
+   不放大时收起态车头上方空一大截;同时车+圆点居中聚合,两侧不再留大片空地 */
+.car-stage { transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* 电量/度数/里程切换:浮在车模底部中央(相对 carview 整行定位,手机端展开侧面板
+   舞台被夹窄时也不会被裁),两侧面板收起时一起淡出(点击车体即展开) */
+.carview { position: relative; }
+#car-mode-seg {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  z-index: 2;
+  white-space: nowrap;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.carview.sides-stowed #car-mode-seg {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.car-mid { transition: max-width 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.carview.sides-stowed { justify-content: center; }
+.carview.sides-stowed .car-mid { max-width: 560px; }
+.carview.sides-stowed .car-svg { cursor: pointer; }  /* 点车体可展开两侧 */
+
+#car-zoom { transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+.carview.sides-stowed #car-zoom {
+  transform: scale(1.2);
+  transform-origin: 170px 236px;
+  transform-box: view-box;
+}
+.car-hud { transition: opacity 0.3s ease; }
+.carview.sides-stowed .car-hud { opacity: 0; }
+
+.cl-item {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 11px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+}
+
+/* 里程统计项:仅展示,不参与点选联动 */
+.cl-item.cl-stat { cursor: default; }
+
+/* 点选高亮:选中项描边发光,其余项压暗(统计项不参与) */
+.cl-item.on {
+  border-color: var(--cl-c, var(--baseline));
+  box-shadow: 0 0 0 1px var(--cl-c, var(--baseline));
+}
+
+.carview.has-sel .cl-item[data-k]:not(.on) { opacity: 0.55; }
+
+.cl-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-top: 4px;
+}
+
+.cl-dot.dot-hatch {
+  background: repeating-linear-gradient(45deg,
+    var(--baseline) 0 1.5px, var(--surface-1) 1.5px 4.5px);
+  border: 1px solid var(--baseline);
+}
+
+.cl-item b {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--text-secondary);
+}
+
+.cl-val {
+  display: block;
+  font-size: 16px;
+  font-weight: 650;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.cl-sub {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+
+/* 充电周期横条:横向滑动点选每次充电 */
+/* 充电周期横滑选择条(卡片底部) */
+.cycle-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 2px 2px;
+  margin: 10px 0 0;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.cyc-chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  appearance: none;
+  font: inherit;
+  text-align: left;
+  min-width: 112px;
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  border: 1px solid var(--glass-edge);
+  border-radius: 9px;
+  padding: 6px 10px 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1.5px 0 var(--glass-edge-dark);
+  transition: transform 0.12s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.cyc-chip:active { transform: translateY(1px); }
+
+.cyc-chip b {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.cyc-chip .cyc-merged { font-weight: 400; color: var(--text-muted); font-size: 10px; }
+.cyc-chip .cyc-active-tag { color: var(--series-1); font-size: 10px; }
+
+.cyc-chip .cyc-bar {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--tile-track);
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.cyc-chip .cyc-bar i {
+  display: block;
+  height: 100%;
+  background: var(--series-1);
+}
+
+.cyc-chip.on {
+  border-color: color-mix(in srgb, var(--series-1) 65%, transparent);
+  box-shadow: var(--ctl-shadow),
+              0 0 12px color-mix(in srgb, var(--series-1) 30%, transparent),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1.5px 0 var(--glass-edge-dark);
+}
+.cyc-chip.on b { color: var(--text-primary); }
+
+/* 电池健康(独立模块) */
+
+/* ===== 分段选择控件(时间范围选择在个人中心,面板内仅卡片 mini 切换用) ===== */
+.seg {
+  display: inline-flex;
+  background: color-mix(in srgb, var(--page) 55%, transparent);
+  border: 1px solid var(--glass-edge);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 2px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+.seg button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 14px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.seg button:hover { background: var(--tile-track); color: var(--text-primary); }
+
+.seg button.on {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--series-1) 88%, #fff),
+    var(--series-1));
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--series-1) 45%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+
+/* 卡片内的小型切换控件(电量 / 里程) */
+.seg.mini { border-radius: 8px; padding: 2px; }
+.seg.mini button {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.card-head-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pane-head h3 { margin: 0; }
+
+/* ===== 图表网格 ===== */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 12px;
+}
+
+/* 卡片 = iOS 27 液态玻璃材质:半透底 + 顶部受光层 + 背景模糊/饱和提升 + 发丝描边
+   + 顶部镜面高光(更亮)+ 暗化底缘(更实,压住复杂背景保证可读)+ 悬浮投影 */
+.card {
+  background: linear-gradient(180deg, var(--glass-sheen), transparent 110px),
+              var(--glass-card);
+  border: 1px solid var(--glass-edge);
+  border-radius: 14px;
+  padding: 16px 18px;
+  min-width: 0;
+  box-shadow: var(--glass-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+}
+
+/* 支持背景模糊的浏览器才启用磨砂;不支持的退回近实色底,保证可读 */
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card {
+    -webkit-backdrop-filter: blur(20px) saturate(1.7);
+    backdrop-filter: blur(20px) saturate(1.7);
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card { background: color-mix(in srgb, var(--surface-1) 94%, transparent); }
+}
+
+.card h2 {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 4px;
+}
+
+.card .card-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.col-6 { grid-column: span 6; }
+.col-5 { grid-column: span 5; }
+.col-7 { grid-column: span 7; }
+.col-12 { grid-column: span 12; }
+
+.chart { width: 100%; height: 300px; }
+
+/* ===== 卡片头部:标题 + 右侧控件 ===== */
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+/* ===== 活动分类色片 ===== */
+.chip, .ev-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.chip::before, .ev-chip::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
+}
+
+.chip.cat-drive::before, .ev-chip.cat-drive::before { background: var(--cat-drive); }
+.chip.cat-charge::before, .ev-chip.cat-charge::before { background: var(--cat-charge); }
+.chip.cat-sentry::before, .ev-chip.cat-sentry::before { background: var(--cat-sentry); }
+.chip.cat-idle::before, .ev-chip.cat-idle::before { background: var(--cat-idle); }
+
+.chip-legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+/* ===== 顶部活动时间线 ===== */
+.chart-activity { height: 380px; }
+
+/* ===== 哨兵双栏 ===== */
+.sentry-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.sentry-pane { min-width: 0; } /* 网格子项允许收缩,防止图表溢出 */
+
+.sentry-pane h3 {
+  font-size: 12px;
+  font-weight: 550;
+  color: var(--text-muted);
+  margin: 0 0 2px;
+}
+
+.mini-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mini-stat {
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  border: 1px solid var(--glass-edge);
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+}
+
+.mini-stat b { color: var(--text-primary); font-weight: 600; }
+
+/* 折叠卡(充电详情/停车费)头部的缩略统计:整组靠右贴箭头,
+   芯片统一宽度、内容两端分布,上下两张卡的芯片才能逐列对齐 */
+.card.collapsible .mini-stats { margin-left: auto; }
+
+.card.collapsible .mini-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 140px;
+}
+
+/* ===== 活动事件列表 ===== */
+.day-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.day-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.day-head:hover { background: var(--tile-track); }
+
+.day-head .date {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.day-head .summary {
+  margin-left: auto;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.day-body {
+  display: none;
+  border-top: 1px solid var(--gridline);
+}
+
+.day-group.open .day-body { display: block; }
+
+/* 折叠日组头部右侧的小型环状耗电图(展开后隐藏,明细里已有逐条数值) */
+.day-donut {
+  width: 32px;
+  height: 32px;
+  flex: none;
+}
+
+.day-donut circle { fill: none; stroke-width: 5; }
+
+.day-donut .donut-track { stroke: var(--tile-track); }
+
+.day-donut .seg-drive { stroke: var(--cat-drive); }
+
+.day-donut .seg-sentry { stroke: var(--cat-sentry); }
+
+.day-donut .seg-climate { stroke: var(--cat-climate); }
+
+.day-donut .seg-idle { stroke: var(--cat-idle); }
+
+.day-group.open .day-donut { display: none; }
+
+/* 行程页:当日轨迹地图铺满日组整行作为背景;蒙板在最右侧留一条清晰带
+   (避开右端箭头区),向左与上下渐隐;快照时轨迹被缩放进该清晰带(见 app.js)。
+   背景用 100% 100% 填满,保证任何屏宽下轨迹与蒙板清晰带严格对齐 */
+#routes-list .day-head { position: relative; }
+
+#routes-list .rt-day-thumb {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-size: 100% 100%;
+  opacity: 0.7;
+  -webkit-mask-image:
+    linear-gradient(to left, transparent 2%, #000 12%, #000 40%, transparent 58%),
+    linear-gradient(to bottom, transparent 0%, #000 26%, #000 74%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to left, transparent 2%, #000 12%, #000 40%, transparent 58%),
+    linear-gradient(to bottom, transparent 0%, #000 26%, #000 74%, transparent 100%);
+  mask-composite: intersect;
+}
+
+#routes-list .day-head > :not(.rt-day-thumb) { position: relative; z-index: 1; }
+
+/* 浅色主题底图接近行底色,提高整体不透明度保证可见 */
+:root[data-theme="light"] #routes-list .rt-day-thumb { opacity: 0.9; }
+
+/* 可折叠卡片(充电详情/停车费):头部整行可点,默认折叠;
+   子项垂直居中,缩略统计与箭头在同一水平线上 */
+.card.collapsible > .card-head { cursor: pointer; align-items: center; }
+
+#cs-card:not(.open) .cs-list,
+#cs-card:not(.open) .cg-divider,
+#cs-card:not(.open) .cg-list { display: none; }
+
+/* 充电记录内「电池电量估算」条形图 */
+.cs-batt-chart { height: 200px; margin-top: 4px; }
+
+/* 停车费卡同样整卡可折叠,默认收起 */
+#pk-card:not(.open) .pk-form,
+#pk-card:not(.open) .pk-list { display: none; }
+
+/* 家充设置卡同样整卡可折叠,默认收起 */
+#hc-card:not(.open) #hc-body { display: none; }
+
+/* 开关(家充总开关与各地点开关共用) */
+.tsw {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 26px;
+  flex: none;
+}
+
+.tsw input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; z-index: 1; }
+
+.tsw i {
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  background: var(--tile-track);
+  border: 1px solid var(--border);
+  transition: background 0.2s ease, border-color 0.2s ease;
+  pointer-events: none;
+}
+
+.tsw i::after {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface-1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s cubic-bezier(0.22, 1.35, 0.36, 1);
+}
+
+.tsw input:checked + i { background: var(--seq-blue-500); border-color: var(--seq-blue-500); }
+
+.tsw input:checked + i::after { transform: translateX(16px); }
+
+.tsw input:disabled { cursor: default; }
+
+.tsw input:disabled + i { opacity: 0.55; }
+
+/* 家充设置卡内容 */
+#hc-body { padding-top: 4px; }
+
+.hc-master {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--tile-track);
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.hc-master .hc-hint { color: var(--text-muted); font-size: 12px; }
+
+.hc-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+.hc-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.hc-row.off { opacity: 0.6; }
+
+.hc-name {
+  font-size: 14px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed var(--border);
+  padding: 2px 0;
+  min-width: 0;
+  width: 100%;
+}
+
+.hc-name:focus { outline: none; border-bottom-color: var(--text-muted); }
+
+.hc-loc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+.hc-prices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.hc-prices input {
+  width: 62px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.hc-prices input[type="time"] { width: 78px; text-align: left; }
+
+.hc-del {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.hc-del:hover { color: #d34545; background: var(--tile-track); }
+
+.hc-add {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.hc-add select { flex: 1; min-width: 140px; }
+
+.hc-add input { width: 62px; text-align: right; }
+
+.hc-add button { padding: 6px 14px; }
+
+@media (max-width: 600px) {
+  .hc-row { grid-template-columns: auto 1fr auto; }
+  .hc-prices { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* 充电详情卡:家充自动计价标签 */
+.cs-tag-home { color: var(--seq-blue-500); border-color: var(--seq-blue-500); }
+
+.cs-home-sel { max-width: 150px; font-size: 12px; }
+
+/* 充电桩统计并入充电详情卡后的分隔小标题 */
+.cg-divider {
+  margin: 14px 4px 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.cg-divider span { font-weight: 400; font-size: 12px; color: var(--text-muted); margin-left: 8px; }
+
+/* ===== 充电提醒 ===== */
+#rm-body { display: flex; flex-direction: column; gap: 12px; }
+
+/* 第一行:家/公司双框;当前位置绿、另一边红,充电位置上方黄色三角 */
+.rm-places { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rm-place-wrap { position: relative; padding-top: 12px; min-width: 0; }
+.rm-place-flag {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 9px solid #f5b301;
+}
+.rm-place {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  min-width: 0;
+  text-align: center;
+}
+.rm-place.cur { border-color: var(--cat-charge); background: color-mix(in srgb, var(--cat-charge) 12%, var(--page)); }
+.rm-place.away { border-color: var(--cat-sentry); background: color-mix(in srgb, var(--cat-sentry) 10%, var(--page)); }
+.rm-place.editable { cursor: pointer; }
+.rm-place.editable:hover { filter: brightness(1.06); }
+.rm-place-title { font-size: 12px; color: var(--text-secondary); }
+.rm-place-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rm-place-edit { font-size: 11px; color: var(--text-muted); }
+
+/* 第二行:日历样式的预计充电日期 */
+.rm-calrow { display: flex; align-items: center; gap: 14px; }
+.rm-cal {
+  width: 66px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  text-align: center;
+  background: var(--page);
+}
+.rm-cal-m { background: var(--seq-blue-500); color: #fff; font-size: 11px; padding: 3px 0; }
+.rm-cal.rm-urgent .rm-cal-m { background: var(--cat-sentry); }
+.rm-cal-d { font-size: 26px; font-weight: 700; line-height: 1.2; color: var(--text-primary); }
+.rm-cal-w { font-size: 11px; color: var(--text-secondary); padding-bottom: 4px; }
+.rm-cal-side { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.rm-cal-side b { font-size: 16px; color: var(--text-primary); }
+.rm-cal-side span { font-size: 12px; color: var(--text-secondary); }
+.rm-cal-charger { color: var(--text-muted); }
+
+/* 第三行:最低电量滑动条 */
+.rm-slider { display: flex; align-items: center; gap: 12px; }
+.rm-slider-label { font-size: 13px; color: var(--text-secondary); flex: none; }
+.rm-slider-input { flex: 1; min-width: 0; accent-color: var(--seq-blue-500); }
+.rm-slider-input:disabled { opacity: .5; }
+.rm-slider-val { font-size: 15px; color: var(--text-primary); flex: none; min-width: 38px; text-align: right; }
+
+.rm-ok { font-size: 15px; font-weight: 600; color: var(--cat-charge); }
+.rm-empty { font-size: 13px; color: var(--text-secondary); }
+
+/* 家/公司地点选择器(点击框展开) */
+.rm-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--page);
+}
+.rm-pick-title { font-size: 12px; color: var(--text-secondary); }
+.rm-pick-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  min-width: 0;
+}
+.rm-pick-item:hover { filter: brightness(1.05); }
+.rm-pick-item b { font-size: 14px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rm-pick-item span { font-size: 11px; color: var(--text-muted); flex: none; }
+.rm-pick-item.cur { border-color: var(--cat-charge); cursor: default; }
+.rm-pick-item.off { opacity: .45; cursor: not-allowed; }
+.rm-pick-item.rm-pick-auto { border-style: dashed; }
+
+/* 推测行程与耗电(默认折叠) */
+.rm-legs-wrap {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--page);
+  overflow: hidden;
+}
+.rm-legs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  user-select: none;
+}
+.rm-legs-title { font-size: 13px; color: var(--text-secondary); }
+.rm-legs { display: none; flex-direction: column; padding: 0 12px 10px; gap: 4px; }
+.rm-legs-wrap.open .rm-legs { display: flex; }
+.rm-ev {
+  display: grid;
+  grid-template-columns: 80px 1fr;
+  gap: 8px;
+  padding: 5px 0 4px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+}
+.rm-ev.rm-legs-colhead { border-top: none; padding: 0 0 4px; }
+/* 左列:方向标签 + 时刻,随事件块垂直居中 */
+.rm-ev-time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rm-ev-rows { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+/* 方向小标签:行驶=黄;跌破阈值=品红 */
+.rm-leg-dir2 {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.3;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--cat-drive) 16%, transparent);
+  color: var(--cat-drive);
+}
+.rm-leg-dir2.breach {
+  background: color-mix(in srgb, var(--cat-sentry) 16%, transparent);
+  color: var(--cat-sentry);
+}
+.rm-leg-main {
+  display: grid;
+  grid-template-columns: 1fr 92px 80px;
+  gap: 8px;
+  align-items: baseline;
+}
+.rm-leg-dir { color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rm-leg-used {
+  color: var(--cat-drive);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+.rm-leg-remain { color: var(--text-muted); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rm-ev.hit .rm-leg-remain { color: var(--cat-sentry); font-weight: 700; }
+/* 停放阶段行:哨兵=品红、驻车=紫(同活动分类色) */
+.rm-legs-colhead { font-size: 10px; color: var(--text-muted); }
+.rm-legs-colhead .rm-leg-main span:nth-child(2), .rm-legs-colhead .rm-leg-main span:last-child { text-align: right; }
+.rm-park { margin: 1px 0; font-size: 11px; }
+.rm-park.sentry .rm-leg-dir, .rm-park.sentry .rm-leg-used { color: var(--cat-sentry); }
+.rm-park.idle .rm-leg-dir, .rm-park.idle .rm-leg-used { color: var(--cat-idle); }
+@media (max-width: 600px) {
+  .rm-ev { grid-template-columns: 68px 1fr; gap: 6px; font-size: 11px; }
+  .rm-leg-main { grid-template-columns: 1fr 84px 76px; gap: 6px; }
+  .rm-park { font-size: 10px; }
+}
+
+/* ===== 停车费 ===== */
+.pk-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 4px 2px 10px;
+}
+
+.pk-form input, .pk-form select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  min-width: 0;
+}
+
+.pk-form input:focus, .pk-form select:focus {
+  outline: 2px solid var(--series-1);
+  outline-offset: -1px;
+}
+
+#pk-cost { width: 110px; }
+#pk-date { width: 140px; }
+#pk-days { width: 130px; }
+#pk-note { flex: 1 1 140px; }
+
+#pk-add {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  background: var(--seq-blue-500);
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 18px;
+}
+#pk-add:hover { background: var(--seq-blue-600); }
+
+.pk-list { display: flex; flex-direction: column; }
+
+.pk-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--gridline);
+  font-size: 13px;
+}
+.pk-row:last-child { border-bottom: 0; }
+.pk-date-t { color: var(--text-secondary); font-variant-numeric: tabular-nums; flex: none; }
+.pk-days-t {
+  flex: none; font-size: 11px; color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: 4px; padding: 0 5px;
+}
+.pk-note-t { flex: 1; min-width: 0; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-cost-t { font-weight: 650; font-variant-numeric: tabular-nums; flex: none; }
+.pk-del {
+  flex: none; cursor: pointer; background: none; border: 0;
+  color: var(--text-muted); font-size: 14px; padding: 0 2px;
+}
+.pk-del:hover { color: #d03b3b; }
+
+.ev-row {
+  display: grid;
+  grid-template-columns: 150px 90px 1fr 66px 84px 76px 76px;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+/* 列头:与数据行同一栅格 */
+.ev-head {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--gridline);
+}
+
+.ev-head span {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.ev-row + .ev-row { border-top: 1px solid var(--gridline); }
+
+.ev-time {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ev-desc { color: var(--text-muted); }
+
+/* 数值列:电量 / 度数 / 里程 / 电费,右对齐等宽数字 */
+.ev-num {
+  text-align: right;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ev-num.up { color: var(--success); }
+
+.events-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ===== 充电费用表 ===== */
+.cost-input {
+  width: 92px;
+  padding: 5px 8px;
+  font: inherit;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-primary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  outline: none;
+}
+
+.cost-input:hover { border-color: var(--text-muted); }
+
+.cost-input:focus { border-color: var(--series-1); box-shadow: 0 0 0 2px rgba(57, 135, 229, 0.18); }
+
+.cost-input:disabled { opacity: 0.55; }
+
+.cost-input::placeholder { color: var(--text-muted); }
+
+/* ===== 充电详情(卡片式,纵向布局,适配手机) ===== */
+.cs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cs-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px 12px;
+  background: var(--page);
+}
+
+.cs-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.cs-time {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-time b { font-weight: 600; }
+
+.cs-time-sub { font-size: 11px; color: var(--cat-charge); }
+
+.cs-charger {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  min-width: 0;
+}
+
+.cs-charger input {
+  font: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  outline: none;
+  text-align: right;
+  max-width: 200px;
+  padding: 2px 6px;
+}
+
+.cs-charger input:hover { border-color: var(--border); }
+
+.cs-charger input:focus {
+  border-color: var(--series-1);
+  background: var(--page);
+}
+
+.cs-charger input:disabled { opacity: 0.55; }
+
+.cs-charger input::placeholder { color: var(--text-muted); }
+
+.cs-name-input { font-size: 14px; font-weight: 600; }
+
+/* 地点:充电桩名称下方的小字 */
+.cs-loc-input { font-size: 11px; color: var(--text-muted); }
+
+/* 品牌:名称与地点之间的小字(与地点同视觉层级) */
+.cs-brand-input { font-size: 11.5px; color: var(--text-secondary); }
+
+.cs-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 16px;
+}
+
+.cs-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  padding: 3px 0;
+}
+
+.cs-label { color: var(--text-muted); flex-shrink: 0; }
+
+.cs-val {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cs-inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  flex-wrap: wrap;  /* 家充标签等追加内容放不下时折行,不再挤出格 */
+  justify-content: flex-end;
+}
+
+.cs-val:has(.cs-inline) { white-space: normal; }
+
+.cs-unit { font-size: 11px; color: var(--text-muted); }
+
+.cs-tag {
+  font-size: 10px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0 4px;
+  line-height: 1.5;
+}
+
+.cs-tag-manual { color: var(--cat-charge); border-color: var(--cat-charge); }
+
+.cs-item .cost-input { width: 84px; padding: 3px 6px; }
+
+@media (max-width: 600px) {
+  .cs-item { padding: 9px 10px 10px; }
+  .cs-head { flex-direction: column; gap: 6px; }
+  .cs-charger { align-items: stretch; width: 100%; }
+  .cs-charger input { text-align: left; max-width: none; }
+  .cs-fields { gap: 4px 8px; }
+  .cs-field { font-size: 12px; gap: 6px; }
+  .cs-item .cost-input { width: 56px; padding: 3px 4px; font-size: 12px; }
+  .cs-inline { gap: 3px; }
+  .cs-tag { font-size: 9px; padding: 0 3px; }
+}
+
+/* ===== 充电桩统计 ===== */
+.cg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cg-item {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 14px;
+  background: var(--page);
+}
+
+.cg-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.cg-detail {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.cg-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.cg-brand-input {
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  outline: none;
+  width: 180px;
+}
+
+.cg-brand-input:hover { border-color: var(--text-muted); }
+
+.cg-brand-input:focus { border-color: var(--series-1); }
+
+.cg-brand-input:disabled { opacity: 0.55; }
+
+.cg-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.cg-brand {
+  font-size: 10px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 0 4px;
+  line-height: 1.5;
+}
+
+.cg-line {
+  display: flex;
+  flex-direction: column;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.cg-line b { font-variant-numeric: tabular-nums; font-weight: 550; }
+
+.cg-line-sub { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.cg-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.cg-head b { font-size: 14px; font-weight: 600; }
+
+.cg-loc { font-size: 11px; color: var(--text-muted); }
+
+.cg-stats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.cg-chip {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+
+.cg-chip b { color: var(--text-primary); font-weight: 600; }
+
+.cg-loss-low b { color: var(--cat-charge); }
+
+.cg-loss-high b { color: #fab219; }
+
+@media (max-width: 600px) {
+  .cg-row { flex-wrap: wrap; }
+  .cg-stats { justify-content: flex-start; }
+  .cg-brand-input { width: 100%; flex: 1; }
+}
+
+/* ===== 地图轨迹列表 ===== */
+#routes-list { margin-top: 10px; }
+
+.rt-row {
+  display: grid;
+  grid-template-columns: 76px 1fr 84px 64px 24px;
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.rt-row:hover { background: var(--tile-track); }
+
+.rt-row.open { background: var(--tile-track); }
+
+.rt-row + .rt-row, .rt-row + .rt-detail + .rt-row { border-top: 1px solid var(--gridline); }
+
+.rt-time { font-variant-numeric: tabular-nums; }
+
+.rt-names {
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rt-dist, .rt-dur { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* 折叠标识:全站统一为圆形徽章(行程行同款),悬停描边加深、展开变蓝翻转,
+   明确「可展开」的入口;统一右对齐(各行布局的末尾) */
+.rt-chev, .card-chev, .day-head .chev, .rm-legs-chev, .cg-arrow {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--tile-track);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1;
+  flex: none;
+  transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+/* 行程行的徽章落在 grid 末列,贴右对齐 */
+.rt-chev { justify-self: end; }
+
+.rt-row:hover .rt-chev,
+.card.collapsible > .card-head:hover .card-chev,
+.day-head:hover .chev,
+.rm-legs-head:hover .rm-legs-chev,
+.cg-row:hover .cg-arrow { border-color: var(--text-muted); color: var(--text-primary); }
+
+.rt-row.open .rt-chev,
+.card.collapsible.open .card-chev,
+.day-group.open .day-head .chev,
+.rm-legs-wrap.open .rm-legs-chev,
+.cg-item.open .cg-arrow {
+  transform: rotate(180deg);
+  background: var(--seq-blue-500);
+  border-color: var(--seq-blue-500);
+  color: #fff;
+}
+
+.rt-detail {
+  display: none;
+  padding: 8px 14px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-top: 1px dashed var(--gridline);
+}
+
+.rt-row.open + .rt-detail {
+  display: block;
+  animation: rt-detail-in 0.22s ease;
+}
+
+@keyframes rt-detail-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 行程详情:小地图(只显示该条轨迹;顶部地图为全览) */
+.rt-map {
+  height: 220px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  margin-top: 10px;
+}
+
+/* 行程详情:表格式键值网格(桌面 3 列) */
+.rt-kv {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px 14px;
+}
+
+.rt-kv-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 10px;
+  background: var(--tile-track);
+  border-radius: 7px;
+}
+
+.rt-kv-lab { color: var(--text-muted); white-space: nowrap; }
+
+.rt-kv-val {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 行程详情:海拔高度图 */
+.rt-elev-wrap { margin-top: 10px; }
+
+.rt-elev-title {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.rt-elev { height: 150px; }
+
+.empty {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ===== 地图 ===== */
+#map { width: 100%; height: 420px; border-radius: 10px; }
+
+/* MapLibre 弹窗/控件跟随面板配色(矢量瓦片自带深浅色样式,不再需要反色滤镜) */
+.maplibregl-popup-content {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .18);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.maplibregl-popup-tip { border-top-color: var(--surface-1); }
+.maplibregl-ctrl-attrib {
+  background: color-mix(in srgb, var(--surface-1) 70%, transparent);
+  font-size: 11px;
+}
+.maplibregl-ctrl-attrib a { color: var(--text-muted); }
+
+.map-legend {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.map-legend .swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-legend .swatch i {
+  width: 16px;
+  height: 4px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+/* ===== 页脚 ===== */
+footer {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 主题切换按钮与服务器仪表条同一行(按钮居左,仪表条居右) */
+.footer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 14px;
+  flex-wrap: wrap;
+}
+
+.footer-sys { display: flex; }
+
+/* 版权/说明文字:页面最底部,弱化配色融入背景 */
+footer .footer-text {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  color: color-mix(in srgb, var(--text-muted) 48%, transparent);
+}
+
+footer a { color: var(--text-muted); }
+
+/* ===== 功能分页:内容页 + 底部液态玻璃导航 ===== */
+/* 内容分页:仅当前页可见,图表在隐藏页为 0 尺寸,切页时由 app.js resize */
+.page { display: none; }
+.page.active { display: block; }
+
+/* 底部居中浮动 Tab 栏(iOS 27 液态玻璃):
+   高通透 + 强模糊/饱和度/亮度提升 + 顶部更亮的镜面高光 + 暗化底缘(可读性)+ 斜向扫光 + 选中气泡滑动回弹 */
+.tabbar {
+  position: fixed;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  touch-action: pan-y;  /* 横向滑动留给 JS 拖动选页,纵向仍可滚动页面 */
+  background: color-mix(in srgb, var(--surface-1) 40%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(1.1);
+  backdrop-filter: blur(28px) saturate(220%) brightness(1.1);
+  border: 0.5px solid color-mix(in srgb, var(--text-primary) 16%, transparent);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.38),
+              inset 0 1.5px 1px rgba(255, 255, 255, 0.42),
+              inset 0 -1.5px 2px rgba(0, 0, 0, 0.3);
+}
+/* 斜向镜面扫光(液态玻璃的反射高光) */
+.tabbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.03) 28%, transparent 45%);
+}
+:root[data-theme="light"] .tabbar {
+  background: color-mix(in srgb, var(--surface-1) 52%, transparent);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.16),
+              inset 0 1.5px 1px rgba(255, 255, 255, 0.95),
+              inset 0 -1.5px 2px rgba(0, 0, 0, 0.1);
+}
+:root[data-theme="light"] .tabbar::before {
+  background: linear-gradient(115deg, rgba(255, 255, 255, 0.6) 0%, rgba(255, 255, 255, 0.12) 28%, transparent 45%);
+}
+
+/* 选中项滑动气泡:玻璃透镜质感,切换时带回弹滑动(iOS 26 式) */
+.tab-bubble {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--series-1) 26%, transparent);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.38),
+              inset 0 -1px 1px rgba(0, 0, 0, 0.08),
+              0 4px 16px color-mix(in srgb, var(--series-1) 42%, transparent);
+  transition: left 0.45s cubic-bezier(0.22, 1.35, 0.36, 1),
+              width 0.45s cubic-bezier(0.22, 1.35, 0.36, 1);
+}
+.tab-bubble.no-anim { transition: none; }
+
+.tabbar .tab {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 64px;
+  padding: 7px 12px 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.18s ease, transform 0.12s ease;
+}
+.tabbar .tab svg { width: 21px; height: 21px; display: block; }
+.tabbar .tab:hover { color: var(--text-primary); }
+.tabbar .tab:active { transform: scale(0.92); }
+.tabbar .tab.on { color: var(--text-primary); font-weight: 600; }
+/* 选中 Tab 图标弹跳入场(配合气泡拉伸滑动);类切换时重播一次 */
+.tabbar .tab.on svg { animation: tab-icon-pop 0.5s cubic-bezier(0.22, 1.35, 0.36, 1); }
+@keyframes tab-icon-pop {
+  0% { transform: translateY(3px) scale(0.72); }
+  60% { transform: translateY(-1.5px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tabbar .tab.on svg { animation: none; }
+}
+
+/* ===== 车辆控制分页 ===== */
+/* 车辆当前状态条 */
+.ctl-state {
+  display: flex;
+  gap: 10px 22px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 10px 14px;
+  margin: 4px 0 14px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--page) 50%, transparent);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.ctl-state:empty { display: none; }
+.ctl-state .badge { font-size: 12px; }
+.ctl-state b { color: var(--text-primary); font-weight: 600; }
+.ctl-state .ctl-sleep-hint { color: var(--series-4); width: 100%; font-size: 12px; }
+
+/* 未接入横幅(紧凑横条,下方照常展示控制面板预览) */
+.ctl-setup { display: none; }
+.ctl-setup:not([hidden]) {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin: 0 0 14px;
+  border: 1px dashed color-mix(in srgb, var(--series-4) 55%, transparent);
+  background: color-mix(in srgb, var(--series-4) 7%, transparent);
+  border-radius: 12px;
+}
+.ctl-setup-icon { font-size: 22px; flex: none; }
+.ctl-setup-text { font-size: 13px; line-height: 1.7; color: var(--text-secondary); flex: 1; min-width: 0; }
+.ctl-setup-text b { color: var(--text-primary); }
+.ctl-setup-link {
+  flex: none;
+  font-size: 13px; font-weight: 600; text-decoration: none;
+  color: #fff; background: var(--seq-blue-500);
+  border-radius: 8px; padding: 7px 14px;
+}
+.ctl-setup-link:hover { background: var(--seq-blue-600); }
+
+/* 预览态(未接入):按钮半透,点击由 JS 拦截提示 */
+#ctl-main.preview .ctl-zone,
+#ctl-main.preview .ctl-step,
+#ctl-main.preview .ctl-apply,
+#ctl-main.preview .ctl-mini,
+#ctl-main.preview .ctl-btn,
+#ctl-main.preview .ctl-wide,
+#ctl-main.preview input[type="range"] { opacity: 0.72; }
+
+/* 布局:左侧车身按钮图,右侧参数面板;窄屏上下堆叠 */
+.ctl-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 370px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.ctl-carbox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 12px 12px;
+  background: var(--page);
+}
+.ctl-car { width: 100%; max-width: 330px; height: auto; display: block; }
+
+/* 车身部位 = 异形按钮;--zc 为该部位主题色。
+   按钮边界与车身钣金缝/玻璃边共享曲线,默认不描边——边框由车身自身缝线统一刻画 */
+.ctl-zone { cursor: pointer; -webkit-tap-highlight-color: transparent; outline: none; }
+.ctl-zone .zone-shape {
+  fill: color-mix(in srgb, var(--zc, var(--series-1)) 6%, transparent);
+  stroke: none;
+  transition: fill 0.2s ease, stroke 0.2s ease, filter 0.2s ease;
+}
+.ctl-zone:hover .zone-shape,
+.ctl-zone:focus-visible .zone-shape {
+  fill: color-mix(in srgb, var(--zc, var(--series-1)) 22%, transparent);
+  stroke: color-mix(in srgb, var(--zc, var(--series-1)) 70%, transparent);
+  stroke-width: 1;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--zc, var(--series-1)) 55%, transparent));
+}
+.ctl-zone.on .zone-shape {
+  fill: color-mix(in srgb, var(--series-3) 48%, transparent);
+  stroke: var(--series-3);
+  stroke-width: 1.4;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--series-3) 60%, transparent));
+}
+.ctl-zone.busy .zone-shape { animation: ctlzone-pulse 1s ease-in-out infinite; }
+@keyframes ctlzone-pulse { 50% { fill: color-mix(in srgb, var(--zc, var(--series-1)) 28%, transparent); } }
+.zone-ico { fill: var(--text-primary); opacity: 0.92; transition: fill 0.2s ease, stroke 0.2s ease; }
+.zone-ico-stroke { fill: none; stroke: var(--text-primary); stroke-width: 1.8; stroke-linecap: round; }
+.zone-lab {
+  fill: var(--text-secondary);
+  font-size: 10px;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+.zone-lab-v { font-size: 9.5px; }
+.ctl-zone.on .zone-ico { fill: var(--series-3); opacity: 1; }
+.ctl-zone.on .zone-ico-stroke { fill: none; stroke: var(--series-3); }
+.ctl-zone.on .zone-lab { fill: var(--series-3); }
+.ctl-zone .ico-unlocked { display: none; }
+.ctl-zone.unlocked .ico-locked { display: none; }
+.ctl-zone.unlocked .ico-unlocked { display: block; }
+
+/* 状态胶囊:车身图下方,展示各部位当前状态 */
+.ctl-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.ctl-chip {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: var(--surface-1);
+  white-space: nowrap;
+}
+.ctl-chip b { color: var(--text-primary); font-weight: 600; }
+.ctl-chip.on { border-color: color-mix(in srgb, var(--chip-c, var(--series-1)) 45%, transparent); }
+.ctl-chip.on b { color: var(--chip-c, var(--series-1)); }
+.ctl-legend-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.7;
+}
+
+/* 右侧参数面板 */
+.ctl-panels { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ctl-wide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.12s ease, background 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.ctl-wide svg { width: 17px; height: 17px; fill: currentColor; }
+.ctl-wide:hover { border-color: var(--baseline); }
+.ctl-wide:active { transform: scale(0.98); }
+.ctl-wide:disabled { opacity: 0.45; cursor: default; transform: none; }
+.ctl-wide.on {
+  color: var(--cat-charge);
+  border-color: color-mix(in srgb, var(--cat-charge) 50%, transparent);
+  background: color-mix(in srgb, var(--cat-charge) 12%, transparent);
+}
+
+.ctl-group {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 14px 12px;
+  background: var(--page);
+}
+.ctl-group h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+
+/* 参数行:温度步进 / 充电上限滑杆 */
+.ctl-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--gridline);
+}
+.ctl-row-label { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+.ctl-step {
+  width: 32px; height: 32px; flex: none;
+  font: inherit; font-size: 18px; line-height: 1;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  cursor: pointer;
+}
+.ctl-step:active { transform: scale(0.92); }
+.ctl-val { font-size: 15px; min-width: 58px; text-align: center; font-variant-numeric: tabular-nums; }
+.ctl-apply {
+  margin-left: auto;
+  font: inherit; font-size: 13px; font-weight: 600;
+  color: #fff; background: var(--seq-blue-500);
+  border: 0; border-radius: 9px; padding: 7px 16px;
+  cursor: pointer;
+}
+.ctl-apply:hover { background: var(--seq-blue-600); }
+.ctl-apply:disabled { opacity: 0.5; cursor: default; }
+.ctl-row input[type="range"] {
+  flex: 1; min-width: 0;
+  accent-color: var(--series-1);
+  height: 28px;
+}
+
+/* 爆闪等小操作按钮 */
+.ctl-mini {
+  font: inherit; font-size: 12.5px;
+  color: var(--text-primary);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.12s ease;
+}
+.ctl-mini:hover { border-color: var(--baseline); }
+.ctl-mini:active { transform: scale(0.94); }
+.ctl-mini:disabled { opacity: 0.45; cursor: default; }
+.ctl-mini.warn { color: #e86a6a; border-color: color-mix(in srgb, #d03b3b 45%, transparent); }
+
+.ctl-sub-note {
+  margin: 8px 2px 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.ctl-note {
+  margin: 14px 2px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+/* 控制页底部帮助入口 */
+.ctl-help {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--gridline);
+  text-align: center;
+}
+.ctl-help a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-decoration: none;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+.ctl-help a:hover { color: var(--text-primary); border-color: var(--baseline); }
+.ctl-help svg { width: 15px; height: 15px; fill: currentColor; }
+
+/* 指令结果 toast(浮在 Tab 栏上方) */
+.ctl-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 74px);
+  transform: translateX(-50%) translateY(12px);
+  z-index: 1300;
+  max-width: min(420px, calc(100vw - 40px));
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-1) 82%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.ctl-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.ctl-toast.err { border-color: color-mix(in srgb, #d03b3b 55%, transparent); color: #e86a6a; }
+
+@media (max-width: 900px) {
+  .ctl-layout { grid-template-columns: 1fr; }
+  .ctl-car { max-width: 290px; }
+}
+
+/* ===== 响应式:平板 / 手机 ===== */
+@media (max-width: 900px) {
+  .wrap { padding: 16px 12px 104px; }
+
+  .col-6, .col-5, .col-7 { grid-column: span 12; }
+  .chart { height: 260px; }
+  #map { height: 320px; }
+  .chart-activity { height: 320px; }
+  .sentry-split { grid-template-columns: 1fr; }
+  /* 车辆总览:窄屏仍保持左右两条夹车辆的布局,只收窄条宽与间距 */
+  .carview { gap: 10px; }
+  .car-side { flex-basis: 150px; }
+  .car-side.collapsed { flex-basis: 14px; }
+  .car-legend { gap: 8px; }
+  .car-stage { height: 440px; }
+  /* 事件列表:窄屏改为 时间列 + 数值格 2×2(自带小标签),详情独占一行 */
+  .ev-head { display: none; }
+  .ev-row {
+    grid-template-columns: 108px 1fr 1fr;
+    grid-template-areas:
+      "time batt kwh"
+      "time km cost"
+      "chip desc desc";
+    row-gap: 3px;
+    column-gap: 8px;
+    align-items: center;
+  }
+  .ev-row .ev-time { grid-area: time; align-self: start; }
+  .ev-row .ev-chip { grid-area: chip; }
+  .ev-row .ev-desc { grid-area: desc; }
+  .ev-num[data-lab="电量"] { grid-area: batt; }
+  .ev-num[data-lab="度数"] { grid-area: kwh; }
+  .ev-num[data-lab="里程"] { grid-area: km; }
+  .ev-num[data-lab="电费"] { grid-area: cost; }
+  .ev-num { text-align: left; display: flex; gap: 5px; align-items: baseline; }
+  .ev-num::before { content: attr(data-lab); font-size: 10px; color: var(--text-muted); }
+  .day-head .summary { gap: 8px; }
+
+  /* 轨迹列表行:窄屏隐藏时长列,名称列省略 */
+  .rt-row { grid-template-columns: 68px 1fr 70px 24px; }
+  .rt-row .rt-dur { display: none; }
+
+  /* 行程详情:窄屏键值网格改 2 列 */
+  .rt-kv { grid-template-columns: repeat(2, 1fr); }
+  .rt-map { height: 170px; }
+}
+
+/* ===== 响应式:手机 ===== */
+@media (max-width: 600px) {
+  .grid { gap: 10px; }
+
+  /* 分页导航:手机端铺满底宽,标签均分 */
+  .tabbar {
+    width: calc(100% - 20px);
+    gap: 0;
+    padding: 5px;
+    justify-content: space-between;
+  }
+  .tabbar .tab { min-width: 0; flex: 1; padding: 7px 4px 6px; font-size: 10.5px; }
+  .tabbar .tab svg { width: 20px; height: 20px; }
+
+  /* 顶栏:车图右侧跨两行,服务器资源在页脚;满幅边距随 .wrap 收窄 */
+  header { margin: 0 -12px; padding: 6px 12px 12px; }
+  header.mini { padding: 4px 12px 8px; }
+  .header-main { gap: 10px; }
+  .header-main .model-icon { height: 58px; }
+  header.mini .header-main .model-icon { height: 34px; }
+  .badge { font-size: 12px; padding: 3px 9px; }
+  .batt-pill { font-size: 12px; padding: 3px 9px; gap: 6px; }
+  .batt-icon { width: 26px; height: 12px; }
+  #car-model-badge { height: 13px; width: 116px; }
+  .sys-meters { gap: 10px; }
+  .sys-meters .meter-track { width: 44px; }
+  #sw-version { display: none; }
+  .icon-btn { padding: 8px 14px; }
+
+  /* 卡片与图表紧凑化 */
+  .card { padding: 12px 14px; border-radius: 12px; }
+  .card-head-right { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .chart { height: 230px; }
+  .chart-activity { height: 290px; }
+  #map { height: 300px; }
+  .chip-legend { gap: 10px; }
+  .mini-stat { padding: 5px 10px; }
+
+  /* 车辆总览:手机端仍两列夹车辆;舞台按车图比例伸缩;
+     车图内容整体放大 1.32 倍(裁掉 HUD 角标与四周留白),让车在框内占比更大;
+     胎压面板在车图下方一行四格,不再覆盖车身 */
+  .carview { gap: 6px; transition: padding-bottom 0.45s cubic-bezier(0.22, 1, 0.36, 1); }
+  .car-side { flex-basis: 106px; gap: 4px; }
+  .car-side.collapsed { flex-basis: 14px; }
+  .car-legend { gap: 7px; }
+  .car-stage { height: auto; aspect-ratio: 340 / 470; overflow: hidden; }
+  /* 手机端展开侧面板:底部留出一行空间放 电量/度数/里程 切换条,避免盖住面板下缘 */
+  .carview:not(.sides-stowed) { padding-bottom: 40px; }
+  /* 手机端两侧收起:舞台限高 300px、缩放降到 1.18,车模只稍微放大且车头/车尾读数不被裁掉 */
+  .carview.sides-stowed .car-stage { height: 300px; aspect-ratio: auto; }
+  .carview.sides-stowed #car-zoom { transform: scale(1.18); }
+  .car-hud { display: none; }
+  #car-zoom {
+    transform: scale(1.32);
+    transform-origin: 170px 236px;
+    transform-box: view-box;
+    transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .cl-item { padding: 7px 6px; gap: 5px; }
+  .cl-val { font-size: 15px; }
+
+  /* 事件列表:日期行允许换行,摘要芯片独占一行防溢出 */
+  .day-head { flex-wrap: wrap; padding: 9px 10px; }
+  .day-head .date { font-size: 13px; }
+  .day-head .summary {
+    order: 3;
+    flex-basis: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+  .day-head .day-donut { order: 1; margin-left: auto; width: 28px; height: 28px; }
+  .day-head .chev { order: 2; margin-left: 0; }
+  .ev-row {
+    grid-template-columns: 96px 1fr 1fr;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  footer { font-size: 11px; }
+}
