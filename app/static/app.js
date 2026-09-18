@@ -3238,6 +3238,7 @@
     const btn = bar && bar.querySelector('.tab.on');
     const bubble = $('#tab-bubble');
     if (!btn || !bubble) return;
+    if (window.TTVPageTurn?.isDragging()) return;  // 拖动中气泡跟随手指,松手时才吸附
     if (animate && window.TTVPageTurn) TTVPageTurn.slideBubble(bubble, btn);
     else {
       bubble.style.left = btn.offsetLeft + 'px';

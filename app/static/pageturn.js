@@ -119,18 +119,36 @@
     requestAnimationFrame(() => bubble.classList.remove('no-anim'));
   }
 
-  /* Tab 栏拖动选择:按下后横向滑过各按钮即逐一切换,不必逐个点按。
+  /* Tab 栏拖动选择:按下后横向滑过各按钮即逐一切换页面,不必逐个点按。
+   * 拖动中气泡**不吸附**:只跟随手指自由滑动(页面照常切换);松手后才拉伸吸附到当前 Tab。
    * 水平位移超过阈值才进入拖动(此前保持原样,点击不受影响;点击仍由调用方的 click 委托处理);
-   * 拖动中指针捕获到 Tab 栏,松手/取消结束。onSelect(page) 只在滑入新 Tab 时触发。 */
+   * 拖动中指针捕获到 Tab 栏,松手/取消结束。onSelect(page) 只在滑入新 Tab 时触发。
+   * 拖动期间调用方应通过 isDragging() 跳过自己的气泡定位(由本函数接管)。 */
+  let dragActive = false;  // 模块级:页面上只有一个 Tab 栏
+  const isDragging = () => dragActive;
+
   function enableTabDrag(bar, onSelect) {
     if (!bar || !onSelect) return;
     const THRESH = 8;  // 进入拖动的水平位移阈值 px
+    const PAD = 6;     // 气泡与栏边缘的内边距(与 .tab-bubble 的 top/bottom 一致)
     let pid = null, startX = 0, startY = 0, dragging = false, current = null;
+
     const tabAt = (x, y) => {
       const el = document.elementFromPoint(x, y);
       const t = el && el.closest ? el.closest('.tab') : null;
       return t && bar.contains(t) ? t : null;
     };
+    /* 气泡跟随手指:直接写位置(无动画、不吸附),宽度随手下按钮 */
+    const followFinger = (x) => {
+      const b = bar.querySelector('.tab-bubble');
+      if (!b) return;
+      const r = bar.getBoundingClientRect();
+      const w = current ? current.offsetWidth : (parseFloat(b.style.width) || 0);
+      b.classList.add('no-anim');
+      b.style.width = w + 'px';
+      b.style.left = Math.max(PAD, Math.min(x - r.left - w / 2, r.width - PAD - w)) + 'px';
+    };
+
     bar.addEventListener('pointerdown', (e) => {
       if (pid !== null) return;             // 只跟踪单指/单指针
       pid = e.pointerId;
@@ -146,23 +164,32 @@
         const dy = e.clientY - startY;
         if (Math.abs(dx) < THRESH || Math.abs(dx) < Math.abs(dy)) return;
         dragging = true;
+        dragActive = true;
         try { bar.setPointerCapture(pid); } catch { /* noop */ }
       }
       const t = tabAt(e.clientX, e.clientY);
       if (t && t !== current) {
         current = t;
-        onSelect(t.dataset.page);
+        onSelect(t.dataset.page);           // 只切换页面,气泡不吸附
       }
+      followFinger(e.clientX);
     });
     const end = (e) => {
       if (e.pointerId !== pid) return;
       pid = null;
-      dragging = false;
+      if (dragging) {
+        dragging = false;
+        dragActive = false;
+        // 松手吸附:气泡从手指位置拉伸滑动到当前选中 Tab
+        const b = bar.querySelector('.tab-bubble');
+        const on = bar.querySelector('.tab.on');
+        if (b && on) slideBubble(b, on);
+      }
       current = null;
     };
     bar.addEventListener('pointerup', end);
     bar.addEventListener('pointercancel', end);
   }
 
-  window.TTVPageTurn = { exit, enter, slideBubble, enableTabDrag };
+  window.TTVPageTurn = { exit, enter, slideBubble, enableTabDrag, isDragging };
 })();
