@@ -369,7 +369,7 @@ async def auth_and_headers(request: Request, call_next):
             if request.state.role != "admin" and (
                     path.startswith("/api/backup/") or
                     (request.method not in ("GET", "HEAD", "OPTIONS") and
-                     path != "/api/account/password")):
+                     path not in ("/api/account/password", "/api/prefs"))):
                 return JSONResponse({"detail": "只读账号不能执行此操作"}, status_code=403)
         response = await call_next(request)
     except AuthConfigurationError:
@@ -1950,6 +1950,7 @@ from .backup import router as backup_router
 from .control import router as control_router
 from .parking import router as parking_router
 from .vehicle import router as vehicle_router
+from .prefs import router as prefs_router
 app.include_router(backup_router)   # 须在 app.mount("/") 之前注册
 from .fleet import router as fleet_router
 app.include_router(fleet_router)
@@ -1960,6 +1961,7 @@ from .sentry_sched import router as sentry_sched_router
 app.include_router(sentry_sched_router)
 app.include_router(parking_router)
 app.include_router(vehicle_router)
+app.include_router(prefs_router)
 from .reminder import router as reminder_router
 app.include_router(reminder_router)
 from .monthly_backup import router as monthly_backup_router

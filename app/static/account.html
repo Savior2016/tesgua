@@ -128,6 +128,20 @@
     <button class="btn ghost" id="logout-btn" type="button">退出登录</button>
   </header>
 
+  <!-- 显示偏好:默认时间范围(原页面底部的 24小时/7天/30天 选择,2026-09-18 收进个人中心) -->
+  <section class="card">
+    <h2>显示偏好</h2>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:6px">
+      <span style="font-size:13px;color:var(--text-secondary)">面板默认时间范围</span>
+      <div class="seg" id="days-seg" role="group" aria-label="默认时间范围">
+        <button type="button" data-days="1">24 小时</button>
+        <button type="button" data-days="7">7 天</button>
+        <button type="button" data-days="30">30 天</button>
+      </div>
+    </div>
+    <div class="form-msg" id="days-msg"></div>
+  </section>
+
   <section class="card" id="control-settings-entry" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
       <div><h2 style="margin:0 0 6px">车辆控制配置</h2><p style="font-size:13px;color:var(--text-secondary);margin:0">管理应用凭据、Tesla 授权与虚拟钥匙配对</p></div>

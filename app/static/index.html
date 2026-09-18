@@ -584,15 +584,6 @@
     </div>
   </dialog>
 
-  <div class="filter-row">
-    <div class="seg" id="range-seg" role="group" aria-label="时间范围">
-      <button data-days="1">24 小时</button>
-      <button data-days="7" class="on">7 天</button>
-      <button data-days="30">30 天</button>
-    </div>
-    <span class="hint">数据源:TeslaMate · 每 60 秒自动刷新</span>
-  </div>
-
   <footer>
     <!-- 主题切换 + 服务器资源仪表条:同一行 -->
     <div class="footer-row">
@@ -614,7 +605,7 @@
     </div>
     <!-- 版权/说明文字:页面最底部,弱化配色融入背景 -->
     <div class="footer-text">
-      本面板直接读取 TeslaMate 的 PostgreSQL 数据库(只读查询)。
+      本面板直接读取 TeslaMate 的 PostgreSQL 数据库(只读查询),每 60 秒自动刷新;默认时间范围在「个人中心 → 显示偏好」中设置。
       时间均为 Asia/Shanghai;能耗按「理想续航差值 × 每理想续航公里电量(由充电历史校准)」估算。
       车辆图片与「MODEL Y L」徽章来自特斯拉官方(tesla.cn 设计工作室渲染图与官方发布的尾标特写)。
     </div>

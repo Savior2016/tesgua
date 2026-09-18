@@ -3352,15 +3352,6 @@
     // 总览两侧面板:收起窄条 ⇄ 展开 切换 + 自动收起
     initCarSides();
 
-    $('#range-seg').addEventListener('click', (e) => {
-      const btn = e.target.closest('button');
-      if (!btn) return;
-      document.querySelectorAll('#range-seg button').forEach((b) => b.classList.remove('on'));
-      btn.classList.add('on');
-      S.days = Number(btn.dataset.days);
-      refresh();
-    });
-
     // 点击车名刷新;点击电量胶囊循环切换 电量% → 度数kWh → 续航km
     const carNameEl = $('#car-name');
     carNameEl.addEventListener('click', refresh);
@@ -3456,6 +3447,17 @@
       renderCar();  // 引线与标注按舞台实际尺寸定位,需随布局重算
       placeTabBubble();  // 气泡宽度随 Tab 布局变化
     });
+
+    // 默认时间范围:个人中心「显示偏好」设置,存服务端按账号隔离;
+    // localStorage 做秒开缓存,服务端返回不同值时校正并重刷一次
+    const cachedDays = Number(localStorage.getItem('ttv-days'));
+    if ([1, 7, 30].includes(cachedDays)) S.days = cachedDays;
+    api('prefs').then((p) => {
+      if (p && [1, 7, 30].includes(p.days)) {
+        localStorage.setItem('ttv-days', String(p.days));
+        if (p.days !== S.days) { S.days = p.days; refresh(); }
+      }
+    }).catch(() => { /* 偏好拉取失败就用缓存/默认值 */ });
 
     refresh();
     S.timer = setInterval(refresh, 60 * 1000);

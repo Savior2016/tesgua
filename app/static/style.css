@@ -1045,14 +1045,7 @@ button { touch-action: manipulation; }
 
 /* 电池健康(独立模块) */
 
-/* ===== 过滤器行 ===== */
-.filter-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 0 16px;
-}
-
+/* ===== 分段选择控件(时间范围选择在个人中心,面板内仅卡片 mini 切换用) ===== */
 .seg {
   display: inline-flex;
   background: color-mix(in srgb, var(--page) 55%, transparent);
@@ -1111,12 +1104,6 @@ button { touch-action: manipulation; }
 }
 
 .pane-head h3 { margin: 0; }
-
-.filter-row .hint {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-left: auto;
-}
 
 /* ===== 图表网格 ===== */
 .grid {
@@ -2747,17 +2734,6 @@ footer a { color: var(--text-muted); }
   /* 行程详情:窄屏键值网格改 2 列 */
   .rt-kv { grid-template-columns: repeat(2, 1fr); }
   .rt-map { height: 170px; }
-
-  /* 筛选栏吸顶,负外边距铺满到屏幕边缘 */
-  .filter-row {
-    position: sticky;
-    top: 0;
-    z-index: 40;
-    margin: 0 -12px 14px;
-    padding: 10px 12px;
-    background: var(--page);
-    border-bottom: 1px solid var(--border);
-  }
 }
 
 /* ===== 响应式:手机 ===== */
@@ -2788,11 +2764,6 @@ footer a { color: var(--text-muted); }
   .sys-meters .meter-track { width: 44px; }
   #sw-version { display: none; }
   .icon-btn { padding: 8px 14px; }
-
-  /* 时间范围分段选择器占满一行,自动刷新提示隐藏(卡片内 mini 切换控件保持紧凑) */
-  .filter-row .hint { display: none; }
-  .filter-row .seg { flex: 1; }
-  .filter-row .seg button { flex: 1; padding: 9px 4px; text-align: center; }
 
   /* 卡片与图表紧凑化 */
   .card { padding: 12px 14px; border-radius: 12px; }

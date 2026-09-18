@@ -232,6 +232,41 @@
 
   /* 数据备份 / 迁移已迁至二级页 /backup.html(backup.js) */
 
+  /* 显示偏好:默认时间范围(存服务端按账号隔离;localStorage 缓存供面板秒开) */
+  const daysSeg = $('days-seg');
+  const DAYS = [1, 7, 30];
+  function markDays(d) {
+    daysSeg.querySelectorAll('button').forEach((b) =>
+      b.classList.toggle('on', Number(b.dataset.days) === d));
+  }
+  daysSeg.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const d = Number(btn.dataset.days);
+    markDays(d);
+    localStorage.setItem('ttv-days', String(d));  // 面板下次打开即刻生效
+    try {
+      await api('/api/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days: d }),
+      });
+      msg($('days-msg'), '已保存', true);
+    } catch (err) {
+      msg($('days-msg'), err.message, false);
+    }
+  });
+  (async () => {
+    try {
+      const p = await api('/api/prefs');
+      const d = DAYS.includes(p.days) ? p.days : 7;
+      markDays(d);
+      localStorage.setItem('ttv-days', String(d));
+    } catch (e) {
+      msg($('days-msg'), e.message, false);
+    }
+  })();
+
   loadStatus();
   pollTimer = setInterval(loadStatus, 15000); // 授权完成前每 15 秒自动刷新状态
 })();
