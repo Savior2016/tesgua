@@ -2324,6 +2324,7 @@ footer a { color: var(--text-muted); }
   padding: 6px;
   border-radius: 999px;
   overflow: hidden;
+  touch-action: pan-y;  /* 横向滑动留给 JS 拖动选页,纵向仍可滚动页面 */
   background: color-mix(in srgb, var(--surface-1) 40%, transparent);
   -webkit-backdrop-filter: blur(28px) saturate(220%) brightness(1.1);
   backdrop-filter: blur(28px) saturate(220%) brightness(1.1);

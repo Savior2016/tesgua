@@ -232,6 +232,8 @@
     const b = e.target.closest('.tab');
     if (b) switchTab(b.dataset.page, true);
   });
+  // Tab 栏横向拖动选择页面
+  window.TTVPageTurn?.enableTabDrag($('#tabbar'), (p) => switchTab(p, true));
   window.addEventListener('resize', () => {
     Object.values(charts).forEach((c) => c && c.resize());
     placeTabBubble(false);

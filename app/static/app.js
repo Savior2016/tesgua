@@ -3324,6 +3324,8 @@
       const b = e.target.closest('.tab');
       if (b) switchTab(b.dataset.page);
     });
+    // Tab 栏横向拖动:滑过按钮即逐一切页(不必逐个点按)
+    window.TTVPageTurn?.enableTabDrag($('#tabbar'), (p) => switchTab(p));
     // #control 深链(配置流程返回)只生效一次:清掉 hash,否则之后每次刷新都会被它拉回控制页
     if (location.hash === '#control') {
       switchTab('control');
