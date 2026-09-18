@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d0d0d">
+  <title>TESLA Home · 演示</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    /* ===== 演示页专属样式(通用样式复用 style.css) ===== */
+    .demo-flag {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: #fff;
+      background: linear-gradient(135deg, var(--series-2), var(--series-1));
+      vertical-align: middle;
+    }
+    .demo-note {
+      text-align: center;
+      font-size: 12px;
+      color: var(--text-muted);
+      padding: 4px 0 10px;
+    }
+    .demo-note a { color: var(--series-1); }
+    /* 能量去向堆叠条(纯 CSS 演示) */
+    .demo-energy {
+      display: flex;
+      height: 22px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 10px 0 8px;
+      border: 1px solid var(--glass-edge);
+    }
+    .demo-energy i { display: block; height: 100%; }
+    .demo-big {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      margin: 6px 0 2px;
+    }
+    .demo-big b { font-size: 44px; font-weight: 700; letter-spacing: -0.02em; }
+    .demo-big span { color: var(--text-secondary); font-size: 14px; }
+    /* 模拟行程行 */
+    .demo-trip {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 2px;
+      border-top: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .demo-trip:first-of-type { border-top: 0; }
+    .demo-trip small { color: var(--text-muted); }
+    /* 控制页演示瓦片 */
+    .demo-tiles {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .demo-tile {
+      border: 1px solid var(--glass-edge);
+      border-radius: 14px;
+      padding: 14px 14px 12px;
+      background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+      box-shadow: var(--ctl-shadow), inset 0 1px 0 var(--glass-hi);
+    }
+    .demo-tile b { display: block; font-size: 14px; margin-bottom: 2px; }
+    .demo-tile small { color: var(--text-muted); font-size: 12px; }
+    .demo-switch {
+      margin-top: 12px;
+      width: 100%;
+      max-width: 220px;
+      height: 30px;
+      border-radius: 999px;
+      background: var(--tile-track);
+      border: 1px solid var(--glass-edge);
+      position: relative;
+      cursor: pointer;
+      transition: background 0.25s ease;
+    }
+    .demo-switch i {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: linear-gradient(180deg, #fff, #cdd3dc);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 1px 0 #fff;
+      transition: left 0.3s cubic-bezier(0.22, 1.35, 0.36, 1);
+    }
+    .demo-switch.on { background: color-mix(in srgb, var(--series-3) 55%, transparent); }
+    .demo-switch.on i { left: calc(100% - 26px); }
+    /* 演示提示 toast */
+    .demo-toast {
+      position: fixed;
+      left: 50%;
+      bottom: 92px;
+      transform: translateX(-50%) translateY(8px);
+      padding: 9px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      color: var(--text-primary);
+      background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      backdrop-filter: blur(20px) saturate(180%);
+      border: 0.5px solid var(--glass-edge);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      z-index: 1300;
+    }
+    .demo-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header id="header">
+    <div class="header-main">
+      <div class="header-left">
+        <div class="header-line1">
+          <span id="car-model"><span class="car-model-badge" id="car-model-badge" role="img" aria-label="Model Y L"></span></span>
+          <span class="batt-pill" id="batt-pill" data-level="high" title="演示数据">
+            <svg class="batt-icon" viewBox="0 0 30 14" aria-hidden="true">
+              <rect class="batt-shell" x="1" y="1.5" width="24" height="11" rx="3.5"/>
+              <rect class="batt-cap" x="26.5" y="4.5" width="2.5" height="5" rx="1.2"/>
+              <rect class="batt-fill" id="batt-fill" x="3" y="4" width="16.4" height="6" rx="1.6"/>
+            </svg>
+            <span id="batt-text">78%</span>
+          </span>
+          <span class="demo-flag">DEMO</span>
+        </div>
+        <div class="header-line2">
+          <span class="badge" id="state-badge" data-state="online">
+            <span class="dot"></span><span id="state-text">在线 · 已驻车</span><span class="car-name" id="car-name">演示车辆</span>
+          </span>
+          <span id="sw-version">2026.8.3</span>
+          <span class="header-meta"><span id="updated-at">演示数据</span></span>
+        </div>
+      </div>
+      <img class="model-icon" src="/model-y-l.png" alt="Model Y L">
+    </div>
+  </header>
+
+  <p class="demo-note">本页为 <b>虚拟数据演示</b>,用于预览分页切换动效与液态玻璃界面 · <a href="/">返回正式面板</a></p>
+
+  <!-- ===== 分页 1:总览 ===== -->
+  <section class="page" id="page-overview">
+  <div class="grid">
+    <div class="card col-12">
+      <div class="card-head"><div><h2>车辆总览</h2></div></div>
+      <div class="demo-big"><b>78%</b><span>电量 · 续航约 412 km</span></div>
+      <div class="demo-energy" title="能量去向(虚拟)">
+        <i style="width:9%;  background:repeating-linear-gradient(45deg,var(--text-muted) 0 3px,transparent 3px 6px);opacity:.35"></i>
+        <i style="width:6%;  background:var(--cat-idle)"></i>
+        <i style="width:4%;  background:var(--cat-climate)"></i>
+        <i style="width:5%;  background:var(--cat-sentry)"></i>
+        <i style="width:38%; background:var(--cat-drive)"></i>
+        <i style="width:38%; background:var(--series-1)"></i>
+      </div>
+      <div class="chip-legend">
+        <span class="chip cat-drive">行驶 38%</span>
+        <span class="chip cat-sentry">哨兵 5%</span>
+        <span class="chip cat-climate">驻车空调 4%</span>
+        <span class="chip cat-idle">驻车耗电 6%</span>
+        <span class="chip">剩余 38%</span>
+      </div>
+    </div>
+    <div class="card col-6">
+      <div class="card-head"><div><h2>里程统计</h2></div></div>
+      <div class="mini-stats">
+        <span class="mini-stat">总里程 <b>18,432 km</b></span>
+        <span class="mini-stat">本月 <b>1,206 km</b></span>
+        <span class="mini-stat">本周 <b>287 km</b></span>
+      </div>
+    </div>
+    <div class="card col-6">
+      <div class="card-head"><div><h2>电池健康</h2></div></div>
+      <div class="demo-big"><b style="color:var(--series-3)">98.2%</b><span>估算 85.4 / 基准 86.9 kWh</span></div>
+      <div class="mini-stats">
+        <span class="mini-stat">平均能耗 <b>148 Wh/km</b></span>
+        <span class="mini-stat">官方 <b>150 Wh/km</b></span>
+      </div>
+    </div>
+  </div>
+  </section>
+
+  <!-- ===== 分页 2:充电 ===== -->
+  <section class="page" id="page-charging">
+  <div class="grid">
+    <div class="card col-12">
+      <div class="card-head"><div><h2>充电记录</h2></div></div>
+      <div class="chart" id="d-chart-charging"></div>
+    </div>
+    <div class="card col-6">
+      <div class="card-head"><div><h2>最近充电</h2></div></div>
+      <div class="demo-trip"><span>09-16 23:05 · 家充桩<small>(谷电)</small></span><span><b>+42.6 kWh</b> · ¥13.62</span></div>
+      <div class="demo-trip"><span>09-13 12:40 · 特斯拉超充<small> 虹桥天地</small></span><span><b>+31.8 kWh</b> · ¥57.24</span></div>
+      <div class="demo-trip"><span>09-10 23:10 · 家充桩<small>(谷电)</small></span><span><b>+45.1 kWh</b> · ¥14.43</span></div>
+    </div>
+    <div class="card col-6">
+      <div class="card-head"><div><h2>充电统计</h2></div></div>
+      <div class="mini-stats">
+        <span class="mini-stat">本月充电 <b>9 次</b></span>
+        <span class="mini-stat">充电量 <b>312 kWh</b></span>
+        <span class="mini-stat">费用 <b>¥168.5</b></span>
+        <span class="mini-stat">均价 <b>¥0.54/kWh</b></span>
+      </div>
+    </div>
+  </div>
+  </section>
+
+  <!-- ===== 分页 3:行程 ===== -->
+  <section class="page" id="page-drives">
+  <div class="grid">
+    <div class="card col-12">
+      <div class="card-head"><div><h2>每日里程</h2></div></div>
+      <div class="chart" id="d-chart-daily"></div>
+    </div>
+    <div class="card col-12">
+      <div class="card-head"><div><h2>最近行程</h2></div></div>
+      <div class="demo-trip"><span>09-17 18:22 · 公司 → 家</span><span><b>23.4 km</b> · 38 分钟 · 142 Wh/km</span></div>
+      <div class="demo-trip"><span>09-17 08:35 · 家 → 公司</span><span><b>22.8 km</b> · 41 分钟 · 151 Wh/km</span></div>
+      <div class="demo-trip"><span>09-16 20:02 · 家 → 山姆会员店</span><span><b>11.6 km</b> · 22 分钟 · 139 Wh/km</span></div>
+      <div class="demo-trip"><span>09-15 09:10 · 家 → 虹桥天地</span><span><b>34.2 km</b> · 47 分钟 · 158 Wh/km</span></div>
+    </div>
+  </div>
+  </section>
+
+  <!-- ===== 分页 4:活动 ===== -->
+  <section class="page" id="page-activity">
+  <div class="grid">
+    <div class="card col-12">
+      <div class="card-head"><div><h2>哨兵耗电(每天合计)</h2></div></div>
+      <div class="chart" id="d-chart-sentry"></div>
+    </div>
+    <div class="card col-12">
+      <div class="card-head"><div><h2>活动事件</h2></div></div>
+      <div class="demo-trip"><span><span class="ev-chip cat-drive">行驶</span> 家 → 公司</span><span>-4.2 kWh · ¥2.27</span></div>
+      <div class="demo-trip"><span><span class="ev-chip cat-sentry">哨兵</span> 公司停车场 · 9.5 小时</span><span>-1.9 kWh · ¥1.03</span></div>
+      <div class="demo-trip"><span><span class="ev-chip cat-charge">充电</span> 家充桩 · 6.2 小时</span><span>+42.6 kWh · ¥13.62</span></div>
+      <div class="demo-trip"><span><span class="ev-chip cat-idle">驻车耗电</span> 小区地库 · 13 小时</span><span>-0.8 kWh · ¥0.43</span></div>
+    </div>
+  </div>
+  </section>
+
+  <!-- ===== 分页 5:车况 ===== -->
+  <section class="page" id="page-vehicle">
+  <div class="grid">
+    <div class="card col-6">
+      <div class="card-head"><div><h2>胎压变化</h2></div></div>
+      <div class="chart" id="d-chart-tpms"></div>
+    </div>
+    <div class="card col-6">
+      <div class="card-head"><div><h2>车内 / 车外温度</h2></div></div>
+      <div class="chart" id="d-chart-temp"></div>
+    </div>
+  </div>
+  </section>
+
+  <!-- ===== 分页 6:控制 ===== -->
+  <section class="page" id="page-control">
+  <div class="grid">
+    <div class="card col-12">
+      <div class="card-head"><div><h2>车辆控制</h2><p class="card-sub">演示模式 · 点击开关不会下发真实指令</p></div></div>
+      <div class="demo-tiles">
+        <div class="demo-tile"><b>车锁</b><small>已锁定</small><div class="demo-switch" data-label="车锁"><i></i></div></div>
+        <div class="demo-tile"><b>空调</b><small>22.5°C · 已关闭</small><div class="demo-switch" data-label="空调"><i></i></div></div>
+        <div class="demo-tile"><b>充电</b><small>未充电 · 上限 80%</small><div class="demo-switch" data-label="充电"><i></i></div></div>
+        <div class="demo-tile"><b>哨兵模式</b><small>已开启</small><div class="demo-switch on" data-label="哨兵模式"><i></i></div></div>
+        <div class="demo-tile"><b>车窗</b><small>已关闭</small><div class="demo-switch" data-label="车窗"><i></i></div></div>
+        <div class="demo-tile"><b>闪灯 / 鸣笛</b><small>点动指令</small><div class="demo-switch" data-label="闪灯"><i></i></div></div>
+      </div>
+    </div>
+  </div>
+  </section>
+
+  <footer>
+    <div class="footer-row">
+      <button class="icon-btn" id="theme-btn" title="切换主题">☀ 浅色</button>
+    </div>
+    <div class="footer-text">TESLA Home 演示页 · 所有数据均为虚拟生成,仅用于展示界面效果</div>
+  </footer>
+</div>
+
+<!-- 底部分页导航:与正式面板一致的液态玻璃 Tab 栏 -->
+<nav class="tabbar" id="tabbar" role="tablist" aria-label="功能分页">
+  <i class="tab-bubble no-anim" id="tab-bubble" aria-hidden="true"></i>
+  <button class="tab" role="tab" data-page="overview" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 13.2 5 8.9A2.2 2.2 0 0 1 7.1 7.4h9.8a2.2 2.2 0 0 1 2.1 1.5l1.6 4.3c.4.1.8.5.8 1v4.2a.9.9 0 0 1-.9.9h-1.4a.9.9 0 0 1-.9-.9v-1h-12v1a.9.9 0 0 1-.9.9H3.9a.9.9 0 0 1-.9-.9v-4.2c0-.5.3-.9.4-1zM7.2 9 6 12.4h12L16.8 9H7.2z"/><circle cx="7.3" cy="14.9" r="1.5"/><circle cx="16.7" cy="14.9" r="1.5"/></svg>
+    <span>总览</span>
+  </button>
+  <button class="tab" role="tab" data-page="charging" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4.5 14h5.6L9 22l8.5-12h-5.6L13 2z"/></svg>
+    <span>充电</span>
+  </button>
+  <button class="tab" role="tab" data-page="drives" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 6.1 12.1 6.4 12.5a.8.8 0 0 0 1.2 0C12.9 21.1 19 14.2 19 9a7 7 0 0 0-7-7zm0 9.6A2.6 2.6 0 1 1 12 6.4a2.6 2.6 0 0 1 0 5.2z"/></svg>
+    <span>行程</span>
+  </button>
+  <button class="tab" role="tab" data-page="activity" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12h4l2.5-6.5 4 13 2.5-6.5h6"/></svg>
+    <span>活动</span>
+  </button>
+  <button class="tab" role="tab" data-page="vehicle" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5A9.5 9.5 0 0 0 2.5 13c0 2.6 1 5 2.7 6.7l1.4-1.4A7.5 7.5 0 1 1 19.5 13c0 2-.8 3.9-2.1 5.3l1.4 1.4a9.5 9.5 0 0 0 2.7-6.7A9.5 9.5 0 0 0 12 3.5z"/><path d="M12 15.2a1.7 1.7 0 0 1-.6-3.3l4.6-3-3 4.6a1.7 1.7 0 0 1-1 1.7z"/></svg>
+    <span>车况</span>
+  </button>
+  <button class="tab" role="tab" data-page="control" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10.8 2.5a6 6 0 0 0-6 6c0 2.3 1.3 4.3 3.2 5.3L6.6 15v2.2h2v2.1h3.2v-2.1h2V15h-2.1l-.5-.5a6 6 0 1 0-.5-12zm0 3.7a2.3 2.3 0 1 1-2.3 2.3 2.3 2.3 0 0 1 2.3-2.3z"/></svg>
+    <span>控制</span>
+  </button>
+</nav>
+
+<div class="demo-toast" id="demo-toast">演示模式:指令不会下发</div>
+
+<script src="/theme.js"></script>
+<script src="/echarts.min.js"></script>
+<script src="/pageturn.js"></script>
+<script src="/demo.js"></script>
+</body>
+</html>

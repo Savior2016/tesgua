@@ -294,7 +294,10 @@ app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Static assets needed before login; all data including map assets requires authentication.
 _AUTH_EXACT = {"/api/health", "/api/login", "/api/logout", "/login", "/login.js", "/theme.js", "/style.css",
-               "/.well-known/appspecific/com.tesla.3p.public-key.pem"}
+               "/.well-known/appspecific/com.tesla.3p.public-key.pem",
+               # 公开演示页(虚拟数据,无任何真实车辆信息):展示分页动效与界面
+               "/demo.html", "/demo.js", "/pageturn.js", "/echarts.min.js",
+               "/model-y-l.png", "/model-yl-badge.png"}
 _AUTH_PREFIX = ("/fonts/",)
 
 

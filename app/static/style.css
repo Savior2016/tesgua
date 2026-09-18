@@ -2393,6 +2393,16 @@ footer a { color: var(--text-muted); }
 .tabbar .tab:hover { color: var(--text-primary); }
 .tabbar .tab:active { transform: scale(0.92); }
 .tabbar .tab.on { color: var(--text-primary); font-weight: 600; }
+/* 选中 Tab 图标弹跳入场(配合气泡拉伸滑动);类切换时重播一次 */
+.tabbar .tab.on svg { animation: tab-icon-pop 0.5s cubic-bezier(0.22, 1.35, 0.36, 1); }
+@keyframes tab-icon-pop {
+  0% { transform: translateY(3px) scale(0.72); }
+  60% { transform: translateY(-1.5px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tabbar .tab.on svg { animation: none; }
+}
 
 /* ===== 车辆控制分页 ===== */
 /* 车辆当前状态条 */

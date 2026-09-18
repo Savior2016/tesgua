@@ -3232,31 +3232,36 @@
   const PAGE_IDS = ['overview', 'charging', 'drives', 'activity', 'vehicle', 'control'];
   let mapShown = false;  // 行程页首次显示时需 resize + 重新 fitBounds
 
-  // 选中气泡跟随当前 Tab(首次定位不开动画,避免从 0 宽度弹入)
-  function placeTabBubble() {
+  // 选中气泡跟随当前 Tab:用户切页时走 TTVPageTurn 拉伸滑动,首次定位/resize 直接落位
+  function placeTabBubble(animate) {
     const bar = $('#tabbar');
     const btn = bar && bar.querySelector('.tab.on');
     const bubble = $('#tab-bubble');
     if (!btn || !bubble) return;
-    bubble.style.left = btn.offsetLeft + 'px';
-    bubble.style.width = btn.offsetWidth + 'px';
-    bubble.classList.remove('no-anim');
+    if (animate && window.TTVPageTurn) TTVPageTurn.slideBubble(bubble, btn);
+    else {
+      bubble.style.left = btn.offsetLeft + 'px';
+      bubble.style.width = btn.offsetWidth + 'px';
+      bubble.classList.remove('no-anim');
+    }
   }
+
+  let tabSeq = 0;  // 快速连点时作废旧切换的离场动画结果
 
   function switchTab(name, save) {
     if (!PAGE_IDS.includes(name)) name = 'overview';
     if (save !== false) localStorage.setItem('ttv-tab', name);
-    window.scrollTo(0, 0);  // 切换分页后回到页面顶部
-    document.querySelectorAll('.page').forEach((p) =>
-      p.classList.toggle('active', p.id === 'page-' + name));
-    document.querySelectorAll('.tabbar .tab').forEach((t) => {
-      const on = t.dataset.page === name;
-      t.classList.toggle('on', on);
-      t.setAttribute('aria-selected', on ? 'true' : 'false');
-    });
-    placeTabBubble();
+    const cur = document.querySelector('.page.active');
+    const nxt = document.getElementById('page-' + name);
+    const setTabs = () => {
+      document.querySelectorAll('.tabbar .tab').forEach((t) => {
+        const on = t.dataset.page === name;
+        t.classList.toggle('on', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+    };
     // 隐藏页里的 ECharts / Leaflet 尺寸为 0,显示后要重算
-    requestAnimationFrame(() => {
+    const afterShow = () => requestAnimationFrame(() => {
       const sec = document.getElementById('page-' + name);
       if (sec) Object.values(charts).forEach((c) => {
         if (c && sec.contains(c.getDom())) c.resize();
@@ -3275,6 +3280,27 @@
       }
       if (name === 'overview') renderCar();  // 俯视图标注随舞台尺寸定位,重算一次
     });
+    // 动画路径:Tab 态与气泡滑动先行(手感即时),旧页模块从四周退出,再切页、新页模块从四周进入
+    if (cur && nxt && cur !== nxt && window.TTVPageTurn) {
+      const seq = ++tabSeq;
+      setTabs();
+      placeTabBubble(true);
+      TTVPageTurn.exit(cur).then(() => {
+        if (seq !== tabSeq) return;  // 期间又点了别的 Tab,本次切页作废
+        document.querySelectorAll('.page').forEach((p) =>
+          p.classList.toggle('active', p === nxt));
+        window.scrollTo(0, 0);  // 切换分页后回到页面顶部
+        afterShow();
+        TTVPageTurn.enter(nxt);
+      });
+      return;
+    }
+    window.scrollTo(0, 0);  // 切换分页后回到页面顶部
+    document.querySelectorAll('.page').forEach((p) =>
+      p.classList.toggle('active', p === nxt));
+    setTabs();
+    placeTabBubble(false);
+    afterShow();
   }
 
   /* Control UI is isolated so changes do not affect telemetry pages. */
@@ -3438,7 +3464,7 @@
       checkThumbResize();
       if (map) map.resize();
       renderCar();  // 引线与标注按舞台实际尺寸定位,需随布局重算
-      placeTabBubble();  // 气泡宽度随 Tab 布局变化
+      placeTabBubble(false);  // 气泡宽度随 Tab 布局变化,不播滑动动画
     });
 
     // 默认时间范围:个人中心「显示偏好」设置,存服务端按账号隔离;
