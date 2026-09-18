@@ -230,40 +230,7 @@
     }
   }
 
-  /* ---------- 数据备份 / 迁移 ---------- */
-  const bkMsg = $('bk-msg');
-
-  $('bk-export').onclick = async () => {
-    const button = $('bk-export');
-    const password = $('pw-current').value;
-    if (!password) { msg(bkMsg, '请在上方“当前密码”输入框填写面板密码，再点击导出备份', false); $('pw-current').focus(); return; }
-    button.disabled = true;
-    msg(bkMsg, '正在生成备份，请等待下载完成…', true);
-    try {
-      const response = await fetch('/api/backup/export', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.detail || `导出失败 (${response.status})`);
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url; link.download = `tesla-home-backup-${new Date().toISOString().slice(0, 10)}.tar.gz`;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60000);
-      msg(bkMsg, '备份已生成并交给浏览器下载，请确认文件已保存', true);
-    } catch (e) {
-      msg(bkMsg, e.message, false);
-    } finally {
-      $('pw-current').value = '';
-      button.disabled = false;
-    }
-  };
-
-  $('bk-import').onclick = () => msg(bkMsg, '数据库恢复需要在服务器维护期间执行，操作说明见仓库 docs/MAINTENANCE.md', false);
+  /* 数据备份 / 迁移已迁至二级页 /backup.html(backup.js) */
 
   loadStatus();
   pollTimer = setInterval(loadStatus, 15000); // 授权完成前每 15 秒自动刷新状态

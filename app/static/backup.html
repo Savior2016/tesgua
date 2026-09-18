@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d0d0d">
+  <title>数据备份 · TESLA Home</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
+  <style>
+    .acct-wrap { max-width: 760px; }
+    .acct-wrap .card { margin-bottom: 14px; }
+    .bk-note { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin: 4px 0 10px; }
+
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; align-items: center; }
+    .form-row input[type="password"], .form-row input[type="file"] {
+      flex: 1 1 160px; min-width: 0; font: inherit; font-size: 14px;
+      color: var(--text-primary); background: var(--page);
+      border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+    }
+    .btn {
+      font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+      color: #fff; background: var(--seq-blue-500); border: 0; border-radius: 8px;
+      padding: 8px 18px; text-decoration: none; white-space: nowrap;
+    }
+    .btn:hover { background: var(--seq-blue-600); }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .btn.ghost { color: var(--text-secondary); background: transparent; border: 1px solid var(--border); }
+    .btn.ghost:hover { color: var(--text-primary); border-color: var(--baseline); }
+    .btn.danger { background: transparent; color: #d03b3b; border: 1px solid currentColor; }
+    .btn.sm { padding: 4px 12px; font-size: 12px; }
+    .form-msg { font-size: 13px; margin-top: 8px; min-height: 1.2em; }
+    .form-msg.err { color: #d03b3b; }
+    .form-msg.ok { color: var(--success); }
+
+    /* 月份列表 */
+    .bk-toolbar { display: flex; align-items: center; gap: 10px; margin: 4px 0 8px; font-size: 13px; color: var(--text-secondary); }
+    .bk-toolbar label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+    .bk-toolbar .spacer { margin-left: auto; }
+    .month-list { margin: 0; padding: 0; list-style: none; }
+    .month-list li {
+      display: flex; align-items: center; gap: 10px; padding: 9px 2px;
+      border-bottom: 1px solid var(--gridline); font-size: 14px; flex-wrap: wrap;
+    }
+    .month-list li:last-child { border-bottom: 0; }
+    .month-name { font-weight: 600; min-width: 88px; }
+    .month-cur {
+      font-size: 11px; color: var(--series-4); border: 1px solid currentColor;
+      border-radius: 4px; padding: 0 5px; font-weight: 400;
+    }
+    .month-info { font-size: 12px; color: var(--text-muted); }
+    .month-info.backed { color: var(--text-secondary); }
+    .month-actions { margin-left: auto; display: flex; gap: 6px; }
+    .month-check { width: 16px; height: 16px; accent-color: var(--seq-blue-500); }
+
+    @media (max-width: 600px) {
+      .month-list li { row-gap: 4px; }
+      .month-actions { width: 100%; margin-left: 0; justify-content: flex-end; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap acct-wrap">
+
+  <header class="acct-header" style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+    <a class="acct-back" href="/account.html" style="color:var(--text-secondary);text-decoration:none;font-size:13px;border:1px solid var(--border);border-radius:8px;padding:5px 10px">← 个人中心</a>
+    <h1 style="font-size:20px;margin:0;font-weight:600">数据备份 / 迁移</h1>
+  </header>
+
+  <!-- 按月备份 -->
+  <section class="card">
+    <h2>按月备份</h2>
+    <p class="bk-note">
+      每月一个备份包(行驶/充电/哨兵等遥测 + 手填的费用与充电桩信息),存于服务器;
+      每月初自动生成上月备份,也可以随时手动生成。勾选多个月可打包一次下载。
+    </p>
+    <div class="bk-toolbar">
+      <label><input type="checkbox" id="bk-all" class="month-check"> 全选已备份</label>
+      <span class="spacer"></span>
+      <button class="btn" id="bk-dl-sel" type="button" disabled>⬇ 下载选中</button>
+    </div>
+    <ul class="month-list" id="month-list"></ul>
+    <div class="form-msg" id="bk-msg"></div>
+  </section>
+
+  <!-- 导入月度备份 -->
+  <section class="card">
+    <h2>导入月度备份</h2>
+    <p class="bk-note">
+      上传按月备份的 .tar.gz 文件,系统会<b>自动识别是哪个月</b>并合并恢复:
+      只补上缺失的数据,<b>已有数据不受影响</b>,面板账号也不会被覆盖,可重复导入。
+    </p>
+    <div class="form-row">
+      <input type="file" id="imp-file" accept=".gz,.tgz">
+      <button class="btn ghost" id="imp-submit" type="button">⬆ 上传并恢复</button>
+    </div>
+    <div class="form-msg" id="imp-msg"></div>
+  </section>
+
+  <!-- 整库导出 / 迁移 -->
+  <section class="card">
+    <h2>整库导出 / 迁移</h2>
+    <p class="bk-note">
+      导出内容为<b>整个数据库</b>(含 Tesla 令牌)以及面板账号,打包为一个 .tar.gz 文件。
+      换新服务器时:先正常部署并启动服务,再按维护文档导入备份包即可整体迁移(导入会<b>覆盖</b>当前数据库)。
+    </p>
+    <div class="form-row">
+      <input type="password" id="bk-password" placeholder="当前密码(导出需验证)" autocomplete="current-password">
+      <button class="btn" id="bk-export" type="button">⬇ 导出整库备份</button>
+      <button class="btn ghost" id="bk-import-note" type="button">⬆ 导入整库备份</button>
+    </div>
+    <div class="form-msg" id="full-msg"></div>
+  </section>
+
+</div>
+<script src="/backup.js"></script>
+</body>
+</html>

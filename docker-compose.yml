@@ -92,6 +92,10 @@ services:
       - DATABASE_USER=teslahome_panel
       - DATABASE_PASS=${PANEL_DATABASE_PASSWORD:?请设置独立的 PANEL_DATABASE_PASSWORD}
       - DATABASE_NAME=teslamate
+      # 按月备份的「导入恢复」需要写 TeslaMate 表,面板主账号只读;
+      # 维护账号(表属主)凭据仅用于该接口。留空则导入不可用(导出/下载/删除不受影响)
+      - MAINTENANCE_DB_USER=${MAINTENANCE_DB_USER:-teslamate}
+      - MAINTENANCE_DB_PASSWORD=${POSTGRES_PASSWORD:-}
       - DISPLAY_TZ=${TZ:-Asia/Shanghai}
       # 首次启动时播种面板账号(写入 data/users.json 后不再读取;
       # 之后请到面板右上角「个人中心」修改密码或新增账号)

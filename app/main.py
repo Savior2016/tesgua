@@ -275,14 +275,16 @@ async def lifespan(_: FastAPI):
         conn.execute("SELECT 1 FROM panel_manual LIMIT 1")
         _migrate_manual_files(conn)
         conn.commit()
-    from . import nap, sentry_sched
+    from . import nap, sentry_sched, monthly_backup
     nap.start_worker()
     sentry_sched.start_worker()
+    monthly_backup.start_worker()
     try:
         yield
     finally:
         nap.stop_worker()
         sentry_sched.stop_worker()
+        monthly_backup.stop_worker()
         pool.close()
 
 
@@ -323,13 +325,15 @@ async def auth_and_headers(request: Request, call_next):
                     (urlsplit(origin).netloc != request.url.netloc or
                      urlsplit(origin).scheme != ("https" if _https(request) else "http"))):
                 return JSONResponse({"detail": "不允许跨站操作"}, status_code=403)
+            # 月度备份导入是大文件上传,单独放宽到 512MB;其余请求仍限 64KB
+            max_body = 512 * 1024 * 1024 if path == "/api/backup/monthly/import" else 65536
             length = request.headers.get("content-length", "0")
-            if not length.isdigit() or int(length) > 65536:
+            if not length.isdigit() or int(length) > max_body:
                 return JSONResponse({"detail": "请求内容过大"}, status_code=413)
             chunks, size = [], 0
             async for chunk in request.stream():
                 size += len(chunk)
-                if size > 65536:
+                if size > max_body:
                     return JSONResponse({"detail": "请求内容过大"}, status_code=413)
                 chunks.append(chunk)
             request._body = b"".join(chunks)
@@ -1958,6 +1962,8 @@ app.include_router(parking_router)
 app.include_router(vehicle_router)
 from .reminder import router as reminder_router
 app.include_router(reminder_router)
+from .monthly_backup import router as monthly_backup_router
+app.include_router(monthly_backup_router)
 
 app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static"),
                            html=True), name="static")
