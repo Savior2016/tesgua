@@ -2316,7 +2316,7 @@ footer a { color: var(--text-muted); }
 .tabbar {
   position: fixed;
   left: 50%;
-  bottom: max(14px, env(safe-area-inset-bottom));
+  bottom: max(26px, calc(env(safe-area-inset-bottom) + 12px));
   transform: translateX(-50%);
   z-index: 1200;
   display: flex;
@@ -2675,7 +2675,7 @@ footer a { color: var(--text-muted); }
 .ctl-toast {
   position: fixed;
   left: 50%;
-  bottom: calc(max(14px, env(safe-area-inset-bottom)) + 74px);
+  bottom: calc(max(26px, calc(env(safe-area-inset-bottom) + 12px)) + 74px);
   transform: translateX(-50%) translateY(12px);
   z-index: 1300;
   max-width: min(420px, calc(100vw - 40px));

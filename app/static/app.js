@@ -2756,6 +2756,58 @@
   let dayThumbObserver = null;
   let lastThumbDim = '';
 
+  /* 持久缓存(2026-09-19):缩略图 PNG 存 IndexedDB,刷新/重开页面免重新渲染。
+     key 与内存缓存相同(主题:尺寸:轨迹id),value {u: dataURL, t: 写入时间};
+     打开库时顺手清 14 天前条目;IDB 不可用(隐私模式等)静默回退纯内存缓存 */
+  const dayThumbIdbMiss = new Set();  // 本会话已确认 IDB 未命中的 key,直接走渲染队列
+  const thumbIdb = (() => {
+    let dbp = null, pruned = false;
+    function prune(db) {
+      if (pruned) return;
+      pruned = true;
+      try {
+        const cutoff = Date.now() - 14 * 864e5;
+        const st = db.transaction('thumbs', 'readwrite').objectStore('thumbs');
+        st.openCursor().onsuccess = (ev) => {
+          const c = ev.target.result;
+          if (!c) return;
+          if (!c.value || !c.value.t || c.value.t < cutoff) c.delete();
+          c.continue();
+        };
+      } catch (e) { /* 清理失败无碍使用 */ }
+    }
+    function open() {
+      if (dbp) return dbp;
+      dbp = new Promise((res) => {
+        let req;
+        try { req = indexedDB.open('ttv-thumbs', 1); } catch (e) { res(null); return; }
+        req.onupgradeneeded = () => { req.result.createObjectStore('thumbs'); };
+        req.onsuccess = () => { prune(req.result); res(req.result); };
+        req.onerror = () => res(null);
+      });
+      return dbp;
+    }
+    async function get(key) {
+      const db = await open();
+      if (!db) return null;
+      return new Promise((res) => {
+        try {
+          const rq = db.transaction('thumbs', 'readonly').objectStore('thumbs').get(key);
+          rq.onsuccess = () => { const v = rq.result; res(v && v.u ? v.u : null); };
+          rq.onerror = () => res(null);
+        } catch (e) { res(null); }
+      });
+    }
+    async function put(key, url) {
+      const db = await open();
+      if (!db) return;
+      try {
+        db.transaction('thumbs', 'readwrite').objectStore('thumbs').put({ u: url, t: Date.now() }, key);
+      } catch (e) { /* 写失败无碍,下次重新渲染 */ }
+    }
+    return { get, put };
+  })();
+
   function applyDayThumb(box, url) {
     // 列表渲染期间组元素尚未挂载,isConnected 为 false;inline 样式挂上后依然生效,直接设
     box.style.backgroundImage = `url("${url}")`;
@@ -2777,7 +2829,20 @@
     lastThumbDim = dim;
     const key = `${S.theme}:${dim}:${rs.map((r) => r.id).join(',')}`;  // 主题/尺寸/轨迹任一变化都重生成
     if (dayThumbCache.has(key)) { applyDayThumb(box, dayThumbCache.get(key)); return; }
-    enqueueDayThumb(key, rs, box);
+    box.__thumbKey = key;
+    if (dayThumbIdbMiss.has(key)) { enqueueDayThumb(key, rs, box); return; }
+    thumbIdb.get(key).then((url) => {
+      if (url) {
+        dayThumbCache.set(key, url);
+        // 异步返回时列表可能已重渲染:应用到所有仍在等这个 key 的挂载元素
+        document.querySelectorAll('#routes-list .rt-day-thumb').forEach((t) => {
+          if (t.__thumbKey === key && t.isConnected) applyDayThumb(t, url);
+        });
+      } else {
+        dayThumbIdbMiss.add(key);
+        if (box.isConnected && box.__thumbKey === key) enqueueDayThumb(key, rs, box);
+      }
+    });
   }
 
   function observeDayThumb(box, rs) {
@@ -2830,6 +2895,8 @@
         if (url) {
           if (dayThumbCache.size > 240) dayThumbCache.clear();  // 换时间范围后防无限增长
           dayThumbCache.set(key, url);
+          dayThumbIdbMiss.delete(key);
+          thumbIdb.put(key, url);  // 持久化,下次打开页面直接命中
           waiters.forEach((w) => applyDayThumb(w.box, url));
         }
       } catch (e) { console.warn('[day-thumb] snapshot failed:', e); /* 快照失败留空,不影响列表 */ }
