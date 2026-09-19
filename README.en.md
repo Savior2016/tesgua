@@ -1,4 +1,4 @@
-# TESLA Home
+# TESLA Home (tesgua / 特斯呱)
 
 > Security upgrade: a separate `PANEL_DATABASE_PASSWORD`, admin/viewer roles and non-root runtime are now required. Read the [migration and restore guide](docs/MAINTENANCE.md) before upgrading. Existing sessions expire once. Database restore is an offline operation; port 8080 binds to loopback by default.
 
@@ -11,7 +11,7 @@ The dashboard reads TeslaMate's PostgreSQL database directly: FastAPI + psycopg3
 
 ## UI demo
 
-**Live demo (mock data, no login)**: <https://savior2016.github.io/teslamate-visualizer/> — a GitHub Pages demo showcasing the Liquid Glass UI and page-switch animations (the bottom tab bar supports both tapping and horizontal drag-to-select). Self-hosted deployments serve the same demo at `/demo.html`:
+**Live demo (mock data, no login)**: <https://savior2016.github.io/tesgua/> — a GitHub Pages demo showcasing the Liquid Glass UI and page-switch animations (the bottom tab bar supports both tapping and horizontal drag-to-select). Self-hosted deployments serve the same demo at `/demo.html`:
 
 <table>
   <tr>
@@ -69,8 +69,8 @@ The official app is about *controlling* the car; TESLA Home is about *understand
 Prerequisite: [Docker](https://docs.docker.com/engine/install/) with the Compose v2 plugin.
 
 ```bash
-git clone https://github.com/Savior2016/teslamate-visualizer.git
-cd teslamate-visualizer
+git clone https://github.com/Savior2016/tesgua.git
+cd tesgua
 ./setup.sh
 ```
 

@@ -1,4 +1,4 @@
-# TESLA Home
+# TESLA Home(特斯呱 tesgua)
 
 > 安全升级：新增独立的 `PANEL_DATABASE_PASSWORD`、管理员/只读角色与非 root 容器。旧部署请先阅读 [升级与备份恢复说明](docs/MAINTENANCE.md)。旧登录会话会失效；网页不再接受数据库恢复上传。默认 8080 仅监听本机，通过 SSH 隧道或 HTTPS 访问。
 
@@ -11,7 +11,7 @@
 
 ## 界面演示
 
-**在线演示(虚拟数据,点开即看)**:<https://savior2016.github.io/teslamate-visualizer/> —— GitHub Pages 托管的演示页,可交互体验液态玻璃界面与分页切换动效(底部 Tab 栏支持点按与横向滑动选页)。自行部署后也可访问 `/demo.html` 打开同一演示页:
+**在线演示(虚拟数据,点开即看)**:<https://savior2016.github.io/tesgua/> —— GitHub Pages 托管的演示页,可交互体验液态玻璃界面与分页切换动效(底部 Tab 栏支持点按与横向滑动选页)。自行部署后也可访问 `/demo.html` 打开同一演示页:
 
 <table>
   <tr>
@@ -69,8 +69,8 @@
 前置:已安装 [Docker](https://docs.docker.com/engine/install/) 与 Compose v2 插件。
 
 ```bash
-git clone https://github.com/Savior2016/teslamate-visualizer.git
-cd teslamate-visualizer
+git clone https://github.com/Savior2016/tesgua.git
+cd tesgua
 ./setup.sh
 ```
 

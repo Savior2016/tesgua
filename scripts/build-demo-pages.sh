@@ -22,7 +22,7 @@ sed -e 's|href="/style.css"|href="style.css"|' \
     -e 's|src="/pageturn.js"|src="pageturn.js"|' \
     -e 's|src="/demo.js"|src="demo.js"|' \
     -e 's|src="/model-y-l.png"|src="model-y-l.png"|' \
-    -e 's|<a href="/">返回正式面板</a>|<a href="https://github.com/Savior2016/teslamate-visualizer">GitHub 仓库</a>|' \
+    -e 's|<a href="/">返回正式面板</a>|<a href="https://github.com/Savior2016/tesgua">GitHub 仓库</a>|' \
     "$SRC/demo.html" > "$OUT/index.html"
 
 # style.css 内的绝对资源引用 → 相对
