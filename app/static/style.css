@@ -1221,19 +1221,23 @@ button { touch-action: manipulation; }
 .life-card { position: relative; overflow: hidden; }
 
 .life-bh {
-  --mars-o: .32;
+  --mars-o: .38;
   position: absolute;
-  right: 6px;
+  z-index: -1;   /* .card 有 backdrop-filter 自成层叠上下文:垫在文字之下、卡底之上 */
+  right: -50px;
   top: 50%;
   transform: translateY(-50%);
-  width: clamp(230px, 30vw, 430px);
+  width: clamp(430px, 56vw, 760px);
   opacity: var(--mars-o);
   pointer-events: none;
+  /* 左缘渐隐融入卡片,右/上/下由 overflow 裁切——不追求整体可见 */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 42%);
+  mask-image: linear-gradient(to right, transparent, #000 42%);
   animation: life-mars-breathe 9s ease-in-out infinite;
 }
-[data-theme="dark"] .life-bh { --mars-o: .5; }
+[data-theme="dark"] .life-bh { --mars-o: .55; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .life-bh { --mars-o: .5; }
+  :root:not([data-theme="light"]) .life-bh { --mars-o: .55; }
 }
 
 @keyframes life-mars-breathe {
@@ -1263,7 +1267,7 @@ button { touch-action: manipulation; }
 .life-lab i { font-style: normal; margin-left: 7px; font-size: 11px; color: var(--text-muted); }
 
 @media (max-width: 600px) {
-  .life-bh { width: 200px; right: -30px; }
+  .life-bh { width: 340px; right: -80px; }
   .life-val b { font-size: 24px; }
   .life-item { min-width: 0; flex-basis: 40%; }
 }
@@ -1319,8 +1323,9 @@ button { touch-action: manipulation; }
 #page-control .card { position: relative; overflow: hidden; }
 
 #page-control .ctl-starship {
-  --ship-o: .16;
+  --ship-o: .08;
   position: absolute;
+  z-index: -1;   /* 垫在卡片内容之下,纯背景不干扰主体 */
   right: 2%;
   top: 50%;
   height: 66%;
@@ -1329,17 +1334,18 @@ button { touch-action: manipulation; }
   opacity: var(--ship-o);
   pointer-events: none;
   object-fit: cover;
+  filter: saturate(.55);
   /* 左缘与上下渐隐,融入卡片无硬边 */
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 38%),
-    linear-gradient(to bottom, transparent 2%, #000 16%, #000 88%, transparent 99%);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 55%),
+    linear-gradient(to bottom, transparent 4%, #000 24%, #000 82%, transparent 98%);
   -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to right, transparent, #000 38%),
-    linear-gradient(to bottom, transparent 2%, #000 16%, #000 88%, transparent 99%);
+  mask-image: linear-gradient(to right, transparent, #000 55%),
+    linear-gradient(to bottom, transparent 4%, #000 24%, #000 82%, transparent 98%);
   mask-composite: intersect;
 }
-[data-theme="dark"] #page-control .ctl-starship { --ship-o: .24; }
+[data-theme="dark"] #page-control .ctl-starship { --ship-o: .13; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) #page-control .ctl-starship { --ship-o: .24; }
+  :root:not([data-theme="light"]) #page-control .ctl-starship { --ship-o: .13; }
 }
 
 .chart { width: 100%; height: 300px; }
