@@ -1127,6 +1127,29 @@
     }
   }
 
+  /* ---------- 渲染:通勤分析(车况页,聚合所选范围全部行程的堵车/红灯) ---------- */
+
+  function renderTraffic() {
+    const o = S.overview;
+    if (!o || !o.routes) return;
+    const rs = o.routes.routes || [];
+    let totalMin = 0, jamS = 0, jamKm = 0, lightS = 0, lightN = 0;
+    rs.forEach((r) => {
+      totalMin += Number(r.duration_min || 0);
+      const tf = r.traffic;
+      if (!tf) return;
+      jamS += Number(tf.jam_s || 0);
+      jamKm += Number(tf.jam_km || 0);
+      lightS += Number(tf.light_s || 0);
+      lightN += Number(tf.light_n || 0);
+    });
+    $('#tf-total').textContent = rs.length ? fmtDur(totalMin) : '—';
+    $('#tf-jam').textContent = rs.length ? fmtSec(jamS) : '—';
+    $('#tf-jam-km').textContent = rs.length ? fmtNum(jamKm, 1) : '—';
+    $('#tf-light').textContent = rs.length ? fmtSec(lightS) : '—';
+    $('#tf-light-sub').textContent = rs.length ? `共 ${lightN} 次` : '';
+  }
+
   function renderTpms() {
     const o = S.overview;
     if (!o || !charts.tpms || !o.tpms) return;
@@ -1497,6 +1520,15 @@
   function fmtDur(min) {
     const m = Number(min);
     if (!m || m <= 0) return '—';
+    if (m < 60) return `${fmtNum(m, 0)} 分`;
+    return `${Math.floor(m / 60)} 小时 ${fmtNum(m % 60, 0)} 分`;
+  }
+
+  // 秒级时长(堵车/红灯统计用,0 也如实显示为「0 分」)
+  function fmtSec(s) {
+    const sec = Number(s) || 0;
+    const m = sec / 60;
+    if (m < 1) return `${Math.round(sec)} 秒`;
     if (m < 60) return `${fmtNum(m, 0)} 分`;
     return `${Math.floor(m / 60)} 小时 ${fmtNum(m % 60, 0)} 分`;
   }
@@ -3150,6 +3182,12 @@
             (a.cost_per_km_yuan !== null && a.cost_per_km_yuan !== undefined
               ? ` (¥${fmtNum(a.cost_per_km_yuan, 2)}/km)` : '')
           : '—');
+        // 堵车/红绿灯(后端按停车时长与缓行启发式判定,见 /api/routes traffic 字段)
+        const tf = r.traffic;
+        kvItem('堵车时间', tf ? fmtSec(tf.jam_s) : '—');
+        kvItem('堵车路程', tf ? `${fmtNum(tf.jam_km, 1)} km` : '—');
+        kvItem('红绿灯等待', tf
+          ? `${fmtSec(tf.light_s)}${tf.light_n ? ` · ${tf.light_n} 次` : ''}` : '—');
         const detail = el('div', 'rt-detail');
         detail.appendChild(kv);
         let mapBox = null;
@@ -3289,6 +3327,7 @@
       renderSentry();
       renderEfficiency();
       renderLifetime();
+      renderTraffic();
       renderTpms();
       renderTemp();
     } catch (err) {
@@ -3304,7 +3343,7 @@
     renderDaily(); renderCharging();
     renderRoutes(); renderRoutesList();
     renderActivity(); renderEvents(); renderSentry();
-    renderEfficiency(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime();
+    renderEfficiency(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime(); renderTraffic();
   }
 
   /* ---------- 功能分页(底部液态玻璃 Tab 栏) ---------- */

@@ -1293,19 +1293,19 @@ button { touch-action: manipulation; }
   animation: life-mars-breathe 11s ease-in-out infinite;
 }
 
-/* 详情层:火星球体(约 2/3 球面露出,底部 1/3 隐于卡外,球缘弧线清晰可辨;
+/* 详情层:火星球体(约 3/4 球面露出,底部 1/4 隐于卡外,星球弧线横贯画面;
    顶部渐隐融入玻璃卡,素材已升至 1406px 原生分辨率,放大不糊) */
 #car-card .ov-bg-planet {
   --pl-o: .34;
   width: min(920px, 175vw);
   height: min(920px, 175vw);
   left: 50%;
-  bottom: calc(min(920px, 175vw) / -3);
+  bottom: calc(min(920px, 175vw) / -4);
   transform: translateX(-50%);
   opacity: 0;
   filter: saturate(.95);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 3%, #000 22%);
-  mask-image: linear-gradient(to bottom, transparent 3%, #000 22%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 2%, #000 16%);
+  mask-image: linear-gradient(to bottom, transparent 2%, #000 16%);
 }
 
 /* 展开两侧详情(统计/图例面板)时:地表退隐,星球弧面浮现 */
@@ -1319,7 +1319,7 @@ button { touch-action: manipulation; }
   :root:not([data-theme="light"]) #car-card .ov-bg-planet { --pl-o: .46; }
 }
 
-/* ===== 控制页:星舰全箭实拍背景(右侧竖立,约占背景 2/3,淡入玻璃卡) ===== */
+/* ===== 控制页:星舰上升段实拍背景(IFT-2 空中飞行,天空干净,右侧竖条淡入玻璃卡) ===== */
 #page-control .card { position: relative; overflow: hidden; }
 
 #page-control .ctl-starship {
@@ -1329,7 +1329,7 @@ button { touch-action: manipulation; }
   right: 2%;
   top: 50%;
   height: 66%;
-  aspect-ratio: 518 / 1500;   /* starship-pad.webp 发射塔+全箭竖条 */
+  aspect-ratio: 450 / 1500;   /* starship-flight.webp 上升段竖条 */
   transform: translateY(-50%);
   opacity: var(--ship-o);
   pointer-events: none;

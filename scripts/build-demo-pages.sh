@@ -12,7 +12,7 @@ OUT=docs/demo
 rm -rf "$OUT"
 mkdir -p "$OUT/fonts"
 
-cp "$SRC"/{style.css,theme.js,echarts.min.js,pageturn.js,demo.js,model-y-l.png,model-yl-badge.png,mars.webp,mars-surface.webp,starship.svg,starship-pad.webp} "$OUT/"
+cp "$SRC"/{style.css,theme.js,echarts.min.js,pageturn.js,demo.js,model-y-l.png,model-yl-badge.png,mars.webp,mars-surface.webp,starship.svg,starship-flight.webp} "$OUT/"
 cp "$SRC"/fonts/Universal-Sans-Display-Medium.woff2 "$OUT/fonts/"
 
 # 绝对路径 → 相对路径;Pages 上没有"正式面板","返回"链接改为指向 GitHub 仓库
@@ -23,7 +23,7 @@ sed -e 's|href="/style.css"|href="style.css"|' \
     -e 's|src="/demo.js"|src="demo.js"|' \
     -e 's|src="/model-y-l.png"|src="model-y-l.png"|' \
     -e 's|src="/mars.webp"|src="mars.webp"|' \
-    -e 's|src="/starship-pad.webp"|src="starship-pad.webp"|' \
+    -e 's|src="/starship-flight.webp"|src="starship-flight.webp"|' \
     -e 's|<a href="/">返回正式面板</a>|<a href="https://github.com/Savior2016/tesgua">GitHub 仓库</a>|' \
     "$SRC/demo.html" > "$OUT/index.html"
 

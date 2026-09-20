@@ -364,6 +364,29 @@
       </div>
     </div>
 
+    <div class="card col-12">
+      <h2>通勤分析</h2>
+      <div class="card-sub">按停车时长与缓行自动判定:通畅车流中停车 5–120 秒记为红绿灯等待,堵车 = 长停 + 走走停停 + 低于 10 km/h 缓行</div>
+      <div class="life-stats">
+        <div class="life-item">
+          <div class="life-val"><b id="tf-total">—</b></div>
+          <div class="life-lab">通勤总时间</div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><b id="tf-jam">—</b></div>
+          <div class="life-lab">堵车时间</div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><b id="tf-jam-km">—</b><span>km</span></div>
+          <div class="life-lab">堵车路程</div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><b id="tf-light">—</b></div>
+          <div class="life-lab">红绿灯等待<i id="tf-light-sub"></i></div>
+        </div>
+      </div>
+    </div>
+
     <div class="card col-6">
       <h2>胎压变化</h2>
       <div class="card-sub">四轮胎压(bar),仅车辆清醒时段上报</div>
@@ -409,7 +432,7 @@
   <section class="page" id="page-control">
   <div class="grid">
     <div class="card col-12">
-      <img class="ctl-starship" src="/starship-pad.webp" alt="" aria-hidden="true">
+      <img class="ctl-starship" src="/starship-flight.webp" alt="" aria-hidden="true">
       <div class="card-head">
         <div>
           <h2>车辆控制</h2>

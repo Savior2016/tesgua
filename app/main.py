@@ -300,7 +300,7 @@ _AUTH_EXACT = {"/api/health", "/api/login", "/api/logout", "/login", "/login.js"
                "/model-y-l.png", "/model-yl-badge.png",
                # 装饰素材:总览/车况火星背景、控制页星舰剪影(demo 页也引用)
                "/mars.webp", "/mars-surface.webp", "/starship.svg",
-               "/blackhole.webp", "/starship-pad.webp"}
+               "/blackhole.webp", "/starship-flight.webp"}
 _AUTH_PREFIX = ("/fonts/",)
 
 
@@ -1195,6 +1195,68 @@ def set_home_assign(payload: HomeAssignIn):
     return {"ok": True, "charge_id": payload.charge_id, "mode": payload.mode}
 
 
+# ---------- 堵车 / 红绿灯分析(启发式,特斯拉不上报红绿灯位置) ----------
+# 停车 <5s 视为瞬时停顿(让行/掉头)不计;停车 5–120s 且停车前 15 秒内曾
+# 以 ≥20 km/h 行驶(车流原本通畅)= 红绿灯等待;缓行车流中的走走停停与
+# 停车 >120s = 堵车停留;0 < speed < 10 km/h 的缓行区间计入堵车时间,
+# 堵车路程按缓行段 速度×时间 积分。行驶时 positions 约 0.3s 一条,精度足够。
+TRAFFIC_LIGHT_MIN_S = 5.0
+TRAFFIC_LIGHT_MAX_S = 120.0
+TRAFFIC_FLOW_KMH = 20.0     # 停车前 15s 内的最高车速达到该值才算通畅车流
+TRAFFIC_FLOW_WINDOW_MS = 15000
+JAM_CRAWL_KMH = 10.0
+
+
+def _drive_traffic(samples: list[tuple[int, float]]) -> dict:
+    """由单条行程的 (ts_ms, speed_kmh) 序列分析堵车与红绿灯等待。
+
+    返回 {light_n 红灯次数, light_s 红灯等待秒, jam_s 堵车秒(长停+走走停停+缓行),
+    jam_km 堵车路程(缓行段积分)}。采样断档 >30s 的间隙不计入缓行。
+    """
+    light_n, light_s, jam_s, jam_km = 0, 0.0, 0.0, 0.0
+    # 行驶采样(停车前车流速度回看用):刹车末段车速必然 <10,不能用停车前一拍判断
+    moving = [(ms, s) for ms, s in samples if s > 0]
+    mts = [ms for ms, _ in moving]
+
+    def flow_before(stop_ms: int) -> float:
+        i = bisect.bisect_left(mts, stop_ms - TRAFFIC_FLOW_WINDOW_MS)
+        j = bisect.bisect_left(mts, stop_ms)
+        return max((s for _, s in moving[i:j]), default=0.0)
+
+    stop_start: int | None = None  # 当前停车段起始 ms
+    prev_ms: int | None = None
+
+    def settle_stop(end_ms: int) -> None:
+        nonlocal light_n, light_s, jam_s
+        dur = (end_ms - stop_start) / 1000
+        if dur < TRAFFIC_LIGHT_MIN_S:
+            return
+        if (dur <= TRAFFIC_LIGHT_MAX_S
+                and flow_before(stop_start) >= TRAFFIC_FLOW_KMH):
+            light_n += 1
+            light_s += dur
+        else:
+            jam_s += dur
+
+    for ms, speed in samples:
+        if stop_start is not None and speed > 0:
+            settle_stop(ms)
+            stop_start = None
+        if speed == 0:
+            if stop_start is None:
+                stop_start = ms
+        elif speed < JAM_CRAWL_KMH and prev_ms is not None and stop_start is None:
+            dt = (ms - prev_ms) / 1000
+            if dt <= 30:
+                jam_s += dt
+                jam_km += speed * dt / 3600
+        prev_ms = ms
+    if stop_start is not None and prev_ms is not None:
+        settle_stop(prev_ms)  # 行程结束时仍在停:按已停时长结算
+    return {"light_n": light_n, "light_s": round(light_s),
+            "jam_s": round(jam_s), "jam_km": round(jam_km, 2)}
+
+
 @app.get("/api/routes")
 def routes(car_id: int | None = Query(default=None),
            days: int = Query(default=7, ge=1, le=30)):
@@ -1218,7 +1280,7 @@ def routes(car_id: int | None = Query(default=None),
     )
     pts = q(
         """
-        SELECT drive_id, latitude, longitude, elevation, speed
+        SELECT drive_id, date, latitude, longitude, elevation, speed
         FROM positions
         WHERE car_id = %s AND drive_id IS NOT NULL AND latitude IS NOT NULL
           AND date >= now() - make_interval(days => %s)
@@ -1229,14 +1291,20 @@ def routes(car_id: int | None = Query(default=None),
     # 轨迹点:[纬度, 经度, 海拔(可空), 速度 km/h(可空)]
     # ——海拔供行程详情的高度图用,速度供详情小地图按车速变色绘制
     by_id: dict[int, list[list[float]]] = {}
+    speed_seq: dict[int, list[tuple[int, float]]] = {}  # 堵车/红灯分析用全分辨率速度序列
     for p in pts:
-        by_id.setdefault(int(p["drive_id"]), []).append(
+        did = int(p["drive_id"])
+        by_id.setdefault(did, []).append(
             [float(p["latitude"]), float(p["longitude"]),
              float(p["elevation"]) if p["elevation"] is not None else None,
              float(p["speed"]) if p["speed"] is not None else None])
+        if p["speed"] is not None:
+            speed_seq.setdefault(did, []).append(
+                (_utc_ms(p["date"]), float(p["speed"])))
     out = []
     for d in drives:
         points = by_id.get(d["id"], [])
+        d["traffic"] = _drive_traffic(speed_seq.get(d["id"], []))
         if len(points) > 220:
             keep = max(1, len(points) // 220)
             points = points[::keep]
