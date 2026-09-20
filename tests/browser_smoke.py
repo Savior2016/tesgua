@@ -30,6 +30,7 @@ BASE = {
  "energy/cycles":{"cycles":[]},
  "temp/trend":{"inside":[[NOW-3600000,22],[NOW,24]],"outside":[[NOW-3600000,18],[NOW,20]]},
  "parking/fees":{"fees":[],"month_total":0,"total":0},"vehicle/delivery":{"date":"2026-01-01"},
+ "vehicle/lifetime":{"car_id":1,"total_km":10000,"drive_km":2000,"since":NOW-40*86400000,"drive_kwh":300,"parked_kwh":40,"total_kwh":340,"total_cost":250.5,"sessions":10,"priced_sessions":9,"rate_yuan_kwh":0.65},
  "charging/reminder":{"ready":True,"overridden":False,"reason":"",
    "home":{"label":XSS,"address_ids":[1],"visits":20,"nights":15,"days":2},
    "work":{"label":"合成公司","address_ids":[8],"visits":18,"nights":1,"days":14},
@@ -79,7 +80,10 @@ def run():
             assert page.locator('#state-text').inner_text() != '数据连接失败'
             assert page.locator('.vehicle-readings').count()==0
             assert page.locator('#tpms-on-fl').count()==1
-            assert page.locator('#range-seg').evaluate("e=>!!(document.querySelector('#page-control').compareDocumentPosition(e)&Node.DOCUMENT_POSITION_FOLLOWING)")
+            # 车况页「生涯总览」:总里程/总耗电量/充电总费用(火星背景卡,隐藏页也已渲染)
+            assert page.locator('#life-km').inner_text() == '10,000'
+            assert page.locator('#life-kwh').inner_text() == '340'
+            assert '未计价' in page.locator('#life-cost-sub').inner_text()
             for width in [320,390,1440]:
                 page.set_viewport_size({"width":width,"height":900})
                 for tab in ['overview','charging','activity','vehicle','drives','control']:
@@ -141,8 +145,10 @@ def run():
             page.goto('http://teslahome.test/account.html',wait_until='networkidle')
             assert page.locator('#teslamate-link').get_attribute('href')=='http://localhost:4000'
             assert page.locator('#authorization-guide').count()==0
-            assert page.locator('#bk-import').is_visible()
             assert page.locator('#nu-role').count()==0
+            # 备份管理已迁至 /backup.html,整库导入为禁用说明钮
+            page.goto('http://teslahome.test/backup.html',wait_until='networkidle')
+            assert page.locator('#bk-import-note').is_visible()
             assert not errors, errors
             assert not writes, writes
             page.evaluate("localStorage.setItem('ttv-theme','light')")
