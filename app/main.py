@@ -297,7 +297,9 @@ _AUTH_EXACT = {"/api/health", "/api/login", "/api/logout", "/login", "/login.js"
                "/.well-known/appspecific/com.tesla.3p.public-key.pem",
                # 公开演示页(虚拟数据,无任何真实车辆信息):展示分页动效与界面
                "/demo.html", "/demo.js", "/pageturn.js", "/echarts.min.js",
-               "/model-y-l.png", "/model-yl-badge.png"}
+               "/model-y-l.png", "/model-yl-badge.png",
+               # 装饰素材:总览/车况火星背景、控制页星舰剪影(demo 页也引用)
+               "/mars.webp", "/starship.svg"}
 _AUTH_PREFIX = ("/fonts/",)
 
 

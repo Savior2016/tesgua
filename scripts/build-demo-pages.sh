@@ -12,7 +12,7 @@ OUT=docs/demo
 rm -rf "$OUT"
 mkdir -p "$OUT/fonts"
 
-cp "$SRC"/{style.css,theme.js,echarts.min.js,pageturn.js,demo.js,model-y-l.png,model-yl-badge.png} "$OUT/"
+cp "$SRC"/{style.css,theme.js,echarts.min.js,pageturn.js,demo.js,model-y-l.png,model-yl-badge.png,mars.webp,starship.svg} "$OUT/"
 cp "$SRC"/fonts/Universal-Sans-Display-Medium.woff2 "$OUT/fonts/"
 
 # 绝对路径 → 相对路径;Pages 上没有"正式面板","返回"链接改为指向 GitHub 仓库
@@ -22,12 +22,14 @@ sed -e 's|href="/style.css"|href="style.css"|' \
     -e 's|src="/pageturn.js"|src="pageturn.js"|' \
     -e 's|src="/demo.js"|src="demo.js"|' \
     -e 's|src="/model-y-l.png"|src="model-y-l.png"|' \
+    -e 's|src="/mars.webp"|src="mars.webp"|' \
     -e 's|<a href="/">返回正式面板</a>|<a href="https://github.com/Savior2016/tesgua">GitHub 仓库</a>|' \
     "$SRC/demo.html" > "$OUT/index.html"
 
 # style.css 内的绝对资源引用 → 相对
 sed -i -e "s|url('/fonts/|url('fonts/|g" \
        -e "s|url('/model-yl-badge.png')|url('model-yl-badge.png')|g" \
+       -e "s|url(/starship.svg)|url(starship.svg)|g" \
        "$OUT/style.css"
 
 # Pages 根路径直接跳到演示页;关闭 Jekyll(静态直出)

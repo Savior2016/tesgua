@@ -10,6 +10,8 @@
   <link rel="stylesheet" href="/control.css?v=10">
 </head>
 <body>
+<!-- 过冲(overscroll)露出的顶部背景中央:小圆圈 + 星舰徽标,平时被顶栏遮住 -->
+<div id="space-mark" aria-hidden="true"><i></i></div>
 <div class="wrap">
 
   <header id="header">
@@ -39,11 +41,7 @@
   <section class="page" id="page-overview">
   <div class="grid">
     <div class="card col-12" id="car-card">
-      <div class="card-head">
-        <div>
-          <h2>车辆总览</h2>
-        </div>
-      </div>
+      <img class="card-mars" src="/mars.webp" alt="" aria-hidden="true">
       <!-- 卡片顶部:本周期平均能耗条状控件(整卡宽度,不受两侧面板收展影响) -->
       <div class="car-eff" id="car-eff" hidden>
         <div class="car-eff-bar" id="car-eff-bar">
@@ -405,6 +403,7 @@
   <section class="page" id="page-control">
   <div class="grid">
     <div class="card col-12">
+      <div class="ctl-starship" aria-hidden="true"></div>
       <div class="card-head">
         <div>
           <h2>车辆控制</h2>

@@ -121,6 +121,7 @@
   </style>
 </head>
 <body>
+<div id="space-mark" aria-hidden="true"><i></i></div>
 <div class="wrap">
 
   <header id="header">
@@ -155,8 +156,8 @@
   <!-- ===== 分页 1:总览 ===== -->
   <section class="page" id="page-overview">
   <div class="grid">
-    <div class="card col-12">
-      <div class="card-head"><div><h2>车辆总览</h2></div></div>
+    <div class="card col-12" id="car-card">
+      <img class="card-mars" src="/mars.webp" alt="" aria-hidden="true">
       <div class="demo-big"><b>78%</b><span>电量 · 续航约 412 km</span></div>
       <div class="demo-energy" title="能量去向(虚拟)">
         <i style="width:9%;  background:repeating-linear-gradient(45deg,var(--text-muted) 0 3px,transparent 3px 6px);opacity:.35"></i>
@@ -270,6 +271,7 @@
   <section class="page" id="page-control">
   <div class="grid">
     <div class="card col-12">
+      <div class="ctl-starship" aria-hidden="true"></div>
       <div class="card-head"><div><h2>车辆控制</h2><p class="card-sub">演示模式 · 点击开关不会下发真实指令</p></div></div>
       <div class="demo-tiles">
         <div class="demo-tile"><b>车锁</b><small>已锁定</small><div class="demo-switch" data-label="车锁"><i></i></div></div>

@@ -164,7 +164,8 @@ html, body {
 }
 
 /* 环境光背景:固定的柔和色晕,让液态玻璃有内容可折射(相当于 iOS 壁纸);
-   颜色取调色板蓝/品红/青,双主题下都保持很低的存在感,不干扰数据阅读 */
+   色晕整体压在页面中下部——下拉过冲露出的顶部区域保持纯净底色,
+   只留中央的小圆圈星舰徽标(#space-mark),不再是红蓝配色 */
 body::before {
   content: '';
   position: fixed;
@@ -172,9 +173,33 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
-    radial-gradient(55% 42% at 12% -4%, var(--glow-1), transparent 70%),
-    radial-gradient(48% 40% at 88% 6%, var(--glow-2), transparent 72%),
+    radial-gradient(55% 42% at 12% 34%, var(--glow-1), transparent 70%),
+    radial-gradient(48% 40% at 88% 40%, var(--glow-2), transparent 72%),
     radial-gradient(70% 55% at 50% 108%, var(--glow-3), transparent 75%);
+}
+
+/* 下拉过冲时露出的顶部背景徽标:小圆圈 + 星舰剪影;
+   平时被 sticky 顶栏(z-index 1100)的不透明上缘遮住,只在过冲间隙中显现。
+   注意不能用负 z-index:body 自身背景会盖住它,须留在内容层(z-index 0) */
+#space-mark {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--text-muted) 50%, transparent);
+  z-index: 0;
+  pointer-events: none;
+}
+
+#space-mark i {
+  position: absolute;
+  inset: 11px;
+  background: color-mix(in srgb, var(--text-muted) 62%, transparent);
+  -webkit-mask: url(/starship.svg) center / contain no-repeat;
+  mask: url(/starship.svg) center / contain no-repeat;
 }
 
 /* ===== 顶栏:sticky,下滑收缩成紧凑徽章栏并钉在顶部,回顶展开 ===== */
@@ -1186,7 +1211,7 @@ button { touch-action: manipulation; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .life-mars { animation: none; }
+  .life-mars, #car-card .card-mars { animation: none; }
 }
 
 .life-stats {
@@ -1210,6 +1235,51 @@ button { touch-action: manipulation; }
   .life-mars { width: 260px; height: 260px; right: -86px; }
   .life-val b { font-size: 24px; }
   .life-item { min-width: 0; flex-basis: 40%; }
+}
+
+/* ===== 总览页车辆卡:同款若隐若现火星背景,尺寸随视口缩放(clamp+vw) ===== */
+#car-card { position: relative; overflow: hidden; }
+
+#car-card .card-mars {
+  --mars-o: .22;
+  position: absolute;
+  right: max(-96px, -8vw);
+  top: 50%;
+  width: clamp(170px, 34vw, 380px);
+  height: clamp(170px, 34vw, 380px);
+  transform: translateY(-50%);
+  opacity: var(--mars-o);
+  pointer-events: none;
+  filter: saturate(.95);
+  -webkit-mask-image: linear-gradient(100deg, transparent 12%, #000 58%);
+  mask-image: linear-gradient(100deg, transparent 12%, #000 58%);
+  animation: life-mars-breathe 9s ease-in-out infinite;
+}
+[data-theme="dark"] #car-card .card-mars { --mars-o: .34; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #car-card .card-mars { --mars-o: .34; }
+}
+
+/* ===== 控制页:星舰剪影背景(右侧竖立,淡入玻璃卡) ===== */
+#page-control .card { position: relative; overflow: hidden; }
+
+#page-control .ctl-starship {
+  --ship-o: .07;
+  position: absolute;
+  right: 3%;
+  top: 50%;
+  width: clamp(120px, 18vw, 240px);
+  height: 86%;
+  transform: translateY(-50%);
+  opacity: var(--ship-o);
+  pointer-events: none;
+  background: var(--text-primary);
+  -webkit-mask: url(/starship.svg) center / contain no-repeat;
+  mask: url(/starship.svg) center / contain no-repeat;
+}
+[data-theme="dark"] #page-control .ctl-starship { --ship-o: .12; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #page-control .ctl-starship { --ship-o: .12; }
 }
 
 .chart { width: 100%; height: 300px; }
