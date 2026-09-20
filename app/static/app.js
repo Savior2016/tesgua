@@ -2703,9 +2703,9 @@
      每个 MapLibre 实例占一个 WebGL 上下文(浏览器上限约 16 个),超出时回收最早的实例 */
   const MINI_MAP_LIMIT = 8;
 
-  /* 车速配色:0 → 120+ km/h 红→黄→绿(越慢越红),与详情图例一致 */
+  /* 车速配色:0 → 150 km/h 区间,红→黄→绿(越慢越红,100 即达最绿,之后保持),与详情图例一致 */
   const SPEED_RAMP = [
-    [0, '#e0483e'], [60, '#eda100'], [120, '#1baf7a'],
+    [0, '#e0483e'], [50, '#eda100'], [100, '#1baf7a'],
   ];
   function mixHex(a, b, t) {
     const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
@@ -2799,14 +2799,13 @@
   }
 
   /* 行程页:每个日组头部右侧的当日轨迹缩略图。
-     不能每天一个 MapLibre 实例(WebGL 上下文上限),改用一个屏外隐藏实例
-     (preserveDrawingBuffer)逐日快照成 PNG,设为元素的 background-image。
-     缩略图懒生成:滚动到视口附近才入队,串行处理;按 主题+轨迹id 缓存,
-     60s 列表重渲染后直接复用 */
+     2026-09-20 重写(v4):曾用屏外 MapLibre 快照,但日组行是超宽短条(桌面约 28:1),
+     地理 contain 拟合把轨迹压成小点、底图标签巨大,cover 拟合又只剩一小段轨迹入画,
+     用户看到的是「不正常的扭曲缩放」。改为 2D 画布直接绘制轨迹线:经纬度经 cos(纬度)
+     修正后均匀缩放(contain 保形)进 CSS mask 的清晰带,任意行宽高比都不变形、永远完整可见。
+     渲染为同步瞬时操作,不再需要屏外 WebGL 实例与串行快照队列;仍按 主题+尺寸+轨迹id 缓存
+     (内存 + IndexedDB),60s 列表重渲染后直接复用 */
   const dayThumbCache = new Map();    // key → dataURL
-  const dayThumbPending = new Map();  // key → [{ box, rs }] 等待本次快照完成的元素
-  const dayThumbQueue = [];
-  let thumbMap = null, thumbMapPromise = null, thumbSnapping = false;
   let dayThumbObserver = null;
   let lastThumbDim = '';
 
@@ -2881,10 +2880,10 @@
     if (!box.isConnected) return;
     const { dim } = thumbRowSize();
     lastThumbDim = dim;
-    const key = `${S.theme}:${dim}:${rs.map((r) => r.id).join(',')}`;  // 主题/尺寸/轨迹任一变化都重生成
+    const key = `${S.theme}:${dim}:v4:${rs.map((r) => r.id).join(',')}`;  // 主题/尺寸/算法版本/轨迹任一变化都重生成
     if (dayThumbCache.has(key)) { applyDayThumb(box, dayThumbCache.get(key)); return; }
     box.__thumbKey = key;
-    if (dayThumbIdbMiss.has(key)) { enqueueDayThumb(key, rs, box); return; }
+    if (dayThumbIdbMiss.has(key)) { generateDayThumb(key, rs, box); return; }
     thumbIdb.get(key).then((url) => {
       if (url) {
         dayThumbCache.set(key, url);
@@ -2894,9 +2893,74 @@
         });
       } else {
         dayThumbIdbMiss.add(key);
-        if (box.isConnected && box.__thumbKey === key) enqueueDayThumb(key, rs, box);
+        if (box.isConnected && box.__thumbKey === key) generateDayThumb(key, rs, box);
       }
     });
+  }
+
+  /* 2D 画布直绘当日轨迹:同步瞬时完成,应用到元素并写两级缓存 */
+  function generateDayThumb(key, rs, box) {
+    try {
+      const { w, h } = thumbRowSize();
+      const url = renderDayThumbPng(rs, w, h);
+      if (!url) return;
+      if (dayThumbCache.size > 240) dayThumbCache.clear();  // 换时间范围后防无限增长
+      dayThumbCache.set(key, url);
+      dayThumbIdbMiss.delete(key);
+      thumbIdb.put(key, url);  // 持久化,下次打开页面直接命中
+      document.querySelectorAll('#routes-list .rt-day-thumb').forEach((t) => {
+        if (t.__thumbKey === key && t.isConnected) applyDayThumb(t, url);
+      });
+      if (box.isConnected && box.__thumbKey === key) applyDayThumb(box, url);
+    } catch (e) { console.warn('[day-thumb] render failed:', e); /* 渲染失败留空,不影响列表 */ }
+  }
+
+  /* 把当日全部轨迹均匀缩放(contain 保形)进 mask 清晰带(60–88% 宽、26–74% 高)。
+     经度乘 cos(平均纬度) 修正纵横比;发光线条 + 圆头,主题色 --series-1 */
+  function renderDayThumbPng(rs, w, h) {
+    const lines = [];
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let latSum = 0, latN = 0;
+    rs.forEach((r) => {
+      const pts = (r.points || []).filter((p) => p.length >= 2);
+      if (pts.length < 2) return;
+      pts.forEach((p) => { latSum += p[0]; latN++; });
+      lines.push(pts);
+    });
+    if (!lines.length) return null;
+    const kx = Math.cos((latSum / latN) * Math.PI / 180);  // 经度→等距横坐标修正
+    lines.forEach((pts) => pts.forEach((p) => {
+      const x = p[1] * kx, y = p[0];
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }));
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+    const ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+    const bx0 = w * 0.60 + 4, bx1 = w * 0.88 - 4, by0 = h * 0.26 + 2, by1 = h * 0.74 - 2;
+    const spanX = Math.max(1e-9, maxX - minX), spanY = Math.max(1e-9, maxY - minY);
+    const s = Math.min((bx1 - bx0) / spanX, (by1 - by0) / spanY);
+    const ox = (bx0 + bx1) / 2 - (minX + maxX) / 2 * s;
+    const oy = (by0 + by1) / 2 + (minY + maxY) / 2 * s;  // 纬度向北 = 画面向上,y 取反
+    const color = cssVar('--series-1');
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 5;
+    ctx.globalAlpha = 0.95;
+    lines.forEach((pts) => {
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const x = p[1] * kx * s + ox, y = oy - p[0] * s;
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      });
+      ctx.stroke();
+    });
+    return cv.toDataURL('image/png');
   }
 
   function observeDayThumb(box, rs) {
@@ -2924,123 +2988,6 @@
     document.querySelectorAll('#routes-list .rt-day-thumb').forEach((t) => {
       if (t.__thumbRs) requestDayThumb(t, t.__thumbRs);
     });
-  }
-
-  function enqueueDayThumb(key, rs, box) {
-    if (dayThumbCache.has(key)) { applyDayThumb(box, dayThumbCache.get(key)); return; }
-    if (!dayThumbPending.has(key)) {
-      dayThumbPending.set(key, []);
-      dayThumbQueue.push(key);
-    }
-    dayThumbPending.get(key).push({ box, rs });
-    pumpDayThumbs();  // 注意必须在 waiter 入列后调用:pump 同步段会 shift + delete
-  }
-
-  async function pumpDayThumbs() {
-    if (thumbSnapping) return;
-    thumbSnapping = true;
-    while (dayThumbQueue.length) {
-      const key = dayThumbQueue.shift();
-      const waiters = (dayThumbPending.get(key) || []).filter((w) => w.box.isConnected);
-      dayThumbPending.delete(key);
-      if (!waiters.length) continue;  // 列表已重渲染,旧元素被丢弃
-      try {
-        const url = await snapDayThumb(waiters[0].rs);
-        if (url) {
-          if (dayThumbCache.size > 240) dayThumbCache.clear();  // 换时间范围后防无限增长
-          dayThumbCache.set(key, url);
-          dayThumbIdbMiss.delete(key);
-          thumbIdb.put(key, url);  // 持久化,下次打开页面直接命中
-          waiters.forEach((w) => applyDayThumb(w.box, url));
-        }
-      } catch (e) { console.warn('[day-thumb] snapshot failed:', e); /* 快照失败留空,不影响列表 */ }
-    }
-    thumbSnapping = false;
-  }
-
-  function ensureThumbMap() {
-    if (thumbMap) return Promise.resolve(thumbMap);
-    if (thumbMapPromise) return thumbMapPromise;
-    thumbMapPromise = (async () => {
-      const style = await loadMapStyle(S.theme === 'dark' ? 'dark' : 'light');
-      const holder = el('div');
-      const initSize = thumbRowSize();
-      holder.style.cssText = `position:fixed;left:-10000px;top:0;width:${initSize.w}px;height:${initSize.h}px;pointer-events:none;`;
-      holder.__tw = initSize.w; holder.__th = initSize.h;
-      document.body.appendChild(holder);
-      const m = new maplibregl.Map({
-        container: holder,
-        style,
-        interactive: false,            // 纯截图,不响应任何交互
-        attributionControl: false,
-        preserveDrawingBuffer: true,   // toDataURL 必需
-        fadeDuration: 0,               // 关掉标注淡入,快照即刻完整
-      });
-      // 底图切片失败也会触发 error 事件,不能拿它当初始化失败;load 在样式就绪后即触发
-      await new Promise((res) => {
-        const t = setTimeout(res, 10000);
-        m.once('load', () => { clearTimeout(t); res(); });
-      });
-      thumbMap = m;
-      thumbMap.__theme = S.theme === 'dark' ? 'dark' : 'light';
-      return m;
-    })().catch((e) => { thumbMapPromise = null; throw e; });
-    return thumbMapPromise;
-  }
-
-  function addThumbLayers(m) {
-    m.addSource('thumb', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-    m.addLayer({
-      id: 'thumb-line', type: 'line', source: 'thumb',
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': cssVar('--series-1'), 'line-width': 2.5, 'line-opacity': 1 },
-    });
-  }
-
-  async function snapDayThumb(rs) {
-    const m = await ensureThumbMap();
-    const themeName = S.theme === 'dark' ? 'dark' : 'light';
-    if (m.__theme !== themeName) {  // 主题切换后 setStyle 会清空自定义源/图层,需重建
-      const style = await loadMapStyle(themeName);
-      m.setStyle(style);
-      // 底图资源(切片/sprite)失败时 style.load 可能不触发,超时兜底防队列卡死
-      await new Promise((res) => {
-        const t = setTimeout(res, 5000);
-        m.once('style.load', () => { clearTimeout(t); res(); });
-      });
-      m.__theme = themeName;
-    }
-    if (!m.getSource('thumb')) addThumbLayers(m);
-    // 画布尺寸跟随当前行尺寸(窗口 resize 后重新生成时会变化)
-    const { w, h } = thumbRowSize();
-    const holder = m.getContainer();
-    if (holder.__tw !== w || holder.__th !== h) {
-      holder.style.width = w + 'px'; holder.style.height = h + 'px';
-      holder.__tw = w; holder.__th = h;
-      m.resize();
-    }
-    const fc = { type: 'FeatureCollection', features: [] };
-    let b = null;
-    rs.forEach((r) => {
-      const pts = (r.points || []).filter((p) => p.length >= 2).map((p) => [p[1], p[0]]);
-      if (pts.length < 2) return;
-      fc.features.push({ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: pts } });
-      pts.forEach((c) => { b = b ? b.extend(c) : new maplibregl.LngLatBounds(c, c); });
-    });
-    if (!fc.features.length) return null;
-    m.getSource('thumb').setData(fc);
-    // 把当日全部轨迹等比缩放进蒙板的清晰带:画布 60%–88% 宽、26%–74% 高的矩形
-    // (对应 CSS mask 的 opaque 区);背景 100% 100% 填满整行,二者逐像素对齐
-    m.fitBounds(b, { padding: {
-      left: Math.round(w * 0.60), right: Math.round(w * 0.12),
-      top: Math.round(h * 0.26), bottom: Math.round(h * 0.26),
-    }, animate: false });
-    // idle = 所有源加载并渲染完毕;兜底超时防止极端情况下队列卡死
-    await new Promise((res) => {
-      const t = setTimeout(res, 6000);
-      m.once('idle', () => { clearTimeout(t); res(); });
-    });
-    return m.getCanvas().toDataURL('image/png');
   }
 
   /* 行程详情:海拔高度图(x = 累计里程 km,y = 海拔 m,平滑曲线 + 渐变填充) */
@@ -3215,7 +3162,7 @@
             const leg = el('div', 'rt-speed-legend');
             leg.appendChild(el('span', '', '0'));
             leg.appendChild(el('i', ''));
-            leg.appendChild(el('span', '', '120+ km/h'));
+            leg.appendChild(el('span', '', '150+ km/h'));
             detail.appendChild(leg);
           }
         }

@@ -2423,7 +2423,7 @@ button { touch-action: manipulation; }
   max-width: 220px;
   height: 6px;
   border-radius: 3px;
-  background: linear-gradient(90deg, #e0483e, #eda100 50%, #1baf7a);
+  background: linear-gradient(90deg, #e0483e, #eda100 33%, #1baf7a 67%);
 }
 
 .rt-elev-title {
