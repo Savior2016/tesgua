@@ -299,7 +299,8 @@ _AUTH_EXACT = {"/api/health", "/api/login", "/api/logout", "/login", "/login.js"
                "/demo.html", "/demo.js", "/pageturn.js", "/echarts.min.js",
                "/model-y-l.png", "/model-yl-badge.png",
                # 装饰素材:总览/车况火星背景、控制页星舰剪影(demo 页也引用)
-               "/mars.webp", "/mars-surface.webp", "/starship.svg"}
+               "/mars.webp", "/mars-surface.webp", "/starship.svg",
+               "/blackhole.webp", "/starship-pad.webp"}
 _AUTH_PREFIX = ("/fonts/",)
 
 
@@ -1217,7 +1218,7 @@ def routes(car_id: int | None = Query(default=None),
     )
     pts = q(
         """
-        SELECT drive_id, latitude, longitude, elevation
+        SELECT drive_id, latitude, longitude, elevation, speed
         FROM positions
         WHERE car_id = %s AND drive_id IS NOT NULL AND latitude IS NOT NULL
           AND date >= now() - make_interval(days => %s)
@@ -1225,12 +1226,14 @@ def routes(car_id: int | None = Query(default=None),
         """,
         (cid, days),
     )
-    # 轨迹点:[纬度, 经度, 海拔(可空)]——海拔供行程详情的高度图用
+    # 轨迹点:[纬度, 经度, 海拔(可空), 速度 km/h(可空)]
+    # ——海拔供行程详情的高度图用,速度供详情小地图按车速变色绘制
     by_id: dict[int, list[list[float]]] = {}
     for p in pts:
         by_id.setdefault(int(p["drive_id"]), []).append(
             [float(p["latitude"]), float(p["longitude"]),
-             float(p["elevation"]) if p["elevation"] is not None else None])
+             float(p["elevation"]) if p["elevation"] is not None else None,
+             float(p["speed"]) if p["speed"] is not None else None])
     out = []
     for d in drives:
         points = by_id.get(d["id"], [])

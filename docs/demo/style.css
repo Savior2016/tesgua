@@ -164,8 +164,8 @@ html, body {
 }
 
 /* 环境光背景:固定的柔和色晕,让液态玻璃有内容可折射(相当于 iOS 壁纸);
-   色晕整体压在页面中下部——下拉过冲露出的顶部区域保持纯净底色,
-   只留中央的小圆圈星舰徽标(#space-mark),不再是红蓝配色 */
+   第一层实色盖板压住顶部 ~38% 视口——下拉过冲露出的区域永远只有纯净底色
+   (不再是红蓝配色),只留中央的小圆圈星舰徽标(#space-mark) */
 body::before {
   content: '';
   position: fixed;
@@ -173,6 +173,7 @@ body::before {
   z-index: -1;
   pointer-events: none;
   background:
+    linear-gradient(to bottom, var(--page) 0 30%, transparent 55%),
     radial-gradient(55% 42% at 12% 34%, var(--glow-1), transparent 70%),
     radial-gradient(48% 40% at 88% 40%, var(--glow-2), transparent 72%),
     radial-gradient(70% 55% at 50% 108%, var(--glow-3), transparent 75%);
@@ -198,12 +199,43 @@ body::before {
 
 #space-mark.peek { opacity: 1; }
 
+/* 星舰缓缓悬浮;尾焰在圆圈底部持续脉动 */
 #space-mark i {
   position: absolute;
-  inset: 11px;
+  inset: 9px 11px 13px;
   background: color-mix(in srgb, var(--text-muted) 62%, transparent);
   -webkit-mask: url(starship.svg) center / contain no-repeat;
   mask: url(starship.svg) center / contain no-repeat;
+  animation: sm-bob 2.6s ease-in-out infinite;
+}
+
+#space-mark::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  width: 7px;
+  height: 11px;
+  transform: translateX(-50%);
+  background: radial-gradient(50% 100% at 50% 0,
+    #ffc46b 0%, #ff7a1a 55%, transparent 78%);
+  border-radius: 45% 45% 60% 60%;
+  filter: blur(.6px);
+  animation: sm-flame .5s ease-in-out infinite alternate;
+}
+
+@keyframes sm-bob {
+  0%, 100% { transform: translateY(1px); }
+  50% { transform: translateY(-2.5px); }
+}
+
+@keyframes sm-flame {
+  from { opacity: .45; transform: translateX(-50%) scaleY(.7); }
+  to { opacity: .95; transform: translateX(-50%) scaleY(1.2); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #space-mark i, #space-mark::after { animation: none; }
 }
 
 /* ===== 顶栏:sticky,下滑收缩成紧凑徽章栏并钉在顶部,回顶展开 ===== */
@@ -1185,35 +1217,32 @@ button { touch-action: manipulation; }
 .col-7 { grid-column: span 7; }
 .col-12 { grid-column: span 12; }
 
-/* ===== 车况页「生涯总览」:SpaceX 字标背景(若隐若现) ===== */
+/* ===== 车况页「生涯总览」:黑洞吸积盘背景(若隐若现,NASA 渲染图) ===== */
 .life-card { position: relative; overflow: hidden; }
 
-.life-spacex {
-  --mars-o: .14;
+.life-bh {
+  --mars-o: .32;
   position: absolute;
-  right: 16px;
-  top: 20px;
-  width: clamp(170px, 22vw, 300px);
-  aspect-ratio: 331.6 / 40.8;   /* 官方字标比例(SpaceX-Logo.svg 332×41) */
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: clamp(230px, 30vw, 430px);
   opacity: var(--mars-o);
   pointer-events: none;
-  background: var(--text-primary);
-  -webkit-mask: url(/spacex-logo.svg) right center / contain no-repeat;
-  mask: url(/spacex-logo.svg) right center / contain no-repeat;
   animation: life-mars-breathe 9s ease-in-out infinite;
 }
-[data-theme="dark"] .life-spacex { --mars-o: .22; }
+[data-theme="dark"] .life-bh { --mars-o: .5; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .life-spacex { --mars-o: .22; }
+  :root:not([data-theme="light"]) .life-bh { --mars-o: .5; }
 }
 
 @keyframes life-mars-breathe {
   0%, 100% { opacity: var(--mars-o); }
-  50% { opacity: calc(var(--mars-o) * .5); }
+  50% { opacity: calc(var(--mars-o) * .55); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .life-spacex, #car-card .ov-bg { animation: none; }
+  .life-bh, #car-card .ov-bg { animation: none; }
 }
 
 .life-stats {
@@ -1234,7 +1263,7 @@ button { touch-action: manipulation; }
 .life-lab i { font-style: normal; margin-left: 7px; font-size: 11px; color: var(--text-muted); }
 
 @media (max-width: 600px) {
-  .life-spacex { width: 150px; right: 12px; top: 16px; }
+  .life-bh { width: 200px; right: -30px; }
   .life-val b { font-size: 24px; }
   .life-item { min-width: 0; flex-basis: 40%; }
 }
@@ -1260,17 +1289,19 @@ button { touch-action: manipulation; }
   animation: life-mars-breathe 11s ease-in-out infinite;
 }
 
-/* 详情层:巨大的火星球体弧面(直径 2400px,只露一道地平线式的弧线,不展示整颗星球;
-   几何对桌面与手机端均验证:弧顶约在卡高 25–45% 处,从两侧缘穿出) */
+/* 详情层:火星球体(约 2/3 球面露出,底部 1/3 隐于卡外,球缘弧线清晰可辨;
+   顶部渐隐融入玻璃卡,素材已升至 1406px 原生分辨率,放大不糊) */
 #car-card .ov-bg-planet {
   --pl-o: .34;
-  width: 2400px;
-  height: 2400px;
+  width: min(920px, 175vw);
+  height: min(920px, 175vw);
   left: 50%;
-  bottom: -2080px;
+  bottom: calc(min(920px, 175vw) / -3);
   transform: translateX(-50%);
   opacity: 0;
   filter: saturate(.95);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 3%, #000 22%);
+  mask-image: linear-gradient(to bottom, transparent 3%, #000 22%);
 }
 
 /* 展开两侧详情(统计/图例面板)时:地表退隐,星球弧面浮现 */
@@ -1278,32 +1309,37 @@ button { touch-action: manipulation; }
 #car-card:has(.carview:not(.sides-stowed)) .ov-bg-planet { opacity: var(--pl-o); }
 
 [data-theme="dark"] #car-card .ov-bg-surface { --mars-o: .26; }
-[data-theme="dark"] #car-card .ov-bg-planet { --pl-o: .48; }
+[data-theme="dark"] #car-card .ov-bg-planet { --pl-o: .46; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) #car-card .ov-bg-surface { --mars-o: .26; }
-  :root:not([data-theme="light"]) #car-card .ov-bg-planet { --pl-o: .48; }
+  :root:not([data-theme="light"]) #car-card .ov-bg-planet { --pl-o: .46; }
 }
 
-/* ===== 控制页:星舰剪影背景(右侧竖立,淡入玻璃卡) ===== */
+/* ===== 控制页:星舰全箭实拍背景(右侧竖立,约占背景 2/3,淡入玻璃卡) ===== */
 #page-control .card { position: relative; overflow: hidden; }
 
 #page-control .ctl-starship {
-  --ship-o: .07;
+  --ship-o: .16;
   position: absolute;
-  right: 3%;
+  right: 2%;
   top: 50%;
-  width: clamp(120px, 18vw, 240px);
-  height: 86%;
+  height: 66%;
+  aspect-ratio: 518 / 1500;   /* starship-pad.webp 发射塔+全箭竖条 */
   transform: translateY(-50%);
   opacity: var(--ship-o);
   pointer-events: none;
-  background: var(--text-primary);
-  -webkit-mask: url(starship.svg) center / contain no-repeat;
-  mask: url(starship.svg) center / contain no-repeat;
+  object-fit: cover;
+  /* 左缘与上下渐隐,融入卡片无硬边 */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 38%),
+    linear-gradient(to bottom, transparent 2%, #000 16%, #000 88%, transparent 99%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent, #000 38%),
+    linear-gradient(to bottom, transparent 2%, #000 16%, #000 88%, transparent 99%);
+  mask-composite: intersect;
 }
-[data-theme="dark"] #page-control .ctl-starship { --ship-o: .12; }
+[data-theme="dark"] #page-control .ctl-starship { --ship-o: .24; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) #page-control .ctl-starship { --ship-o: .12; }
+  :root:not([data-theme="light"]) #page-control .ctl-starship { --ship-o: .24; }
 }
 
 .chart { width: 100%; height: 300px; }
@@ -2365,6 +2401,26 @@ button { touch-action: manipulation; }
 
 /* 行程详情:海拔高度图 */
 .rt-elev-wrap { margin-top: 10px; }
+
+/* 行程详情:车速色带图例(与小地图轨迹着色同一 ramp) */
+.rt-speed-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 2px 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.rt-speed-legend i {
+  flex: 1;
+  max-width: 220px;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(90deg,
+    var(--seq-blue-600), var(--seq-blue-500) 35%,
+    var(--seq-blue-400) 69%, var(--seq-blue-300));
+}
 
 .rt-elev-title {
   font-size: 11px;

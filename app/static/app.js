@@ -2702,10 +2702,37 @@
   /* 行程详情:小地图(只显示该条轨迹 + 起终点;顶部地图仅作全览)。
      每个 MapLibre 实例占一个 WebGL 上下文(浏览器上限约 16 个),超出时回收最早的实例 */
   const MINI_MAP_LIMIT = 8;
+
+  /* 车速配色:0 → 130+ km/h 序蓝色带(慢=深蓝,快=亮蓝),与详情图例一致 */
+  const SPEED_RAMP = [
+    [0, '--seq-blue-600'], [45, '--seq-blue-500'],
+    [90, '--seq-blue-400'], [130, '--seq-blue-300'],
+  ];
+  function mixHex(a, b, t) {
+    const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+    const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+    return '#' + pa.map((v, i) =>
+      Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, '0')).join('');
+  }
+  function speedColor(v) {
+    const ramp = SPEED_RAMP.map(([s, tok]) => [s, cssVar(tok)]);
+    for (let i = 1; i < ramp.length; i++) {
+      if (v <= ramp[i][0]) {
+        const t = (v - ramp[i - 1][0]) / (ramp[i][0] - ramp[i - 1][0]);
+        return mixHex(ramp[i - 1][1], ramp[i][1], Math.max(0, Math.min(1, t)));
+      }
+    }
+    return ramp[ramp.length - 1][1];
+  }
+
   function renderRouteMap(r, box) {
     if (routeMaps[r.id]) { routeMaps[r.id].resize(); return; }
-    const pts = (r.points || []).filter((p) => p.length >= 2).map((p) => [p[1], p[0]]);
+    const raw = (r.points || []).filter((p) => p.length >= 2);
+    const pts = raw.map((p) => [p[1], p[0]]);
     if (pts.length < 2) return;
+    const speeds = raw.map((p) =>
+      (p.length >= 4 && p[3] !== null && p[3] !== undefined) ? Number(p[3]) : null);
+    const hasSpeed = speeds.some((v) => v !== null);
     const liveIds = Object.keys(routeMaps);
     if (liveIds.length >= MINI_MAP_LIMIT) disposeRouteMap(Number(liveIds[0]));
     loadMapStyle(S.theme === 'dark' ? 'dark' : 'light').then((style) => {
@@ -2718,7 +2745,15 @@
         scrollZoom: false,            // 小地图不响应滚轮,桌面滚动页面向下不被截住
       });
       m.doubleClickZoom.disable();
-      const lineFC = {
+      // 有逐点速度时按速度分段着色(每段一个 feature),否则退回单色
+      const lineFC = hasSpeed ? {
+        type: 'FeatureCollection',
+        features: pts.slice(1).map((c, i) => ({
+          type: 'Feature',
+          properties: { color: speedColor(speeds[i + 1] ?? speeds[i] ?? 0) },
+          geometry: { type: 'LineString', coordinates: [pts[i], c] },
+        })),
+      } : {
         type: 'FeatureCollection',
         features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: pts } }],
       };
@@ -2735,7 +2770,10 @@
         m.addLayer({
           id: 'route-line', type: 'line', source: 'route',
           layout: { 'line-cap': 'round', 'line-join': 'round' },
-          paint: { 'line-color': cssVar('--seq-blue-500'), 'line-width': 4, 'line-opacity': 1 },
+          paint: {
+            'line-color': hasSpeed ? ['get', 'color'] : cssVar('--seq-blue-500'),
+            'line-width': 4, 'line-opacity': 1,
+          },
         });
         m.addLayer({
           id: 'route-ends', type: 'circle', source: 'route-ends',
@@ -3173,6 +3211,15 @@
         if ((r.points || []).filter((p) => p.length >= 2).length >= 2) {
           mapBox = el('div', 'rt-map');
           detail.appendChild(mapBox);
+          // 有逐点速度时轨迹按车速变色,附色带图例
+          const hasSpeed = (r.points || []).some((p) => p.length >= 4 && p[3] !== null && p[3] !== undefined);
+          if (hasSpeed) {
+            const leg = el('div', 'rt-speed-legend');
+            leg.appendChild(el('span', '', '0'));
+            leg.appendChild(el('i', ''));
+            leg.appendChild(el('span', '', '130+ km/h'));
+            detail.appendChild(leg);
+          }
         }
         let elevBox = null;
         const elevPts = (r.points || []).filter((p) => p.length >= 3 && p[2] !== null && p[2] !== undefined);

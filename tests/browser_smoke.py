@@ -21,7 +21,7 @@ BASE = {
  "charging/summary":{"totals":{},"sessions":[]},
  "charging/sessions":{"charges":[{"id":7,"start_ts":NOW-7200000,"end_ts":NOW-3600000,"start_local":"2026-09-14 01:00:00","end_local":"2026-09-14 02:00:00","duration_min":60,"energy_kwh":10.0,"energy_used_kwh":None,"total_kwh":None,"total_kwh_manual":False,"start_battery_level":40,"end_battery_level":55,"loc_key":"addr_7","charger_name":"","charger_location":"家","charger_brand":"","cost":None,"cost_home":5.0,"cost_effective":5.0,"home_mode":"auto","home_name":"车位桩","rate_yuan_kwh":0.5,"after_km":60.0,"per_km_yuan":0.0833}]},
  "charging/home":{"master":True,"role":"admin","chargers":[{"key":"addr_7","name":"车位桩","enabled":True,"peak":1.0,"valley":0.5,"vstart":"23:00","vend":"07:00","location":"家","sessions":12}],"candidates":[{"key":"addr_7","name":"家","count":12,"added":True},{"key":"addr_9","name":"公司","count":8,"added":False}],"vstart_default":"23:00","vend_default":"07:00"},
- "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"speed_max":80,"start_ideal_range_km":400,"end_ideal_range_km":388,"start_name":XSS,"end_name":"合成终点","points":[[0,0,50],[0.005,0.005,65],[0.01,0.01,80]]}]},
+ "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"speed_max":80,"start_ideal_range_km":400,"end_ideal_range_km":388,"start_name":XSS,"end_name":"合成终点","points":[[0,0,50,0],[0.005,0.005,65,35],[0.01,0.01,80,125]]}]},
  "activity":{"days":7,"battery":[[NOW-3600000,80],[NOW,75]],"drives":[],"charges":[],"sentry":[],"idle":[],"kwh_per_pct":0.75},
  "efficiency/trend":{"points":[{"start_ts":NOW-3600000,"eff_wh_km":145,"distance":10,"duration_min":30,"start_name":XSS,"end_name":"合成终点"}]},
  "tpms/trend":{"wheels":{w:[[NOW-3600000,2.9],[NOW,2.9]] for w in ['fl','fr','rl','rr']}},
@@ -98,6 +98,7 @@ def run():
             assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==6
             assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
             assert page.locator('.rt-map.maplibregl-map').count()==1  # 详情小地图
+            assert page.locator('.rt-speed-legend').count()==1  # 轨迹按车速变色 + 色带图例
             assert not page.evaluate('window.__auditXss===true')
             page.locator('.rt-row').first.click()
             page.wait_for_timeout(80)
