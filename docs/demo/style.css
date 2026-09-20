@@ -1276,7 +1276,7 @@ button { touch-action: manipulation; }
 .life-item { flex: 1 1 0; min-width: 150px; }
 
 .life-val { display: flex; align-items: baseline; gap: 5px; }
-.life-val b { font-size: 30px; font-weight: 700; letter-spacing: .2px; }
+.life-val b { font-size: 22px; font-weight: 700; letter-spacing: .2px; color: var(--series-1); }
 .life-val span { font-size: 13px; font-weight: 600; color: var(--text-muted); }
 
 .life-lab { margin-top: 3px; font-size: 12px; color: var(--text-secondary); }
@@ -1284,7 +1284,7 @@ button { touch-action: manipulation; }
 
 @media (max-width: 600px) {
   .life-bh { width: 340px; right: -80px; }
-  .life-val b { font-size: 24px; }
+  .life-val b { font-size: 19px; }
   .life-item { min-width: 0; flex-basis: 40%; }
 }
 

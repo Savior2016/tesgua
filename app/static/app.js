@@ -2901,7 +2901,7 @@
     if (!box.isConnected) return;
     const { w, h, dim } = thumbRowSize();
     lastThumbDim = dim;
-    const key = `${S.theme}:${dim}:v6:${rs.map((r) => r.id).join(',')}`;  // 主题/尺寸/算法版本/轨迹任一变化都重生成
+    const key = `${S.theme}:${dim}:v7:${rs.map((r) => r.id).join(',')}`;  // 主题/尺寸/算法版本/轨迹任一变化都重生成
     if (dayThumbCache.has(key)) { applyDayThumb(box, dayThumbCache.get(key)); return; }
     box.__thumbKey = key;
     // 先同步画 2D 轨迹占位(瞬时),底图快照完成后覆盖
@@ -2946,8 +2946,8 @@
   }
 
   /* 屏外 MapLibre 按日期行实际尺寸渲染当日轨迹 + 真实底图,快照成 PNG 作整行背景。
-     超宽条带(可达 28:1)contain 会把轨迹压成小点:改为在 contain 基础上放大
-     (cover 方向,封顶 +1.6 级),再把轨迹包围盒中心平移到 mask 清晰带中心 */
+     整条轨迹完整缩进 mask 清晰带(约 52% 宽、60% 高):contain 基础上按需再缩,
+     再平移包围盒中心到清晰带中心,轨迹任何一端都不出画 */
   async function snapDayThumb(rs, w, h) {
     if (!window.maplibregl || !window.pmtiles) return null;
     const style = await loadMapStyle(S.theme === 'dark' ? 'dark' : 'light');
@@ -2994,11 +2994,11 @@
       const bbox = [[minLng, minLat], [maxLng, maxLat]];
       const cam = m.cameraForBounds(bbox, { padding: 0 });
       m.jumpTo({ center: cam.center, zoom: cam.zoom });
-      // contain 缩放级下包围盒的像素尺寸 → cover 需要的放大倍数
+      // contain 缩放级下包围盒的像素尺寸 → 缩到清晰带大小(整条轨迹完整入画)
       const pa = m.project(bbox[0]), pb = m.project(bbox[1]);
       const bw = Math.max(1, Math.abs(pb.x - pa.x)), bh = Math.max(1, Math.abs(pb.y - pa.y));
-      const zCover = cam.zoom + Math.log2(Math.max(w / bw, h / bh));
-      m.jumpTo({ center: cam.center, zoom: Math.min(zCover, cam.zoom + 1.6) });
+      const zFit = cam.zoom - Math.log2(Math.max(bw / (w * 0.52), bh / (h * 0.6), 1));
+      m.jumpTo({ center: cam.center, zoom: zFit });
       // 轨迹中心平移到清晰带中心(行宽 74%、行高 50% 处)
       const c = m.project(cam.center);
       m.panBy([c.x - w * 0.74, c.y - h * 0.5], { duration: 0 });
