@@ -12,7 +12,7 @@ OUT=docs/demo
 rm -rf "$OUT"
 mkdir -p "$OUT/fonts"
 
-cp "$SRC"/{style.css,theme.js,echarts.min.js,pageturn.js,demo.js,model-y-l.png,model-yl-badge.png,mars.webp,starship.svg} "$OUT/"
+cp "$SRC"/{style.css,theme.js,echarts.min.js,pageturn.js,demo.js,model-y-l.png,model-yl-badge.png,mars.webp,mars-surface.webp,starship.svg} "$OUT/"
 cp "$SRC"/fonts/Universal-Sans-Display-Medium.woff2 "$OUT/fonts/"
 
 # 绝对路径 → 相对路径;Pages 上没有"正式面板","返回"链接改为指向 GitHub 仓库
@@ -30,6 +30,7 @@ sed -e 's|href="/style.css"|href="style.css"|' \
 sed -i -e "s|url('/fonts/|url('fonts/|g" \
        -e "s|url('/model-yl-badge.png')|url('model-yl-badge.png')|g" \
        -e "s|url(/starship.svg)|url(starship.svg)|g" \
+       -e "s|url(/mars-surface.webp)|url(mars-surface.webp)|g" \
        "$OUT/style.css"
 
 # Pages 根路径直接跳到演示页;关闭 Jekyll(静态直出)

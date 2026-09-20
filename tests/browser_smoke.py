@@ -30,7 +30,7 @@ BASE = {
  "energy/cycles":{"cycles":[]},
  "temp/trend":{"inside":[[NOW-3600000,22],[NOW,24]],"outside":[[NOW-3600000,18],[NOW,20]]},
  "parking/fees":{"fees":[],"month_total":0,"total":0},"vehicle/delivery":{"date":"2026-01-01"},
- "vehicle/lifetime":{"car_id":1,"total_km":10000,"drive_km":2000,"since":NOW-40*86400000,"drive_kwh":300,"parked_kwh":40,"total_kwh":340,"total_cost":250.5,"sessions":10,"priced_sessions":9,"rate_yuan_kwh":0.65},
+ "vehicle/lifetime":{"car_id":1,"total_km":10000,"drive_km":2000,"since":NOW-40*86400000,"drive_kwh":300,"parked_kwh":40,"total_kwh":340,"total_cost":250.5,"sessions":10,"priced_sessions":9,"rate_yuan_kwh":0.65,"charged_kwh":410,"nominal_kwh":85.4,"cycles":4.8},
  "charging/reminder":{"ready":True,"overridden":False,"reason":"",
    "home":{"label":XSS,"address_ids":[1],"visits":20,"nights":15,"days":2},
    "work":{"label":"合成公司","address_ids":[8],"visits":18,"nights":1,"days":14},
@@ -84,6 +84,7 @@ def run():
             assert page.locator('#life-km').inner_text() == '10,000'
             assert page.locator('#life-kwh').inner_text() == '340'
             assert '未计价' in page.locator('#life-cost-sub').inner_text()
+            assert page.locator('#life-cycles').inner_text() == '4.8'
             for width in [320,390,1440]:
                 page.set_viewport_size({"width":width,"height":900})
                 for tab in ['overview','charging','activity','vehicle','drives','control']:

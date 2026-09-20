@@ -299,7 +299,7 @@ _AUTH_EXACT = {"/api/health", "/api/login", "/api/logout", "/login", "/login.js"
                "/demo.html", "/demo.js", "/pageturn.js", "/echarts.min.js",
                "/model-y-l.png", "/model-yl-badge.png",
                # 装饰素材:总览/车况火星背景、控制页星舰剪影(demo 页也引用)
-               "/mars.webp", "/starship.svg"}
+               "/mars.webp", "/mars-surface.webp", "/starship.svg"}
 _AUTH_PREFIX = ("/fonts/",)
 
 
@@ -1856,6 +1856,7 @@ def vehicle_lifetime(car_id: int | None = Query(default=None)):
         SELECT cp.id, {local_ts('cp.start_date', 'start_date')},
                {local_ts('cp.end_date', 'end_date')},
                cp.charge_energy_added, cp.charge_energy_used,
+               cp.start_battery_level, cp.end_battery_level,
                cp.address_id, cp.geofence_id
         FROM charging_processes cp WHERE cp.car_id = %s ORDER BY cp.start_date
         """,
@@ -1868,6 +1869,8 @@ def vehicle_lifetime(car_id: int | None = Query(default=None)):
     total_cost = 0.0
     priced_kwh = 0.0
     priced_sessions = 0
+    charged_kwh = 0.0
+    nominal_kwh = 0.0  # 估算满电容量基准,口径同 /api/battery/health(有效估算的最高值)
     for r in rows:
         extra = extras["charges"].get(str(r["id"])) or {}
         manual_total = extra.get("total_kwh")
@@ -1886,6 +1889,14 @@ def vehicle_lifetime(car_id: int | None = Query(default=None)):
             total_cost += cost
             priced_sessions += 1
             priced_kwh += denom or 0.0
+        # 电池循环:累计充电量 ÷ 估算满电容量
+        if energy:
+            charged_kwh += energy
+            delta = int(r["end_battery_level"] or 0) - int(r["start_battery_level"] or 0)
+            if delta >= 10:
+                cap = energy / delta * 100
+                if 30 <= cap <= 150:
+                    nominal_kwh = max(nominal_kwh, cap)
 
     data = {
         "car_id": cid,
@@ -1900,6 +1911,10 @@ def vehicle_lifetime(car_id: int | None = Query(default=None)):
         "priced_sessions": priced_sessions,
         "rate_yuan_kwh": (round(total_cost / priced_kwh, 4)
                           if priced_kwh > 0 else None),
+        "charged_kwh": round(charged_kwh, 1),
+        "nominal_kwh": round(nominal_kwh, 1) if nominal_kwh > 0 else None,
+        "cycles": (round(charged_kwh / nominal_kwh, 1)
+                   if nominal_kwh > 0 else None),
     }
     _lifetime_cache[cid] = (time.monotonic(), data)
     return data

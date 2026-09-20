@@ -41,7 +41,9 @@
   <section class="page" id="page-overview">
   <div class="grid">
     <div class="card col-12" id="car-card">
-      <img class="card-mars" src="/mars.webp" alt="" aria-hidden="true">
+      <!-- 背景双层:默认=火星表面全景(铺满放大);展开两侧详情时过渡为巨大的星球弧面 -->
+      <div class="ov-bg ov-bg-surface" aria-hidden="true"></div>
+      <img class="ov-bg ov-bg-planet" src="/mars.webp" alt="" aria-hidden="true">
       <!-- 卡片顶部:本周期平均能耗条状控件(整卡宽度,不受两侧面板收展影响) -->
       <div class="car-eff" id="car-eff" hidden>
         <div class="car-eff-bar" id="car-eff-bar">
@@ -339,7 +341,7 @@
   <section class="page" id="page-vehicle">
   <div class="grid">
     <div class="card col-12 life-card">
-      <img class="life-mars" src="/mars.webp" alt="" aria-hidden="true">
+      <i class="life-spacex" aria-hidden="true"></i>
       <h2>生涯总览</h2>
       <div class="card-sub" id="life-sub">能耗与费用自开始统计起累计</div>
       <div class="life-stats">
@@ -354,6 +356,10 @@
         <div class="life-item">
           <div class="life-val"><span>¥</span><b id="life-cost">—</b></div>
           <div class="life-lab">充电总费用<i id="life-cost-sub"></i></div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><b id="life-cycles">—</b><span>次</span></div>
+          <div class="life-lab">电池循环<i id="life-cycles-sub"></i></div>
         </div>
       </div>
     </div>

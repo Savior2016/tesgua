@@ -1100,7 +1100,7 @@
     }), { notMerge: true });
   }
 
-  /* ---------- 渲染:生涯总览(车况页顶部,火星背景) ---------- */
+  /* ---------- 渲染:生涯总览(车况页顶部,SpaceX 字标背景) ---------- */
 
   function renderLifetime() {
     const d = S.lifetime;
@@ -1108,6 +1108,7 @@
     $('#life-km').textContent = fmtNum(d.total_km, 0);
     $('#life-kwh').textContent = fmtNum(d.total_kwh, 0);
     $('#life-cost').textContent = fmtNum(d.total_cost, 2);
+    $('#life-cycles').textContent = fmtNum(d.cycles, 1);
     $('#life-km-sub').textContent = `自统计起行驶 ${fmtNum(d.drive_km, 0)} km`;
     $('#life-kwh-sub').textContent =
       `行驶 ${fmtNum(d.drive_kwh, 0)} · 驻车 ${fmtNum(d.parked_kwh, 0)}`;
@@ -1116,6 +1117,9 @@
       `${d.priced_sessions || 0} 次充电` +
       (d.rate_yuan_kwh ? ` · 均价 ¥${fmtNum(d.rate_yuan_kwh, 2)}/kWh` : '') +
       (miss > 0 ? ` · ${miss} 次未计价` : '');
+    $('#life-cycles-sub').textContent = d.nominal_kwh
+      ? `累计充入 ${fmtNum(d.charged_kwh, 0)} ÷ 满电 ${fmtNum(d.nominal_kwh, 1)} kWh`
+      : '充电样本不足';
     if (d.since) {
       const day = new Date(Number(d.since)).toLocaleDateString('zh-CN', {
         year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
@@ -1249,6 +1253,15 @@
       ['pointerenter', 'pointerdown', 'focusin'].forEach((ev) =>
         box.addEventListener(ev, pokeCarSides));
     });
+  }
+
+  /* --- 顶部过冲徽标(#space-mark):只在真正下拉过冲(scrollY<0)时点亮 --- */
+  function initSpaceMark() {
+    const mark = $('#space-mark');
+    if (!mark) return;
+    addEventListener('scroll', () => {
+      mark.classList.toggle('peek', (window.scrollY || 0) < -8);
+    }, { passive: true });
   }
 
   function renderCar() {
@@ -3455,6 +3468,7 @@
 
     // 总览两侧面板:收起窄条 ⇄ 展开 切换 + 自动收起
     initCarSides();
+    initSpaceMark();
 
     // 点击车名刷新;点击电量胶囊循环切换 电量% → 度数kWh → 续航km
     const carNameEl = $('#car-name');

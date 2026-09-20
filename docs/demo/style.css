@@ -178,9 +178,9 @@ body::before {
     radial-gradient(70% 55% at 50% 108%, var(--glow-3), transparent 75%);
 }
 
-/* 下拉过冲时露出的顶部背景徽标:小圆圈 + 星舰剪影;
-   平时被 sticky 顶栏(z-index 1100)的不透明上缘遮住,只在过冲间隙中显现。
-   注意不能用负 z-index:body 自身背景会盖住它,须留在内容层(z-index 0) */
+/* 下拉过冲时露出的顶部背景徽标:小圆圈 + 星舰剪影。
+   默认 opacity:0——不同设备顶栏高度不一,靠遮挡不可靠;
+   只在 JS 检测到真正过冲(scrollY<0)时加 .peek 点亮,平时绝不显示 */
 #space-mark {
   position: fixed;
   top: 12px;
@@ -192,7 +192,11 @@ body::before {
   border: 1.5px solid color-mix(in srgb, var(--text-muted) 50%, transparent);
   z-index: 0;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity .3s ease;
 }
+
+#space-mark.peek { opacity: 1; }
 
 #space-mark i {
   position: absolute;
@@ -1181,28 +1185,26 @@ button { touch-action: manipulation; }
 .col-7 { grid-column: span 7; }
 .col-12 { grid-column: span 12; }
 
-/* ===== 车况页「生涯总览」:若隐若现的火星背景 ===== */
+/* ===== 车况页「生涯总览」:SpaceX 字标背景(若隐若现) ===== */
 .life-card { position: relative; overflow: hidden; }
 
-.life-mars {
-  --mars-o: .3;
+.life-spacex {
+  --mars-o: .14;
   position: absolute;
-  right: -96px;
-  top: 50%;
-  width: 340px;
-  height: 340px;
-  transform: translateY(-50%);
+  right: 16px;
+  top: 20px;
+  width: clamp(170px, 22vw, 300px);
+  aspect-ratio: 331.6 / 40.8;   /* 官方字标比例(SpaceX-Logo.svg 332×41) */
   opacity: var(--mars-o);
   pointer-events: none;
-  filter: saturate(.95);
-  /* 左缘渐隐融入卡片,星球只露半边 */
-  -webkit-mask-image: linear-gradient(100deg, transparent 12%, #000 58%);
-  mask-image: linear-gradient(100deg, transparent 12%, #000 58%);
+  background: var(--text-primary);
+  -webkit-mask: url(/spacex-logo.svg) right center / contain no-repeat;
+  mask: url(/spacex-logo.svg) right center / contain no-repeat;
   animation: life-mars-breathe 9s ease-in-out infinite;
 }
-[data-theme="dark"] .life-mars { --mars-o: .44; }
+[data-theme="dark"] .life-spacex { --mars-o: .22; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .life-mars { --mars-o: .44; }
+  :root:not([data-theme="light"]) .life-spacex { --mars-o: .22; }
 }
 
 @keyframes life-mars-breathe {
@@ -1211,7 +1213,7 @@ button { touch-action: manipulation; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .life-mars, #car-card .card-mars { animation: none; }
+  .life-spacex, #car-card .ov-bg { animation: none; }
 }
 
 .life-stats {
@@ -1232,32 +1234,54 @@ button { touch-action: manipulation; }
 .life-lab i { font-style: normal; margin-left: 7px; font-size: 11px; color: var(--text-muted); }
 
 @media (max-width: 600px) {
-  .life-mars { width: 260px; height: 260px; right: -86px; }
+  .life-spacex { width: 150px; right: 12px; top: 16px; }
   .life-val b { font-size: 24px; }
   .life-item { min-width: 0; flex-basis: 40%; }
 }
 
-/* ===== 总览页车辆卡:同款若隐若现火星背景,尺寸随视口缩放(clamp+vw) ===== */
+/* ===== 总览页车辆卡:火星表面全景(铺满放大);展开两侧详情 → 过渡为巨大星球弧面 ===== */
 #car-card { position: relative; overflow: hidden; }
 
-#car-card .card-mars {
-  --mars-o: .22;
+#car-card .ov-bg {
   position: absolute;
-  right: max(-96px, -8vw);
-  top: 50%;
-  width: clamp(170px, 34vw, 380px);
-  height: clamp(170px, 34vw, 380px);
-  transform: translateY(-50%);
-  opacity: var(--mars-o);
   pointer-events: none;
-  filter: saturate(.95);
-  -webkit-mask-image: linear-gradient(100deg, transparent 12%, #000 58%);
-  mask-image: linear-gradient(100deg, transparent 12%, #000 58%);
-  animation: life-mars-breathe 9s ease-in-out infinite;
+  transition: opacity 1.1s ease;
 }
-[data-theme="dark"] #car-card .card-mars { --mars-o: .34; }
+
+/* 默认层:火星表面(好奇号全景裁剪,双色调上色),inset 负值让画面始终大于卡片 */
+#car-card .ov-bg-surface {
+  --mars-o: .18;
+  inset: -14%;
+  background: url(mars-surface.webp) center 30% / cover no-repeat;
+  opacity: var(--mars-o);
+  /* 四缘渐隐融入玻璃卡,无明显边界 */
+  -webkit-mask-image: radial-gradient(115% 125% at 50% 46%, #000 52%, transparent 88%);
+  mask-image: radial-gradient(115% 125% at 50% 46%, #000 52%, transparent 88%);
+  animation: life-mars-breathe 11s ease-in-out infinite;
+}
+
+/* 详情层:巨大的火星球体弧面(直径 2400px,只露一道地平线式的弧线,不展示整颗星球;
+   几何对桌面与手机端均验证:弧顶约在卡高 25–45% 处,从两侧缘穿出) */
+#car-card .ov-bg-planet {
+  --pl-o: .34;
+  width: 2400px;
+  height: 2400px;
+  left: 50%;
+  bottom: -2080px;
+  transform: translateX(-50%);
+  opacity: 0;
+  filter: saturate(.95);
+}
+
+/* 展开两侧详情(统计/图例面板)时:地表退隐,星球弧面浮现 */
+#car-card:has(.carview:not(.sides-stowed)) .ov-bg-surface { opacity: calc(var(--mars-o) * .3); animation-play-state: paused; }
+#car-card:has(.carview:not(.sides-stowed)) .ov-bg-planet { opacity: var(--pl-o); }
+
+[data-theme="dark"] #car-card .ov-bg-surface { --mars-o: .26; }
+[data-theme="dark"] #car-card .ov-bg-planet { --pl-o: .48; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) #car-card .card-mars { --mars-o: .34; }
+  :root:not([data-theme="light"]) #car-card .ov-bg-surface { --mars-o: .26; }
+  :root:not([data-theme="light"]) #car-card .ov-bg-planet { --pl-o: .48; }
 }
 
 /* ===== 控制页:星舰剪影背景(右侧竖立,淡入玻璃卡) ===== */

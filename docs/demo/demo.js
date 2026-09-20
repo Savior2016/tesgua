@@ -240,5 +240,10 @@
     placeTabBubble(false);
   });
   applyThemeBtn();
+  // 顶部过冲徽标:只在真正下拉过冲(scrollY<0)时点亮
+  const spaceMark = $('#space-mark');
+  if (spaceMark) addEventListener('scroll', () => {
+    spaceMark.classList.toggle('peek', (window.scrollY || 0) < -8);
+  }, { passive: true });
   switchTab('overview', false);
 })();
