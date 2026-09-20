@@ -1335,6 +1335,23 @@ button { touch-action: manipulation; }
   :root:not([data-theme="light"]) #car-card .ov-bg-planet { --pl-o: .46; }
 }
 
+/* 手机端:横条地表图竖向放大数倍会糊,换 1200² 方形原生分辨率裁剪(同双色调);
+   两层不透明度同步提高,小屏上火星纹理与星球弧线更清晰 */
+@media (max-width: 600px) {
+  #car-card .ov-bg-surface {
+    --mars-o: .26;
+    background-image: url(mars-surface-m.webp);
+    background-position: center 28%;
+  }
+  #car-card .ov-bg-planet { --pl-o: .42; }
+  [data-theme="dark"] #car-card .ov-bg-surface { --mars-o: .36; }
+  [data-theme="dark"] #car-card .ov-bg-planet { --pl-o: .56; }
+}
+@media (max-width: 600px) and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #car-card .ov-bg-surface { --mars-o: .36; }
+  :root:not([data-theme="light"]) #car-card .ov-bg-planet { --pl-o: .56; }
+}
+
 /* ===== 控制页:好奇号火星车渲染图背景(NASA/JPL 公有领域,右下横向贴底,淡入玻璃卡) ===== */
 #page-control .card { position: relative; overflow: hidden; }
 

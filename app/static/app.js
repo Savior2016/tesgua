@@ -1127,27 +1127,16 @@
     }
   }
 
-  /* ---------- 渲染:通勤分析(车况页,聚合所选范围全部行程的堵车/红灯) ---------- */
+  /* ---------- 渲染:通勤分析(车况页,整个车辆生涯累计,来自 /api/vehicle/lifetime) ---------- */
 
   function renderTraffic() {
-    const o = S.overview;
-    if (!o || !o.routes) return;
-    const rs = o.routes.routes || [];
-    let totalMin = 0, jamS = 0, jamKm = 0, lightS = 0, lightN = 0;
-    rs.forEach((r) => {
-      totalMin += Number(r.duration_min || 0);
-      const tf = r.traffic;
-      if (!tf) return;
-      jamS += Number(tf.jam_s || 0);
-      jamKm += Number(tf.jam_km || 0);
-      lightS += Number(tf.light_s || 0);
-      lightN += Number(tf.light_n || 0);
-    });
-    $('#tf-total').textContent = rs.length ? fmtDur(totalMin) : '—';
-    $('#tf-jam').textContent = rs.length ? fmtSec(jamS) : '—';
-    $('#tf-jam-km').textContent = rs.length ? fmtNum(jamKm, 1) : '—';
-    $('#tf-light').textContent = rs.length ? fmtSec(lightS) : '—';
-    $('#tf-light-sub').textContent = rs.length ? `共 ${lightN} 次` : '';
+    const t = S.lifetime && S.lifetime.traffic;
+    if (!t) return;
+    $('#tf-total').textContent = fmtDur(t.drive_min);
+    $('#tf-jam').textContent = fmtSec(t.jam_s);
+    $('#tf-jam-km').textContent = fmtNum(t.jam_km, 1);
+    $('#tf-light').textContent = fmtSec(t.light_s);
+    $('#tf-light-sub').textContent = `共 ${fmtNum(t.light_n, 0)} 次`;
   }
 
   function renderTpms() {

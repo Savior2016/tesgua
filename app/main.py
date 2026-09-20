@@ -299,8 +299,8 @@ _AUTH_EXACT = {"/api/health", "/api/login", "/api/logout", "/login", "/login.js"
                "/demo.html", "/demo.js", "/pageturn.js", "/echarts.min.js",
                "/model-y-l.png", "/model-yl-badge.png",
                # 装饰素材:总览/车况火星背景、控制页好奇号火星车(demo 页也引用)
-               "/mars.webp", "/mars-surface.webp", "/starship.svg",
-               "/blackhole.webp", "/curiosity-rover.webp"}
+               "/mars.webp", "/mars-surface.webp", "/mars-surface-m.webp",
+               "/starship.svg", "/blackhole.webp", "/curiosity-rover.webp"}
 _AUTH_PREFIX = ("/fonts/",)
 
 
@@ -1866,11 +1866,13 @@ _LIFETIME_TTL = 600.0
 
 @app.get("/api/vehicle/lifetime")
 def vehicle_lifetime(car_id: int | None = Query(default=None)):
-    """总里程(表显)、总耗电量(行驶+驻车)、充电总费用。
+    """总里程(表显)、总耗电量(行驶+驻车)、充电总费用、生涯堵车/红绿灯统计。
 
     总耗电量 = 全部行程理想续航差 × kwh_per_ideal_km
              + 驻车时段表显电量降幅合计 × kwh_per_pct(排除行程/充电区间);
     充电总费用与各次计价(手填费用 > 家充峰谷自动价)同 /api/charging/sessions 口径。
+    traffic = 全部行程的堵车/红灯聚合(口径同 /api/routes 的 _drive_traffic),
+    含 drive_min(生涯通勤总时长)。
     能耗与费用仅覆盖 TeslaMate 统计区间(since 起),总里程为车辆表显全生涯。
     """
     cid = get_car_id(car_id)
@@ -1969,6 +1971,32 @@ def vehicle_lifetime(car_id: int | None = Query(default=None)):
                 if 30 <= cap <= 150:
                     nominal_kwh = max(nominal_kwh, cap)
 
+    # 生涯堵车/红绿灯:与 /api/routes 同口径(_drive_traffic),全量行程聚合
+    drv_min = q(
+        "SELECT coalesce(sum(duration_min), 0) AS mins FROM drives WHERE car_id = %s",
+        (cid,),
+    )[0]["mins"]
+    tseq: dict[int, list[tuple[int, float]]] = {}
+    for r in q(
+        """
+        SELECT drive_id, date, speed FROM positions
+        WHERE car_id = %s AND drive_id IS NOT NULL AND speed IS NOT NULL
+        ORDER BY drive_id, date
+        """,
+        (cid,),
+    ):
+        tseq.setdefault(int(r["drive_id"]), []).append(
+            (_utc_ms(r["date"]), float(r["speed"])))
+    traffic = {"light_n": 0, "light_s": 0, "jam_s": 0, "jam_km": 0.0,
+               "drive_min": round(float(drv_min), 1)}
+    for seq in tseq.values():
+        t = _drive_traffic(seq)
+        traffic["light_n"] += t["light_n"]
+        traffic["light_s"] += t["light_s"]
+        traffic["jam_s"] += t["jam_s"]
+        traffic["jam_km"] += t["jam_km"]
+    traffic["jam_km"] = round(traffic["jam_km"], 1)
+
     data = {
         "car_id": cid,
         "total_km": round(float(latest[0]["odometer"]), 1) if latest else None,
@@ -1977,6 +2005,7 @@ def vehicle_lifetime(car_id: int | None = Query(default=None)):
         "drive_kwh": round(drive_kwh, 1),
         "parked_kwh": round(parked_kwh, 1),
         "total_kwh": round(drive_kwh + parked_kwh, 1),
+        "traffic": traffic,
         "total_cost": round(total_cost, 2),
         "sessions": len(rows),
         "priced_sessions": priced_sessions,
