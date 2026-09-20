@@ -1,7 +1,8 @@
 """堵车/红绿灯分析:_drive_traffic 分类器(纯函数,不连库)。
 
-判定口径:停车 <5s 忽略;停车 5–120s = 红绿灯等待;停车 >120s = 堵车停留;
-0 < speed < 10 km/h 缓行计入堵车时间与堵车路程(速度×时间积分)。
+判定口径:车速 <30 km/h 即算堵车(缓行+堵停);堵车中提速超 30 但持续
+不超过 20 秒不中断堵车(桥接回填);停车 5–120s 且停车前 15s 内曾 ≥30 km/h
+= 红绿灯等待;其余停车 ≥5s = 堵车停留。
 """
 from app.main import _drive_traffic
 
@@ -78,6 +79,35 @@ def test_stop_and_go_is_jam_not_light():
     r = _drive_traffic(seq([(60, 8), (30, 0), (60, 8), (20, 0), (60, 8)]))
     assert r["light_n"] == 0
     assert r["jam_s"] >= 160  # 两段停车 + 全部缓行
+
+
+def test_under_30_is_jam():
+    # 持续 25 km/h(<30)整段算堵车;稳定 45 km/h 不算
+    r = _drive_traffic(seq([(60, 50), (300, 25), (60, 50)]))
+    assert 295 <= r["jam_s"] <= 305
+    assert 2.0 <= r["jam_km"] <= 2.2  # 25 km/h × 300s ≈ 2.08 km
+
+
+def test_brief_speedup_does_not_end_jam():
+    # 堵车中偶尔提速到 45 km/h 仅 10s:不中断,整段(含提速段)都算堵车
+    r = _drive_traffic(seq([(120, 15), (10, 45), (120, 15)]))
+    assert 245 <= r["jam_s"] <= 250
+    # 堵车路程含提速段:15×230/3600 + 45×10/3600 ≈ 0.96 + 0.13 ≈ 1.08 km
+    assert 1.0 <= r["jam_km"] <= 1.15
+
+
+def test_sustained_fast_breaks_jam():
+    # 提速到 50 km/h 持续 60s(>20s):堵车结束,前后两段缓行分别计
+    r = _drive_traffic(seq([(100, 15), (60, 50), (100, 15)]))
+    assert 195 <= r["jam_s"] <= 205
+    assert 0.8 <= r["jam_km"] <= 0.9  # 只有两段 15 km/h 缓行
+
+
+def test_brief_pause_inside_jam_bridged():
+    # 堵车缓行中瞬时停 3s(<5s 不单独算,但桥接回堵车)
+    r = _drive_traffic(seq([(120, 12), (3, 0), (120, 12)]))
+    assert r["light_n"] == 0
+    assert r["jam_s"] >= 240
 
 
 def test_trip_ends_while_stopped():

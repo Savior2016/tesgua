@@ -1196,25 +1196,26 @@ def set_home_assign(payload: HomeAssignIn):
 
 
 # ---------- 堵车 / 红绿灯分析(启发式,特斯拉不上报红绿灯位置) ----------
-# 停车 <5s 视为瞬时停顿(让行/掉头)不计;停车 5–120s 且停车前 15 秒内曾
-# 以 ≥20 km/h 行驶(车流原本通畅)= 红绿灯等待;缓行车流中的走走停停与
-# 停车 >120s = 堵车停留;0 < speed < 10 km/h 的缓行区间计入堵车时间,
-# 堵车路程按缓行段 速度×时间 积分。行驶时 positions 约 0.3s 一条,精度足够。
+# 低于 30 km/h 即算堵车(含缓行与堵停);中间偶尔提速超过 30,只要持续
+# 不超过 20 秒就不算脱离堵车(桥接回填);停车 5–120s 且停车前 15 秒内曾
+# ≥30 km/h(车流原本通畅)= 红绿灯等待;其余停车 ≥5s = 堵车停留。
+# 堵车路程按堵车段 速度×时间 积分。行驶时 positions 约 0.3s 一条,精度足够。
 TRAFFIC_LIGHT_MIN_S = 5.0
 TRAFFIC_LIGHT_MAX_S = 120.0
-TRAFFIC_FLOW_KMH = 20.0     # 停车前 15s 内的最高车速达到该值才算通畅车流
+TRAFFIC_FLOW_KMH = 30.0     # 停车前 15s 内的最高车速达到该值才算通畅车流
 TRAFFIC_FLOW_WINDOW_MS = 15000
-JAM_CRAWL_KMH = 10.0
+JAM_CRAWL_KMH = 30.0        # 低于该车速即视为堵车
+JAM_BRIDGE_S = 20.0         # 堵车中短暂提速/瞬时停顿不超过该秒数,不中断堵车
 
 
 def _drive_traffic(samples: list[tuple[int, float]]) -> dict:
     """由单条行程的 (ts_ms, speed_kmh) 序列分析堵车与红绿灯等待。
 
-    返回 {light_n 红灯次数, light_s 红灯等待秒, jam_s 堵车秒(长停+走走停停+缓行),
-    jam_km 堵车路程(缓行段积分)}。采样断档 >30s 的间隙不计入缓行。
+    返回 {light_n 红灯次数, light_s 红灯等待秒, jam_s 堵车秒(缓行+堵停+短暂提速),
+    jam_km 堵车路程(堵车段积分)}。采样断档 >30s 的间隙不计。
     """
     light_n, light_s, jam_s, jam_km = 0, 0.0, 0.0, 0.0
-    # 行驶采样(停车前车流速度回看用):刹车末段车速必然 <10,不能用停车前一拍判断
+    # 行驶采样(停车前车流速度回看用):刹车末段车速必然 <30,不能用停车前一拍判断
     moving = [(ms, s) for ms, s in samples if s > 0]
     mts = [ms for ms, _ in moving]
 
@@ -1223,36 +1224,52 @@ def _drive_traffic(samples: list[tuple[int, float]]) -> dict:
         j = bisect.bisect_left(mts, stop_ms)
         return max((s for _, s in moving[i:j]), default=0.0)
 
-    stop_start: int | None = None  # 当前停车段起始 ms
+    # 分段:连续同状态样本归并为一段 (kind: stop / crawl / fast)
+    runs: list[dict] = []
     prev_ms: int | None = None
-
-    def settle_stop(end_ms: int) -> None:
-        nonlocal light_n, light_s, jam_s
-        dur = (end_ms - stop_start) / 1000
-        if dur < TRAFFIC_LIGHT_MIN_S:
-            return
-        if (dur <= TRAFFIC_LIGHT_MAX_S
-                and flow_before(stop_start) >= TRAFFIC_FLOW_KMH):
-            light_n += 1
-            light_s += dur
-        else:
-            jam_s += dur
-
     for ms, speed in samples:
-        if stop_start is not None and speed > 0:
-            settle_stop(ms)
-            stop_start = None
-        if speed == 0:
-            if stop_start is None:
-                stop_start = ms
-        elif speed < JAM_CRAWL_KMH and prev_ms is not None and stop_start is None:
-            dt = (ms - prev_ms) / 1000
-            if dt <= 30:
-                jam_s += dt
-                jam_km += speed * dt / 3600
+        kind = ("stop" if speed == 0
+                else "crawl" if speed < JAM_CRAWL_KMH else "fast")
+        dt = (ms - prev_ms) / 1000 if prev_ms is not None else 0.0
+        if dt > 30:
+            dt = 0.0  # 采样断档不计
+        if not runs or runs[-1]["kind"] != kind:
+            runs.append({"kind": kind, "t0": ms, "dur": 0.0, "km": 0.0})
+        r = runs[-1]
+        if kind == "stop":
+            r["t1"] = ms
+        else:
+            r["dur"] += dt
+            r["km"] += speed * dt / 3600
         prev_ms = ms
-    if stop_start is not None and prev_ms is not None:
-        settle_stop(prev_ms)  # 行程结束时仍在停:按已停时长结算
+    # 停车段时长 = 停住起点 → 重新起步(行程末尾仍在停则取最后一条停车采样)
+    for i, r in enumerate(runs):
+        if r["kind"] == "stop":
+            end = runs[i + 1]["t0"] if i + 1 < len(runs) else r["t1"]
+            r["dur"] = (end - r["t0"]) / 1000
+
+    # 停车分类:通畅车流中的 5–120s 停车 = 红灯;其余 ≥5s = 堵车停留
+    jam_stop: set[int] = set()
+    for i, r in enumerate(runs):
+        if r["kind"] != "stop" or r["dur"] < TRAFFIC_LIGHT_MIN_S:
+            continue
+        if r["dur"] <= TRAFFIC_LIGHT_MAX_S and flow_before(r["t0"]) >= TRAFFIC_FLOW_KMH:
+            light_n += 1
+            light_s += r["dur"]
+        else:
+            jam_stop.add(i)
+
+    def is_jam(i: int) -> bool:
+        return runs[i]["kind"] == "crawl" or i in jam_stop
+
+    # 汇总:堵车段(缓行/堵停)累计;不超过 20s 的提速或瞬时停顿,两侧都是
+    # 堵车时桥接回填为堵车(偶尔快一下不算脱离堵车)
+    for i, r in enumerate(runs):
+        bridged = (not is_jam(i) and r["dur"] < JAM_BRIDGE_S
+                   and 0 < i < len(runs) - 1 and is_jam(i - 1) and is_jam(i + 1))
+        if is_jam(i) or bridged:
+            jam_s += r["dur"]
+            jam_km += r["km"]
     return {"light_n": light_n, "light_s": round(light_s),
             "jam_s": round(jam_s), "jam_km": round(jam_km, 2)}
 
