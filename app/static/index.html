@@ -15,18 +15,9 @@
   <header id="header">
     <div class="header-main">
       <div class="header-left">
-        <!-- 第一行:车型徽章 + 电量胶囊(收缩后保留) -->
+        <!-- 第一行:车型徽章(收缩后保留);电量已在总览页展示,顶栏不再重复 -->
         <div class="header-line1">
           <span id="car-model"><span class="car-model-badge" id="car-model-badge" role="img" aria-label="Model Y L" hidden></span><span id="car-model-text" hidden></span></span>
-          <span class="batt-pill" id="batt-pill" role="button" tabindex="0" data-level="unknown"
-                title="点击切换 电量 / 续航">
-            <svg class="batt-icon" viewBox="0 0 30 14" aria-hidden="true">
-              <rect class="batt-shell" x="1" y="1.5" width="24" height="11" rx="3.5"/>
-              <rect class="batt-cap" x="26.5" y="4.5" width="2.5" height="5" rx="1.2"/>
-              <rect class="batt-fill" id="batt-fill" x="3" y="4" width="0" height="6" rx="1.6"/>
-            </svg>
-            <span id="batt-text">—</span>
-          </span>
         </div>
         <!-- 第二行:车辆状态与车名合并为一个标签;数据更新在其后 -->
         <div class="header-line2">
@@ -349,6 +340,26 @@
   <!-- ===== 分页 5:车况 ===== -->
   <section class="page" id="page-vehicle">
   <div class="grid">
+    <div class="card col-12 life-card">
+      <img class="life-mars" src="/mars.webp" alt="" aria-hidden="true">
+      <h2>生涯总览</h2>
+      <div class="card-sub" id="life-sub">能耗与费用自开始统计起累计</div>
+      <div class="life-stats">
+        <div class="life-item">
+          <div class="life-val"><b id="life-km">—</b><span>km</span></div>
+          <div class="life-lab">总里程<i id="life-km-sub"></i></div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><b id="life-kwh">—</b><span>kWh</span></div>
+          <div class="life-lab">总耗电量<i id="life-kwh-sub"></i></div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><span>¥</span><b id="life-cost">—</b></div>
+          <div class="life-lab">充电总费用<i id="life-cost-sub"></i></div>
+        </div>
+      </div>
+    </div>
+
     <div class="card col-6">
       <h2>胎压变化</h2>
       <div class="card-sub">四轮胎压(bar),仅车辆清醒时段上报</div>

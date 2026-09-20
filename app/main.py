@@ -1784,6 +1784,125 @@ def temp_trend(car_id: int | None = Query(default=None),
     return {"days": days, "step_seconds": step, "inside": inside, "outside": outside}
 
 
+# ---------- 车况页「生涯总览」(总里程 / 总耗电量 / 充电总费用) ----------
+
+# 驻车耗电聚合要扫全量 positions(约 1s),结果内存缓存 10 分钟
+_lifetime_cache: dict[int, tuple[float, dict]] = {}
+_LIFETIME_TTL = 600.0
+
+
+@app.get("/api/vehicle/lifetime")
+def vehicle_lifetime(car_id: int | None = Query(default=None)):
+    """总里程(表显)、总耗电量(行驶+驻车)、充电总费用。
+
+    总耗电量 = 全部行程理想续航差 × kwh_per_ideal_km
+             + 驻车时段表显电量降幅合计 × kwh_per_pct(排除行程/充电区间);
+    充电总费用与各次计价(手填费用 > 家充峰谷自动价)同 /api/charging/sessions 口径。
+    能耗与费用仅覆盖 TeslaMate 统计区间(since 起),总里程为车辆表显全生涯。
+    """
+    cid = get_car_id(car_id)
+    hit = _lifetime_cache.get(cid)
+    if hit and time.monotonic() - hit[0] < _LIFETIME_TTL:
+        return hit[1]
+
+    latest = q(
+        "SELECT odometer FROM positions WHERE car_id = %s AND odometer IS NOT NULL "
+        "ORDER BY date DESC LIMIT 1",
+        (cid,),
+    )
+    since = q("SELECT min(date) AS d FROM positions WHERE car_id = %s", (cid,))[0]["d"]
+    drv = q(
+        """
+        SELECT coalesce(sum(distance), 0) AS km,
+               coalesce(sum(start_ideal_range_km - end_ideal_range_km)
+                 FILTER (WHERE start_ideal_range_km IS NOT NULL
+                          AND end_ideal_range_km IS NOT NULL), 0) AS ideal_delta_km
+        FROM drives WHERE car_id = %s
+        """,
+        (cid,),
+    )[0]
+    drive_kwh = float(drv["ideal_delta_km"]) * kwh_per_ideal_km(cid)
+
+    # 驻车耗电:相邻采样(间隔 ≤6h)表显电量下降合计,行程/充电区间内的下降不计
+    parked = q(
+        """
+        WITH p AS (
+          SELECT date, battery_level,
+                 lag(battery_level) OVER w AS prev_lvl,
+                 lag(date) OVER w AS prev_date
+          FROM positions
+          WHERE car_id = %s AND battery_level IS NOT NULL
+          WINDOW w AS (ORDER BY date)
+        ), drops AS (
+          SELECT date, prev_lvl - battery_level AS drop_pct
+          FROM p WHERE battery_level < prev_lvl
+             AND date - prev_date < interval '6 hours'
+        )
+        SELECT coalesce(sum(drop_pct), 0) AS pct FROM drops d
+        WHERE NOT EXISTS (SELECT 1 FROM drives dr WHERE dr.car_id = %s
+                          AND d.date BETWEEN dr.start_date AND coalesce(dr.end_date, now()))
+          AND NOT EXISTS (SELECT 1 FROM charging_processes cp WHERE cp.car_id = %s
+                          AND d.date BETWEEN cp.start_date AND coalesce(cp.end_date, now()))
+        """,
+        (cid, cid, cid),
+    )[0]
+    parked_kwh = float(parked["pct"]) * kwh_per_pct(cid)
+
+    # 充电总费用:手填 > 家充峰谷自动,计费电量 = 总耗电(手填/车端)优先退回充电量
+    rows = q(
+        f"""
+        SELECT cp.id, {local_ts('cp.start_date', 'start_date')},
+               {local_ts('cp.end_date', 'end_date')},
+               cp.charge_energy_added, cp.charge_energy_used,
+               cp.address_id, cp.geofence_id
+        FROM charging_processes cp WHERE cp.car_id = %s ORDER BY cp.start_date
+        """,
+        (cid,),
+    )
+    costs = _load_costs()
+    extras = _load_extras()
+    home_cfg = _home_charge_cfg()
+    home_assigns = _manual_all("charge_home")
+    total_cost = 0.0
+    priced_kwh = 0.0
+    priced_sessions = 0
+    for r in rows:
+        extra = extras["charges"].get(str(r["id"])) or {}
+        manual_total = extra.get("total_kwh")
+        used = float(r["charge_energy_used"]) if r["charge_energy_used"] else None
+        energy = float(r["charge_energy_added"]) if r["charge_energy_added"] else None
+        total_kwh = float(manual_total) if manual_total is not None else used
+        denom = total_kwh if total_kwh and total_kwh > 0 else energy
+        cost = costs.get(str(r["id"]))
+        if cost is None:
+            key = _loc_key(r["address_id"], r["geofence_id"])
+            hentry = _home_charge_resolve(home_cfg, home_assigns, r["id"], key)[1]
+            hc = (_home_charge_cost(hentry, r["start_date_local"], r["end_date_local"], denom)
+                  if hentry else None)
+            cost = hc[0] if hc else None
+        if cost is not None:
+            total_cost += cost
+            priced_sessions += 1
+            priced_kwh += denom or 0.0
+
+    data = {
+        "car_id": cid,
+        "total_km": round(float(latest[0]["odometer"]), 1) if latest else None,
+        "drive_km": round(float(drv["km"]), 1),
+        "since": _utc_ms(since) if since else None,
+        "drive_kwh": round(drive_kwh, 1),
+        "parked_kwh": round(parked_kwh, 1),
+        "total_kwh": round(drive_kwh + parked_kwh, 1),
+        "total_cost": round(total_cost, 2),
+        "sessions": len(rows),
+        "priced_sessions": priced_sessions,
+        "rate_yuan_kwh": (round(total_cost / priced_kwh, 4)
+                          if priced_kwh > 0 else None),
+    }
+    _lifetime_cache[cid] = (time.monotonic(), data)
+    return data
+
+
 # ---------- 个人中心 ----------
 
 class PasswordChange(BaseModel):

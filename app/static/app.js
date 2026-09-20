@@ -353,24 +353,6 @@
     ua.classList.remove('fade-in');
     void ua.offsetWidth;
     ua.classList.add('fade-in');
-
-    // 电量胶囊:跟随全局 电量%⇄度数kWh⇄里程km 模式;里程直接用最新额定续航
-    const lat = o.latest;
-    const usable = lat && lat.usable_battery_level != null ? Number(lat.usable_battery_level)
-      : (lat && lat.battery_level != null ? Number(lat.battery_level) : null);
-    const rated = lat && lat.rated_battery_range_km != null ? Number(lat.rated_battery_range_km) : null;
-    const dim = battDim();
-    const usableKwh = kwhAtPct(usable);
-    $('#batt-text').textContent =
-      dim === 'km' && rated !== null
-        ? `${fmtNum(rated, 0)} km`
-        : dim === 'kwh' && usableKwh !== null
-          ? `${fmtNum(usableKwh, 1)} kWh`
-          : (usable === null ? '—' : `${fmtNum(usable, 0)}%`);
-    const pct = usable === null ? 0 : Math.min(100, Math.max(0, usable));
-    $('#batt-fill').setAttribute('width', (19 * pct / 100).toFixed(1));
-    $('#batt-pill').dataset.level =
-      usable === null ? 'unknown' : pct < 10 ? 'critical' : pct < 20 ? 'low' : 'ok';
   }
 
   /* ---------- 渲染:折线系列公共构造 ---------- */
@@ -1116,6 +1098,29 @@
         }),
       ],
     }), { notMerge: true });
+  }
+
+  /* ---------- 渲染:生涯总览(车况页顶部,火星背景) ---------- */
+
+  function renderLifetime() {
+    const d = S.lifetime;
+    if (!d) return;
+    $('#life-km').textContent = fmtNum(d.total_km, 0);
+    $('#life-kwh').textContent = fmtNum(d.total_kwh, 0);
+    $('#life-cost').textContent = fmtNum(d.total_cost, 2);
+    $('#life-km-sub').textContent = `自统计起行驶 ${fmtNum(d.drive_km, 0)} km`;
+    $('#life-kwh-sub').textContent =
+      `行驶 ${fmtNum(d.drive_kwh, 0)} · 驻车 ${fmtNum(d.parked_kwh, 0)}`;
+    const miss = (d.sessions || 0) - (d.priced_sessions || 0);
+    $('#life-cost-sub').textContent =
+      `${d.priced_sessions || 0} 次充电` +
+      (d.rate_yuan_kwh ? ` · 均价 ¥${fmtNum(d.rate_yuan_kwh, 2)}/kWh` : '') +
+      (miss > 0 ? ` · ${miss} 次未计价` : '');
+    if (d.since) {
+      const day = new Date(Number(d.since)).toLocaleDateString('zh-CN', {
+        year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '-');
+      $('#life-sub').textContent = `能耗与费用统计始于 ${day} · 总里程为车辆表显值`;
+    }
   }
 
   function renderTpms() {
@@ -3219,7 +3224,7 @@
     try {
       const o = await api('overview');
       if (S.carId === null) S.carId = o.car_id;
-      const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm, hm] = await Promise.all([
+      const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm, hm, life] = await Promise.all([
         api(`drives/daily?days=${S.days}`),
         api('charging/summary?limit=12'),
         api(`routes?days=${S.days}`),
@@ -3236,6 +3241,7 @@
         api('vehicle/delivery'),
         api('charging/reminder'),
         api('charging/home'),
+        api('vehicle/lifetime'),
       ]);
       S.overview = {
         ...o,
@@ -3256,6 +3262,7 @@
       S.delivery = del.date;
       S.reminder = rm;
       S.homeCharge = hm;
+      S.lifetime = life;
       $('#state-badge').dataset.state = 'unknown';
       renderSys(sys);
       renderHeader();
@@ -3276,6 +3283,7 @@
       renderEvents();
       renderSentry();
       renderEfficiency();
+      renderLifetime();
       renderTpms();
       renderTemp();
     } catch (err) {
@@ -3291,7 +3299,7 @@
     renderDaily(); renderCharging();
     renderRoutes(); renderRoutesList();
     renderActivity(); renderEvents(); renderSentry();
-    renderEfficiency(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge();
+    renderEfficiency(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime();
   }
 
   /* ---------- 功能分页(底部液态玻璃 Tab 栏) ---------- */
@@ -3464,14 +3472,6 @@
     };
     window.addEventListener('scroll', onHeaderScroll, { passive: true });
     onHeaderScroll();
-    const pill = $('#batt-pill');
-    const PILL_ORDER = ['pct', 'kwh', 'km'];
-    const togglePill = () =>
-      setBattMode(PILL_ORDER[(PILL_ORDER.indexOf(S.battMode) + 1) % PILL_ORDER.length]);
-    pill.addEventListener('click', togglePill);
-    pill.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); togglePill(); }
-    });
     $('#theme-btn').addEventListener('click', () => {
       S.theme = S.theme === 'dark' ? 'light' : 'dark';
       applyTheme();

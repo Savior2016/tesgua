@@ -1156,6 +1156,62 @@ button { touch-action: manipulation; }
 .col-7 { grid-column: span 7; }
 .col-12 { grid-column: span 12; }
 
+/* ===== 车况页「生涯总览」:若隐若现的火星背景 ===== */
+.life-card { position: relative; overflow: hidden; }
+
+.life-mars {
+  --mars-o: .3;
+  position: absolute;
+  right: -96px;
+  top: 50%;
+  width: 340px;
+  height: 340px;
+  transform: translateY(-50%);
+  opacity: var(--mars-o);
+  pointer-events: none;
+  filter: saturate(.95);
+  /* 左缘渐隐融入卡片,星球只露半边 */
+  -webkit-mask-image: linear-gradient(100deg, transparent 12%, #000 58%);
+  mask-image: linear-gradient(100deg, transparent 12%, #000 58%);
+  animation: life-mars-breathe 9s ease-in-out infinite;
+}
+[data-theme="dark"] .life-mars { --mars-o: .44; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .life-mars { --mars-o: .44; }
+}
+
+@keyframes life-mars-breathe {
+  0%, 100% { opacity: var(--mars-o); }
+  50% { opacity: calc(var(--mars-o) * .5); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .life-mars { animation: none; }
+}
+
+.life-stats {
+  position: relative;
+  display: flex;
+  gap: 18px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.life-item { flex: 1 1 0; min-width: 150px; }
+
+.life-val { display: flex; align-items: baseline; gap: 5px; }
+.life-val b { font-size: 30px; font-weight: 700; letter-spacing: .2px; }
+.life-val span { font-size: 13px; font-weight: 600; color: var(--text-muted); }
+
+.life-lab { margin-top: 3px; font-size: 12px; color: var(--text-secondary); }
+.life-lab i { font-style: normal; margin-left: 7px; font-size: 11px; color: var(--text-muted); }
+
+@media (max-width: 600px) {
+  .life-mars { width: 260px; height: 260px; right: -86px; }
+  .life-val b { font-size: 24px; }
+  .life-item { min-width: 0; flex-basis: 40%; }
+}
+
 .chart { width: 100%; height: 300px; }
 
 /* ===== 卡片头部:标题 + 右侧控件 ===== */
