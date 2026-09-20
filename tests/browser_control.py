@@ -86,7 +86,8 @@ with sync_playwright() as pw:
                 assert ('control/command',{'cmd':'set_temps','args':{'driver_temp':23.5}}) in commands
                 assert ('control/command',{'cmd':'auto_conditioning_stop','args':{}}) in commands
                 assert ('control/command',{'cmd':'actuate_trunk','args':{'which_trunk':'front'}}) in commands
-                assert len(commands)==5
+                # 指令成功后的延迟状态刷新(control/refresh)是否落在断言前取决于时序,剔除再计数
+                assert len([c for c in commands if c[0]!='control/refresh'])==5
             else:assert not commands
             # No configuration: show one tidy link; a partially configured user returns via account settings.
             state.update(configured=False,ever_configured=False)

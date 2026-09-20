@@ -171,7 +171,16 @@
     $('ctl-main').hidden=false;
     $('ctl-setup').style.display=model.ever_configured||model.configured?'none':'grid';
     $('ctl-main').classList.toggle('preview',!model.configured);
-    $('ctl-backend').textContent=model.configured?'控制已接入':model.ever_configured?'配置未完成':'尚未接入';
+    // 接入状态:小标签形式(圆点+文字),绿=已接入/黄=未完成/灰=未接入
+    const be = $('ctl-backend');
+    const [beTxt, beCls] = model.configured ? ['控制已接入', 'ok']
+      : model.ever_configured ? ['配置未完成', 'warn'] : ['尚未接入', 'off'];
+    be.innerHTML = '';
+    const beLabel = document.createElement('span');
+    beLabel.className = 'ctl-be-label ' + beCls;
+    beLabel.appendChild(document.createElement('i'));
+    beLabel.appendChild(document.createTextNode(beTxt));
+    be.appendChild(beLabel);
     renderZones();
     renderSwitches();
     $('ctl-model-temp').textContent=num(s.climate_temp);
@@ -182,7 +191,6 @@
     $('ctl-live-note').textContent=s.reported_at?`${s.source==='fleet'?'车辆状态':'TeslaMate 上报'} · ${new Date(s.reported_at).toLocaleTimeString('zh-CN')}`:'点击刷新读取车辆当前状态。';
     $('ctl-refresh').disabled=busy||!canWrite();
     $('ctl-audit').disabled=model.role!=='admin';
-    $('ctl-state').textContent=model.role==='viewer'?'只读账号：可以查看状态，不能操作车辆。':vehicle.state?`车辆：${({online:'在线',asleep:'休眠',offline:'离线',driving:'行驶中',charging:'充电中'})[vehicle.state]||vehicle.state}`:'';
     renderNap();
   }
   async function load(){

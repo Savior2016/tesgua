@@ -2616,24 +2616,32 @@ footer a { color: var(--text-muted); }
 }
 
 /* ===== 车辆控制分页 ===== */
-/* 车辆当前状态条 */
-.ctl-state {
-  display: flex;
-  gap: 10px 22px;
-  flex-wrap: wrap;
+/* 接入状态小标签(卡片头部右侧):圆点 + 文字,绿=已接入/黄=未完成/灰=未接入 */
+#ctl-backend { display: flex; align-items: center; }
+.ctl-be-label {
+  display: inline-flex;
   align-items: center;
-  padding: 10px 14px;
-  margin: 4px 0 14px;
+  gap: 6px;
+  padding: 4px 11px;
   border: 1px solid var(--glass-edge);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--page) 50%, transparent);
-  font-size: 13px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-1) 42%, transparent);
+  box-shadow: inset 0 1px 0 var(--glass-hi);
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-secondary);
+  white-space: nowrap;
 }
-.ctl-state:empty { display: none; }
-.ctl-state .badge { font-size: 12px; }
-.ctl-state b { color: var(--text-primary); font-weight: 600; }
-.ctl-state .ctl-sleep-hint { color: var(--series-4); width: 100%; font-size: 12px; }
+.ctl-be-label i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+.ctl-be-label.ok { color: var(--series-3); }
+.ctl-be-label.ok i { background: var(--series-3); box-shadow: 0 0 6px color-mix(in srgb, var(--series-3) 80%, transparent); }
+.ctl-be-label.warn { color: var(--cat-drive); }
+.ctl-be-label.warn i { background: var(--cat-drive); }
 
 /* 未接入横幅(紧凑横条,下方照常展示控制面板预览) */
 .ctl-setup { display: none; }
@@ -2674,15 +2682,24 @@ footer a { color: var(--text-muted); }
   gap: 16px;
   align-items: start;
 }
+/* 车框:升级玻璃材质——更高模糊透出一点背景(星舰/光晕),顶部受光+内外投影增强立体感 */
 .ctl-carbox {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 16px;
   padding: 14px 12px 12px;
-  background: var(--page);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--glass-hi) 60%, transparent), transparent 30%),
+    color-mix(in srgb, var(--text-primary) 4.5%, transparent);
+  backdrop-filter: blur(30px) saturate(1.8);
+  -webkit-backdrop-filter: blur(30px) saturate(1.8);
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, .2),
+    inset 0 1px 0 var(--glass-hi),
+    inset 0 -2px 0 var(--glass-edge-dark);
 }
 .ctl-car { width: 100%; max-width: 330px; height: auto; display: block; }
 
