@@ -2887,12 +2887,13 @@
     box.style.backgroundImage = `url("${url}")`;
   }
 
-  /* 快照画布跟随缩略图盒的固定尺寸(盒式小地图,CSS 定宽) */
+  /* 快照画布跟随日期行的实际渲染尺寸:背景图等比无变形,且与蒙板清晰带逐像素对齐。
+     列表渲染期间元素未挂载,需在挂载后(observer 触发/出队)才能测量 */
   function thumbRowSize() {
-    const el = document.querySelector('#routes-list .rt-day-thumb');
-    const w0 = el ? el.clientWidth : 0, h0 = el ? el.clientHeight : 0;
-    const w = Math.max(90, Math.round((w0 || 150) / 10) * 10);
-    const h = Math.max(26, Math.round((h0 || 36) / 2) * 2);
+    const head = document.querySelector('#routes-list .day-head');
+    const w0 = head ? head.clientWidth : 0, h0 = head ? head.clientHeight : 0;
+    const w = Math.max(280, Math.round((w0 || 1040) / 20) * 20);  // 20px 一档,细微变化不触发重生成
+    const h = Math.max(36, Math.round((h0 || 60) / 4) * 4);
     return { w, h, dim: `${w}x${h}` };
   }
 
@@ -2900,7 +2901,7 @@
     if (!box.isConnected) return;
     const { w, h, dim } = thumbRowSize();
     lastThumbDim = dim;
-    const key = `${S.theme}:${dim}:v5:${rs.map((r) => r.id).join(',')}`;  // 主题/尺寸/算法版本/轨迹任一变化都重生成
+    const key = `${S.theme}:${dim}:v6:${rs.map((r) => r.id).join(',')}`;  // 主题/尺寸/算法版本/轨迹任一变化都重生成
     if (dayThumbCache.has(key)) { applyDayThumb(box, dayThumbCache.get(key)); return; }
     box.__thumbKey = key;
     // 先同步画 2D 轨迹占位(瞬时),底图快照完成后覆盖
@@ -2944,8 +2945,9 @@
     });
   }
 
-  /* 屏外 MapLibre 渲染当日轨迹 + 真实底图,快照成 PNG。
-     盒式尺寸(约 4:1)地理拟合成立,fitBounds 全轨迹入画 */
+  /* 屏外 MapLibre 按日期行实际尺寸渲染当日轨迹 + 真实底图,快照成 PNG 作整行背景。
+     超宽条带(可达 28:1)contain 会把轨迹压成小点:改为在 contain 基础上放大
+     (cover 方向,封顶 +1.6 级),再把轨迹包围盒中心平移到 mask 清晰带中心 */
   async function snapDayThumb(rs, w, h) {
     if (!window.maplibregl || !window.pmtiles) return null;
     const style = await loadMapStyle(S.theme === 'dark' ? 'dark' : 'light');
@@ -2963,15 +2965,14 @@
     if (!lines.length) return null;
     if (maxLat - minLat < 1e-5) { minLat -= 5e-4; maxLat += 5e-4; }
     if (maxLng - minLng < 1e-5) { minLng -= 5e-4; maxLng += 5e-4; }
-    const scale = 2;  // 高分屏清晰度
     const host = document.createElement('div');
-    host.style.cssText = `position:fixed;left:-10000px;top:0;width:${w * scale}px;height:${h * scale}px`;
+    host.style.cssText = `position:fixed;left:-10000px;top:0;width:${w}px;height:${h}px`;
     document.body.appendChild(host);
     let m = null;
     try {
       m = new maplibregl.Map({
         container: host, style, interactive: false, attributionControl: false,
-        preserveDrawingBuffer: true, fadeDuration: 0,
+        preserveDrawingBuffer: true, fadeDuration: 0, pixelRatio: 2,
       });
       await new Promise((res, rej) => {
         m.once('load', res);
@@ -2990,8 +2991,17 @@
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: { 'line-color': cssVar('--series-1'), 'line-width': 3, 'line-opacity': 0.95 },
       });
-      m.fitBounds([[minLng, minLat], [maxLng, maxLat]],
-        { padding: Math.max(8, Math.round(Math.min(w, h) * scale * 0.22)), duration: 0 });
+      const bbox = [[minLng, minLat], [maxLng, maxLat]];
+      const cam = m.cameraForBounds(bbox, { padding: 0 });
+      m.jumpTo({ center: cam.center, zoom: cam.zoom });
+      // contain 缩放级下包围盒的像素尺寸 → cover 需要的放大倍数
+      const pa = m.project(bbox[0]), pb = m.project(bbox[1]);
+      const bw = Math.max(1, Math.abs(pb.x - pa.x)), bh = Math.max(1, Math.abs(pb.y - pa.y));
+      const zCover = cam.zoom + Math.log2(Math.max(w / bw, h / bh));
+      m.jumpTo({ center: cam.center, zoom: Math.min(zCover, cam.zoom + 1.6) });
+      // 轨迹中心平移到清晰带中心(行宽 74%、行高 50% 处)
+      const c = m.project(cam.center);
+      m.panBy([c.x - w * 0.74, c.y - h * 0.5], { duration: 0 });
       await new Promise((res) => {
         m.once('idle', res);
         setTimeout(res, 9000);
@@ -3004,7 +3014,7 @@
   }
 
   /* 2D 画布直绘当日轨迹(底图快照的加载占位,也作快照失败的兜底)。
-     经度乘 cos(平均纬度) 修正纵横比,contain 保形适配整个缩略盒 */
+     经度乘 cos(平均纬度) 修正纵横比,contain 保形缩放进 mask 清晰带(60–88% 宽、26–74% 高) */
   function renderDayThumbPng(rs, w, h) {
     const lines = [];
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -3027,8 +3037,7 @@
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     const ctx = cv.getContext('2d');
     ctx.scale(dpr, dpr);
-    const pad = Math.max(4, Math.round(Math.min(w, h) * 0.18));
-    const bx0 = pad, bx1 = w - pad, by0 = pad, by1 = h - pad;
+    const bx0 = w * 0.60 + 4, bx1 = w * 0.88 - 4, by0 = h * 0.26 + 2, by1 = h * 0.74 - 2;
     const spanX = Math.max(1e-9, maxX - minX), spanY = Math.max(1e-9, maxY - minY);
     const s = Math.min((bx1 - bx0) / spanX, (by1 - by0) / spanY);
     const ox = (bx0 + bx1) / 2 - (minX + maxX) / 2 * s;

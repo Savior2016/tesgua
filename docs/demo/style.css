@@ -1547,26 +1547,27 @@ button { touch-action: manipulation; }
    背景用 100% 100% 填满,保证任何屏宽下轨迹与蒙板清晰带严格对齐 */
 #routes-list .day-head { position: relative; }
 
-/* 日组缩略图:盒式小地图(右侧固定尺寸,圆角细边,真实底图快照;2D 轨迹为加载占位) */
+/* 日组缩略图:整行背景(真实底图快照,轨迹对齐右侧清晰带;2D 轨迹为加载占位) */
 #routes-list .rt-day-thumb {
-  width: 150px;
-  height: 36px;
-  flex: none;
-  border-radius: 8px;
-  overflow: hidden;
+  position: absolute;
+  inset: 0;
   pointer-events: none;
-  background-size: cover;
-  background-position: center;
-  border: 1px solid color-mix(in srgb, var(--text-muted) 22%, transparent);
-  opacity: 0.85;
+  background-size: 100% 100%;
+  opacity: 0.7;
+  -webkit-mask-image:
+    linear-gradient(to left, transparent 2%, #000 12%, #000 40%, transparent 58%),
+    linear-gradient(to bottom, transparent 0%, #000 26%, #000 74%, transparent 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(to left, transparent 2%, #000 12%, #000 40%, transparent 58%),
+    linear-gradient(to bottom, transparent 0%, #000 26%, #000 74%, transparent 100%);
+  mask-composite: intersect;
 }
+
+#routes-list .day-head > :not(.rt-day-thumb) { position: relative; z-index: 1; }
 
 /* 浅色主题底图接近行底色,提高整体不透明度保证可见 */
-:root[data-theme="light"] #routes-list .rt-day-thumb { opacity: 1; }
-
-@media (max-width: 600px) {
-  #routes-list .rt-day-thumb { width: 112px; height: 32px; border-radius: 7px; }
-}
+:root[data-theme="light"] #routes-list .rt-day-thumb { opacity: 0.9; }
 
 /* 可折叠卡片(充电详情/停车费):头部整行可点,默认折叠;
    子项垂直居中,缩略统计与箭头在同一水平线上 */
