@@ -233,6 +233,13 @@
     const b = e.target.closest('.tab');
     if (b) switchTab(b.dataset.page, true);
   });
+  // 卡片解释说明(.card-sub)默认隐藏:点标题 h2 展开/收起(与主面板一致)
+  document.addEventListener('click', (e) => {
+    const h = e.target.closest('.card h2');
+    if (!h) return;
+    e.stopPropagation();
+    h.closest('.card').classList.toggle('sub-on');
+  }, true);
   // Tab 栏横向拖动选择页面
   window.TTVPageTurn?.enableTabDrag($('#tabbar'), (p) => switchTab(p, true));
   window.addEventListener('resize', () => {

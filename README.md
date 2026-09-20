@@ -218,7 +218,7 @@ git tag v1.x.y && git push origin v1.x.y
 - 电池健康:每次充电按「充电量 ÷ 表显电量增幅 × 100」估算满电容量(过滤:增幅 ≥10%、估算 30–150 kWh),基准=历史最高估算,当前=最新一次估算
 - 地图为 MapLibre 矢量瓦片(Protomaps 每日构建的中国区 PMTiles 单文件 + 字体/sprites 均自托管,`scripts/update-map-data.sh` 更新),深浅色主题均为原生配色,国内移动网络下也能出图
 - 堵车/红绿灯为启发式判定(特斯拉不上报红绿灯位置):通畅车流中停车 5–120 秒记为红绿灯等待,停车 >120 秒、缓行中的走走停停与低于 10 km/h 缓行记为堵车,堵车路程按缓行段速度×时间积分
-- 装饰素材来源:火星(NASA Hubble,公有领域)、黑洞吸积盘(NASA 渲染,Wikimedia 公有领域)、控制页星舰为 IFT-2 上升段实拍(Wikimedia Commons,Osunpokeh,[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/))
+- 装饰素材来源:火星(NASA Hubble,公有领域)、黑洞吸积盘(NASA 渲染,Wikimedia 公有领域)、控制页好奇号火星车(NASA/JPL-Caltech 艺术渲染,公有领域)
 
 ## 许可证
 

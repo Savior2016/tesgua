@@ -3444,6 +3444,14 @@
       const b = e.target.closest('.tab');
       if (b) switchTab(b.dataset.page);
     });
+    // 卡片解释说明(.card-sub)默认隐藏:点标题 h2 展开/收起;
+    // capture 阶段拦截,避免触发折叠卡头(充电详情/停车费/家充)的整行点击
+    document.addEventListener('click', (e) => {
+      const h = e.target.closest('.card h2');
+      if (!h) return;
+      e.stopPropagation();
+      h.closest('.card').classList.toggle('sub-on');
+    }, true);
     // Tab 栏横向拖动:滑过按钮即逐一切页(不必逐个点按)
     window.TTVPageTurn?.enableTabDrag($('#tabbar'), (p) => switchTab(p));
     // #control 深链(配置流程返回)只生效一次:清掉 hash,否则之后每次刷新都会被它拉回控制页
