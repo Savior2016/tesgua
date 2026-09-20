@@ -2703,10 +2703,9 @@
      每个 MapLibre 实例占一个 WebGL 上下文(浏览器上限约 16 个),超出时回收最早的实例 */
   const MINI_MAP_LIMIT = 8;
 
-  /* 车速配色:0 → 130+ km/h 序蓝色带(慢=深蓝,快=亮蓝),与详情图例一致 */
+  /* 车速配色:0 → 120+ km/h 红→黄→绿(越慢越红),与详情图例一致 */
   const SPEED_RAMP = [
-    [0, '--seq-blue-600'], [45, '--seq-blue-500'],
-    [90, '--seq-blue-400'], [130, '--seq-blue-300'],
+    [0, '#e0483e'], [60, '#eda100'], [120, '#1baf7a'],
   ];
   function mixHex(a, b, t) {
     const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
@@ -2715,14 +2714,13 @@
       Math.round(v + (pb[i] - v) * t).toString(16).padStart(2, '0')).join('');
   }
   function speedColor(v) {
-    const ramp = SPEED_RAMP.map(([s, tok]) => [s, cssVar(tok)]);
-    for (let i = 1; i < ramp.length; i++) {
-      if (v <= ramp[i][0]) {
-        const t = (v - ramp[i - 1][0]) / (ramp[i][0] - ramp[i - 1][0]);
-        return mixHex(ramp[i - 1][1], ramp[i][1], Math.max(0, Math.min(1, t)));
+    for (let i = 1; i < SPEED_RAMP.length; i++) {
+      if (v <= SPEED_RAMP[i][0]) {
+        const t = (v - SPEED_RAMP[i - 1][0]) / (SPEED_RAMP[i][0] - SPEED_RAMP[i - 1][0]);
+        return mixHex(SPEED_RAMP[i - 1][1], SPEED_RAMP[i][1], Math.max(0, Math.min(1, t)));
       }
     }
-    return ramp[ramp.length - 1][1];
+    return SPEED_RAMP[SPEED_RAMP.length - 1][1];
   }
 
   function renderRouteMap(r, box) {
@@ -3217,7 +3215,7 @@
             const leg = el('div', 'rt-speed-legend');
             leg.appendChild(el('span', '', '0'));
             leg.appendChild(el('i', ''));
-            leg.appendChild(el('span', '', '130+ km/h'));
+            leg.appendChild(el('span', '', '120+ km/h'));
             detail.appendChild(leg);
           }
         }
@@ -3490,7 +3488,9 @@
       if (!b) return;
       S.cycleIdx = Number(b.dataset.idx);
       renderCar();
-      b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      // 只横向滚动条内居中选中芯片;scrollIntoView 会连页面一起滚,整个模块看起来在动
+      const strip = $('#cycle-strip');
+      strip.scrollTo({ left: b.offsetLeft - (strip.clientWidth - b.clientWidth) / 2, behavior: 'smooth' });
     });
 
     // 俯视图能量环 ⇄ 图例:点击互相定位高亮
