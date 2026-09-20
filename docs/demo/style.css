@@ -1352,26 +1352,30 @@ button { touch-action: manipulation; }
   :root:not([data-theme="light"]) #car-card .ov-bg-planet { --pl-o: .56; }
 }
 
-/* ===== 控制页:好奇号火星车渲染图背景(NASA/JPL 公有领域,右下横向贴底,淡入玻璃卡) ===== */
+/* ===== 控制页:好奇号火星车渲染图背景(NASA/JPL 公有领域,右侧中部大幅横图,四缘渐隐无分割线) ===== */
 #page-control .card { position: relative; overflow: hidden; }
 
 #page-control .ctl-rover {
   --rover-o: .18;
   position: absolute;
   z-index: -1;   /* 垫在卡片内容之下,纯背景不干扰主体 */
-  right: -2%;
-  top: 52%;
+  right: -4%;
+  top: 50%;
   transform: translateY(-50%);
-  width: min(46%, 520px);
+  width: min(62%, 660px);
   opacity: var(--rover-o);
   pointer-events: none;
   filter: saturate(.6) brightness(.96);
-  /* 左缘与顶缘渐隐,融入卡片无硬边 */
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 42%),
-    linear-gradient(to bottom, transparent, #000 45%);
+  /* 四缘全部渐隐,图片任何一边都不露出分割线 */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 34%),
+    linear-gradient(to left, transparent, #000 28%),
+    linear-gradient(to bottom, transparent, #000 36%),
+    linear-gradient(to top, transparent, #000 30%);
   -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to right, transparent, #000 42%),
-    linear-gradient(to bottom, transparent, #000 45%);
+  mask-image: linear-gradient(to right, transparent, #000 34%),
+    linear-gradient(to left, transparent, #000 28%),
+    linear-gradient(to bottom, transparent, #000 36%),
+    linear-gradient(to top, transparent, #000 30%);
   mask-composite: intersect;
 }
 [data-theme="dark"] #page-control .ctl-rover { --rover-o: .3; }
@@ -1543,26 +1547,26 @@ button { touch-action: manipulation; }
    背景用 100% 100% 填满,保证任何屏宽下轨迹与蒙板清晰带严格对齐 */
 #routes-list .day-head { position: relative; }
 
+/* 日组缩略图:盒式小地图(右侧固定尺寸,圆角细边,真实底图快照;2D 轨迹为加载占位) */
 #routes-list .rt-day-thumb {
-  position: absolute;
-  inset: 0;
+  width: 150px;
+  height: 36px;
+  flex: none;
+  border-radius: 8px;
+  overflow: hidden;
   pointer-events: none;
-  background-size: 100% 100%;
-  opacity: 0.7;
-  -webkit-mask-image:
-    linear-gradient(to left, transparent 2%, #000 12%, #000 40%, transparent 58%),
-    linear-gradient(to bottom, transparent 0%, #000 26%, #000 74%, transparent 100%);
-  -webkit-mask-composite: source-in;
-  mask-image:
-    linear-gradient(to left, transparent 2%, #000 12%, #000 40%, transparent 58%),
-    linear-gradient(to bottom, transparent 0%, #000 26%, #000 74%, transparent 100%);
-  mask-composite: intersect;
+  background-size: cover;
+  background-position: center;
+  border: 1px solid color-mix(in srgb, var(--text-muted) 22%, transparent);
+  opacity: 0.85;
 }
 
-#routes-list .day-head > :not(.rt-day-thumb) { position: relative; z-index: 1; }
-
 /* 浅色主题底图接近行底色,提高整体不透明度保证可见 */
-:root[data-theme="light"] #routes-list .rt-day-thumb { opacity: 0.9; }
+:root[data-theme="light"] #routes-list .rt-day-thumb { opacity: 1; }
+
+@media (max-width: 600px) {
+  #routes-list .rt-day-thumb { width: 112px; height: 32px; border-radius: 7px; }
+}
 
 /* 可折叠卡片(充电详情/停车费):头部整行可点,默认折叠;
    子项垂直居中,缩略统计与箭头在同一水平线上 */

@@ -2887,23 +2887,27 @@
     box.style.backgroundImage = `url("${url}")`;
   }
 
-  /* 快照画布跟随日期行的实际渲染尺寸:背景图等比无变形,且与蒙板清晰带逐像素对齐。
-     列表渲染期间元素未挂载,需在挂载后(observer 触发/出队)才能测量 */
+  /* 快照画布跟随缩略图盒的固定尺寸(盒式小地图,CSS 定宽) */
   function thumbRowSize() {
-    const head = document.querySelector('#routes-list .day-head');
-    const w0 = head ? head.clientWidth : 0, h0 = head ? head.clientHeight : 0;
-    const w = Math.max(280, Math.round((w0 || 1040) / 20) * 20);  // 20px 一档,细微变化不触发重生成
-    const h = Math.max(36, Math.round((h0 || 60) / 4) * 4);
+    const el = document.querySelector('#routes-list .rt-day-thumb');
+    const w0 = el ? el.clientWidth : 0, h0 = el ? el.clientHeight : 0;
+    const w = Math.max(90, Math.round((w0 || 150) / 10) * 10);
+    const h = Math.max(26, Math.round((h0 || 36) / 2) * 2);
     return { w, h, dim: `${w}x${h}` };
   }
 
   function requestDayThumb(box, rs) {
     if (!box.isConnected) return;
-    const { dim } = thumbRowSize();
+    const { w, h, dim } = thumbRowSize();
     lastThumbDim = dim;
-    const key = `${S.theme}:${dim}:v4:${rs.map((r) => r.id).join(',')}`;  // 主题/尺寸/算法版本/轨迹任一变化都重生成
+    const key = `${S.theme}:${dim}:v5:${rs.map((r) => r.id).join(',')}`;  // 主题/尺寸/算法版本/轨迹任一变化都重生成
     if (dayThumbCache.has(key)) { applyDayThumb(box, dayThumbCache.get(key)); return; }
     box.__thumbKey = key;
+    // 先同步画 2D 轨迹占位(瞬时),底图快照完成后覆盖
+    if (!box.style.backgroundImage) {
+      const ph = renderDayThumbPng(rs, w, h);
+      if (ph) applyDayThumb(box, ph);
+    }
     if (dayThumbIdbMiss.has(key)) { generateDayThumb(key, rs, box); return; }
     thumbIdb.get(key).then((url) => {
       if (url) {
@@ -2919,25 +2923,88 @@
     });
   }
 
-  /* 2D 画布直绘当日轨迹:同步瞬时完成,应用到元素并写两级缓存 */
+  /* 底图快照串行队列:屏外 MapLibre 一次一个,快照完即销毁释放 WebGL 上下文 */
+  let thumbSnapQueue = Promise.resolve();
   function generateDayThumb(key, rs, box) {
-    try {
-      const { w, h } = thumbRowSize();
-      const url = renderDayThumbPng(rs, w, h);
-      if (!url) return;
-      if (dayThumbCache.size > 240) dayThumbCache.clear();  // 换时间范围后防无限增长
-      dayThumbCache.set(key, url);
-      dayThumbIdbMiss.delete(key);
-      thumbIdb.put(key, url);  // 持久化,下次打开页面直接命中
-      document.querySelectorAll('#routes-list .rt-day-thumb').forEach((t) => {
-        if (t.__thumbKey === key && t.isConnected) applyDayThumb(t, url);
-      });
-      if (box.isConnected && box.__thumbKey === key) applyDayThumb(box, url);
-    } catch (e) { console.warn('[day-thumb] render failed:', e); /* 渲染失败留空,不影响列表 */ }
+    thumbSnapQueue = thumbSnapQueue.then(() => generateDayThumbInner(key, rs, box))
+      .catch((e) => console.warn('[day-thumb] snapshot failed:', e));
   }
 
-  /* 把当日全部轨迹均匀缩放(contain 保形)进 mask 清晰带(60–88% 宽、26–74% 高)。
-     经度乘 cos(平均纬度) 修正纵横比;发光线条 + 圆头,主题色 --series-1 */
+  async function generateDayThumbInner(key, rs, box) {
+    const { w, h } = thumbRowSize();
+    let url = null;
+    try { url = await snapDayThumb(rs, w, h); } catch (e) { url = null; }
+    if (!url) return;  // 失败保留 2D 占位,下次进视口再试
+    if (dayThumbCache.size > 240) dayThumbCache.clear();  // 换时间范围后防无限增长
+    dayThumbCache.set(key, url);
+    dayThumbIdbMiss.delete(key);
+    thumbIdb.put(key, url);  // 持久化,下次打开页面直接命中
+    document.querySelectorAll('#routes-list .rt-day-thumb').forEach((t) => {
+      if (t.__thumbKey === key && t.isConnected) applyDayThumb(t, url);
+    });
+  }
+
+  /* 屏外 MapLibre 渲染当日轨迹 + 真实底图,快照成 PNG。
+     盒式尺寸(约 4:1)地理拟合成立,fitBounds 全轨迹入画 */
+  async function snapDayThumb(rs, w, h) {
+    if (!window.maplibregl || !window.pmtiles) return null;
+    const style = await loadMapStyle(S.theme === 'dark' ? 'dark' : 'light');
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    const lines = [];
+    rs.forEach((r) => {
+      const pts = (r.points || []).filter((p) => p.length >= 2).map((p) => [p[1], p[0]]);
+      if (pts.length < 2) return;
+      lines.push(pts);
+      pts.forEach(([lng, lat]) => {
+        if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
+        if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng;
+      });
+    });
+    if (!lines.length) return null;
+    if (maxLat - minLat < 1e-5) { minLat -= 5e-4; maxLat += 5e-4; }
+    if (maxLng - minLng < 1e-5) { minLng -= 5e-4; maxLng += 5e-4; }
+    const scale = 2;  // 高分屏清晰度
+    const host = document.createElement('div');
+    host.style.cssText = `position:fixed;left:-10000px;top:0;width:${w * scale}px;height:${h * scale}px`;
+    document.body.appendChild(host);
+    let m = null;
+    try {
+      m = new maplibregl.Map({
+        container: host, style, interactive: false, attributionControl: false,
+        preserveDrawingBuffer: true, fadeDuration: 0,
+      });
+      await new Promise((res, rej) => {
+        m.once('load', res);
+        m.once('error', rej);
+        setTimeout(res, 8000);  // 底图慢也不死等,快照到什么算什么
+      });
+      m.addSource('t', { type: 'geojson', data: {
+        type: 'FeatureCollection',
+        features: lines.map((coords) => ({
+          type: 'Feature', properties: {},
+          geometry: { type: 'LineString', coordinates: coords },
+        })),
+      } });
+      m.addLayer({
+        id: 't', type: 'line', source: 't',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: { 'line-color': cssVar('--series-1'), 'line-width': 3, 'line-opacity': 0.95 },
+      });
+      m.fitBounds([[minLng, minLat], [maxLng, maxLat]],
+        { padding: Math.max(8, Math.round(Math.min(w, h) * scale * 0.22)), duration: 0 });
+      await new Promise((res) => {
+        m.once('idle', res);
+        setTimeout(res, 9000);
+      });
+      return m.getCanvas().toDataURL('image/png');
+    } finally {
+      if (m) m.remove();  // 释放 WebGL 上下文
+      host.remove();
+    }
+  }
+
+  /* 2D 画布直绘当日轨迹(底图快照的加载占位,也作快照失败的兜底)。
+     经度乘 cos(平均纬度) 修正纵横比,contain 保形适配整个缩略盒 */
   function renderDayThumbPng(rs, w, h) {
     const lines = [];
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -2960,18 +3027,19 @@
     cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
     const ctx = cv.getContext('2d');
     ctx.scale(dpr, dpr);
-    const bx0 = w * 0.60 + 4, bx1 = w * 0.88 - 4, by0 = h * 0.26 + 2, by1 = h * 0.74 - 2;
+    const pad = Math.max(4, Math.round(Math.min(w, h) * 0.18));
+    const bx0 = pad, bx1 = w - pad, by0 = pad, by1 = h - pad;
     const spanX = Math.max(1e-9, maxX - minX), spanY = Math.max(1e-9, maxY - minY);
     const s = Math.min((bx1 - bx0) / spanX, (by1 - by0) / spanY);
     const ox = (bx0 + bx1) / 2 - (minX + maxX) / 2 * s;
     const oy = (by0 + by1) / 2 + (minY + maxY) / 2 * s;  // 纬度向北 = 画面向上,y 取反
     const color = cssVar('--series-1');
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     ctx.shadowColor = color;
-    ctx.shadowBlur = 5;
+    ctx.shadowBlur = 3;
     ctx.globalAlpha = 0.95;
     lines.forEach((pts) => {
       ctx.beginPath();
