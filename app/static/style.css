@@ -1075,7 +1075,10 @@ button { touch-action: manipulation; }
   font: inherit;
   text-align: left;
   min-width: 112px;
-  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  /* 压在总览卡背景图上,玻璃令牌(82%/58%)太透看不清字,芯片用近实色 */
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--surface-1) 96%, transparent),
+    color-mix(in srgb, var(--page) 92%, transparent));
   border: 1px solid var(--glass-edge);
   border-radius: 9px;
   padding: 6px 10px 8px;
@@ -2163,6 +2166,40 @@ button { touch-action: manipulation; }
   gap: 6px 16px;
 }
 
+/* 充电曲线:展开行(仿充电桩汇总行的折叠交互)+ 图表容器 */
+.cs-curve-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.cs-curve-toggle:hover { color: var(--text-secondary); }
+.cs-curve-toggle:hover .cg-arrow { border-color: var(--text-muted); color: var(--text-primary); }
+
+.cs-curve-toggle.open .cg-arrow {
+  transform: rotate(180deg);
+  background: var(--seq-blue-500);
+  border-color: var(--seq-blue-500);
+  color: #fff;
+}
+
+.cs-curve { height: 220px; margin-top: 8px; }
+
+.cs-curve .empty { padding-top: 70px; }
+
+.cs-curve-chart { height: 100%; }
+
+.cs-curve-note { font-size: 11px; color: var(--text-muted); padding: 2px 2px 0; }
+
+.cs-curve-note + .cs-curve-chart { height: calc(100% - 20px); }
+
 .cs-field {
   display: flex;
   justify-content: space-between;
@@ -2211,6 +2248,7 @@ button { touch-action: manipulation; }
   .cs-head { flex-direction: column; gap: 6px; }
   .cs-charger { align-items: stretch; width: 100%; }
   .cs-charger input { text-align: left; max-width: none; }
+  .cs-curve { height: 180px; }
   .cs-fields { gap: 4px 8px; }
   .cs-field { font-size: 12px; gap: 6px; }
   .cs-item .cost-input { width: 56px; padding: 3px 4px; font-size: 12px; }

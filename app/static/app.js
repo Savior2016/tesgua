@@ -20,6 +20,9 @@
 
   const charts = {};
   const routeElev = {};  // 行程详情海拔图(行程 id → ECharts 实例),收起/重渲染时销毁
+  const csCurveCharts = {};  // 充电会话曲线(charge id → ECharts 实例),收起/重渲染时销毁
+  const csCurveOpen = new Set();  // 展开的充电曲线(按 charge id),重渲染后保持展开
+  const csCurveCache = {};  // charge id → /api/charging/curve 数据(懒加载缓存)
   const routeMaps = {};  // 行程 id → 详情小地图实例,同上
   const routeRows = {};  // 行程 id → 列表行 DOM(地图点选轨迹时定位展开用)
   const openRouteIds = new Set();  // 已展开的行程 id,60s 刷新重渲染后恢复展开状态
@@ -1420,8 +1423,15 @@
     // 车辆顶部:本周期平均能耗条状控件(文字内嵌;官方能耗=额定折算系数,作刻度竖线)
     const effG = $('#car-eff');
     if (effG) {
-      const dKwh = cyc && cyc.drive_kwh != null ? Number(cyc.drive_kwh) : 0;
-      const dKm = cyc && cyc.drive_km != null ? Number(cyc.drive_km) : 0;
+      // 当前周期行驶不足 1km 时(刚充完还没开),回退显示上一周期的能耗并标注
+      let effCyc = cyc, effPrev = false;
+      if (S.cycleIdx === 0
+          && (!effCyc || effCyc.drive_km == null || Number(effCyc.drive_km) < 1)) {
+        const prev = cycles.slice(1).find((x) => x.drive_km != null && Number(x.drive_km) >= 1);
+        if (prev) { effCyc = prev; effPrev = true; }
+      }
+      const dKwh = effCyc && effCyc.drive_kwh != null ? Number(effCyc.drive_kwh) : 0;
+      const dKm = effCyc && effCyc.drive_km != null ? Number(effCyc.drive_km) : 0;
       const official = o.kwh_per_ideal_km ? Number(o.kwh_per_ideal_km) * 1000 : null;
       if (dKm >= 1 && official) {
         const eff = dKwh * 1000 / dKm;
@@ -1435,7 +1445,7 @@
         const c = rel <= 1 ? '#3fae72' : rel <= 1.1 ? '#fab219' : '#d03b3b';
         const bar = $('#car-eff-bar');
         bar.style.setProperty('--eff-c', c);
-        bar.title = `本周期平均能耗 ${fmtNum(eff, 0)} Wh/km · 官方 ${fmtNum(official, 0)} Wh/km`;
+        bar.title = `${effPrev ? '上周期' : '本周期'}平均能耗 ${fmtNum(eff, 0)} Wh/km · 官方 ${fmtNum(official, 0)} Wh/km`;
         const fill = $('#car-eff-fill');
         fill.style.width = map(eff).toFixed(1) + '%';
         fill.style.background = `linear-gradient(90deg, ${c}14, ${c}30)`;
@@ -1444,6 +1454,7 @@
         const offVal = $('#car-eff-official-val');
         offVal.style.left = map(official).toFixed(1) + '%';
         offVal.textContent = fmtNum(official, 0);
+        $('.car-eff-label').textContent = effPrev ? '平均能耗 · 上周期' : '平均能耗';
         $('#car-eff-val').textContent = `${fmtNum(eff, 0)} Wh/km`;
         effG.hidden = false;
       } else {
@@ -1748,6 +1759,7 @@
   function renderSessions() {
     const box = $('#cs-list');
     if (!box || !S.sessions) return;
+    disposeCsCurve();
     box.textContent = '';
     const charges = S.sessions.charges || [];
 
@@ -1933,8 +1945,160 @@
         ? `¥${fmtNum(c.per_km_yuan, 2)} /km` : '—');
 
       item.appendChild(fields);
+
+      /* 充电曲线(功率/电压/电流 + 电池加热底纹),展开时懒加载 /api/charging/curve */
+      const curveTg = el('div', 'cs-curve-toggle');
+      curveTg.setAttribute('role', 'button');
+      curveTg.tabIndex = 0;
+      curveTg.appendChild(el('span', '', '充电曲线'));
+      curveTg.appendChild(el('span', 'cg-arrow', '▾'));
+      const curveBox = el('div', 'cs-curve');
+      const applyCurveState = (on) => {
+        curveTg.classList.toggle('open', on);
+        curveBox.hidden = !on;
+        if (on) loadCsCurve(c.id, curveBox);
+        else disposeCsCurve(c.id);
+      };
+      curveTg.addEventListener('click', () => {
+        const on = !csCurveOpen.has(c.id);
+        if (on) csCurveOpen.add(c.id); else csCurveOpen.delete(c.id);
+        applyCurveState(on);
+      });
+      curveTg.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); curveTg.click(); }
+      });
+      item.appendChild(curveTg);
+      item.appendChild(curveBox);
       box.appendChild(item);
+      if (csCurveOpen.has(c.id)) applyCurveState(true);  // 重渲染后恢复展开(须先入 DOM,draw 检查 isConnected)
     });
+  }
+
+  /* ---------- 渲染:充电会话曲线(功率/电压/电流三轴 + 电池加热底纹) ---------- */
+
+  function loadCsCurve(id, box) {
+    if (csCurveCharts[id]) { csCurveCharts[id].resize(); return; }
+    const draw = (d) => {
+      if (!box.isConnected || !csCurveOpen.has(id)) return;
+      box.textContent = '';
+      if (!d || !d.points || d.points.length < 2) {
+        box.appendChild(el('div', 'empty', '本次充电无逐点数据'));
+        return;
+      }
+      // 部分车辆只上报功率,电压/电流恒为 0(视为无数据):提示后只画有的曲线
+      const hasV = d.points.some((p) => p[2] > 0), hasA = d.points.some((p) => p[3] > 0);
+      if (!hasV || !hasA) {
+        box.appendChild(el('div', 'cs-curve-note',
+          !hasV && !hasA ? '本次充电车端未上报电压/电流'
+            : (!hasV ? '本次充电车端未上报电压' : '本次充电车端未上报电流')));
+      }
+      const chartBox = el('div', 'cs-curve-chart');
+      box.appendChild(chartBox);
+      renderCsCurve(d, chartBox, hasV, hasA);
+    };
+    if (csCurveCache[id]) { draw(csCurveCache[id]); return; }
+    box.textContent = '';
+    box.appendChild(el('div', 'empty', '加载中…'));
+    api('charging/curve?charge_id=' + id).then((d) => {
+      csCurveCache[id] = d;
+      draw(d);
+    }).catch(() => {
+      if (!box.isConnected) return;
+      box.textContent = '';
+      box.appendChild(el('div', 'empty', '曲线数据加载失败'));
+    });
+  }
+
+  function renderCsCurve(d, box, hasV, hasA) {
+    const power = [], volt = [], curr = [];
+    d.points.forEach((p) => {
+      power.push([p[0], p[1]]);
+      volt.push([p[0], p[2]]);
+      curr.push([p[0], p[3]]);
+    });
+    const cP = cssVar('--cat-charge');   // 功率:充电分类色(青)
+    const cV = cssVar('--series-2');     // 电压:暖橙
+    const cA = cssVar('--series-3');     // 电流:绿
+    const cH = cssVar('--cat-drive');    // 电池加热底纹:行驶黄,低透明度
+    // hex → rgba(供渐变与底纹用,同海拔图)
+    const fade = (hex, a) => {
+      const hx = hex.replace('#', '');
+      const n = parseInt(hx.length === 3 ? hx.split('').map((x) => x + x).join('') : hx, 16);
+      return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    };
+    const heatAreas = (d.heater_spans || []).map(([a, b]) => [{ xAxis: a }, { xAxis: b }]);
+    const chart = echarts.init(box);
+    csCurveCharts[d.charge_id] = chart;
+    const axLbl = (unit) => ({ color: cssVar('--text-muted'), fontSize: 11, formatter: `{value} ${unit}` });
+    // 只画有数据的量:功率必有;电压/电流恒 0 的车(部分车型不上报)不画对应轴
+    const yAxis = [Object.assign(axisCommon(), { type: 'value', scale: true, axisLabel: axLbl('kW') })];
+    if (hasV) yAxis.push(Object.assign(axisCommon(), {
+      type: 'value', scale: true, position: 'right',
+      splitLine: { show: false }, axisLabel: axLbl('V'),
+    }));
+    if (hasA) yAxis.push(Object.assign(axisCommon(), {
+      type: 'value', scale: true, position: 'right', offset: hasV ? 46 : 0,
+      splitLine: { show: false }, axisLabel: axLbl('A'),
+    }));
+    const series = [Object.assign(lineSeries('功率', power, cP), {
+      yAxisIndex: 0, smooth: true, smoothMonotone: 'x',
+      areaStyle: {
+        color: {
+          type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [{ offset: 0, color: fade(cP, 0.28) }, { offset: 1, color: fade(cP, 0.02) }],
+        },
+      },
+      // 电池加热时段:暖黄底纹(legend 里的「电池加热」为其占位标识)
+      markArea: heatAreas.length ? {
+        silent: true,
+        itemStyle: { color: fade(cH, 0.13) },
+        data: heatAreas,
+      } : undefined,
+    })];
+    const legend = ['功率'];
+    if (hasV) {
+      series.push(Object.assign(lineSeries('电压', volt, cV), {
+        yAxisIndex: 1, smooth: true, smoothMonotone: 'x', endLabel: { show: false },
+      }));
+      legend.push('电压');
+    }
+    if (hasA) {
+      series.push(Object.assign(lineSeries('电流', curr, cA), {
+        yAxisIndex: hasV ? 2 : 1, smooth: true, smoothMonotone: 'x', endLabel: { show: false },
+      }));
+      legend.push('电流');
+    }
+    if (heatAreas.length) {
+      series.push({  // 占位:仅为 legend 显示「电池加热」色块,无数据不进 tooltip
+        name: '电池加热', type: 'line', data: [],
+        itemStyle: { color: fade(cH, 0.5) }, lineStyle: { width: 6, color: fade(cH, 0.35) },
+        symbol: 'none', silent: true,
+      });
+      legend.push('电池加热');
+    }
+    chart.setOption(Object.assign({}, chartTheme(), {
+      tooltip: tooltipAxis({ '功率': 'kW', '电压': 'V', '电流': 'A' }, (v) => fmtClock(Number(v))),
+      legend: {
+        top: 0, itemWidth: 14, itemHeight: 2,
+        textStyle: { color: cssVar('--text-secondary'), fontSize: 11 },
+        data: legend,
+      },
+      grid: { left: 46, right: (hasV && hasA) ? 92 : (hasV || hasA ? 50 : 18), top: 30, bottom: 24 },
+      xAxis: Object.assign(axisCommon(), {
+        type: 'time',
+        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: (v) => fmtClock(v) },
+      }),
+      yAxis,
+      series,
+    }), { notMerge: true });
+  }
+
+  function disposeCsCurve(id) {
+    if (id === undefined) {  // 全部销毁(列表重渲染前)
+      Object.keys(csCurveCharts).forEach((k) => disposeCsCurve(Number(k)));
+      return;
+    }
+    if (csCurveCharts[id]) { csCurveCharts[id].dispose(); delete csCurveCharts[id]; }
   }
 
   /* ---------- 渲染:充电桩统计(按桩聚合 sessions 数据,可展开详情) ---------- */
@@ -3463,6 +3627,9 @@
       if (sec) Object.values(routeElev).forEach((c) => {
         if (c && sec.contains(c.getDom())) c.resize();
       });
+      if (sec) Object.values(csCurveCharts).forEach((c) => {
+        if (c && sec.contains(c.getDom())) c.resize();
+      });
       if (name === 'drives') Object.values(routeMaps).forEach((m) => m && m.resize());
       if (name === 'drives' && map) {
         map.resize();
@@ -3659,6 +3826,7 @@
     window.addEventListener('resize', () => {
       Object.values(charts).forEach((c) => c && c.resize());
       Object.values(routeElev).forEach((c) => c && c.resize());
+      Object.values(csCurveCharts).forEach((c) => c && c.resize());
       Object.values(routeMaps).forEach((m) => m && m.resize());
       checkThumbResize();
       if (map) map.resize();

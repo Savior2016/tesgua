@@ -21,6 +21,10 @@ BASE = {
  "charging/summary":{"totals":{},"sessions":[]},
  "charging/sessions":{"charges":[{"id":7,"start_ts":NOW-7200000,"end_ts":NOW-3600000,"start_local":"2026-09-14 01:00:00","end_local":"2026-09-14 02:00:00","duration_min":60,"energy_kwh":10.0,"energy_used_kwh":None,"total_kwh":None,"total_kwh_manual":False,"start_battery_level":40,"end_battery_level":55,"loc_key":"addr_7","charger_name":"","charger_location":"家","charger_brand":"","cost":None,"cost_home":5.0,"cost_effective":5.0,"home_mode":"auto","home_name":"车位桩","rate_yuan_kwh":0.5,"after_km":60.0,"per_km_yuan":0.0833}]},
  "charging/home":{"master":True,"role":"admin","chargers":[{"key":"addr_7","name":"车位桩","enabled":True,"peak":1.0,"valley":0.5,"vstart":"23:00","vend":"07:00","location":"家","sessions":12}],"candidates":[{"key":"addr_7","name":"家","count":12,"added":True},{"key":"addr_9","name":"公司","count":8,"added":False}],"vstart_default":"23:00","vend_default":"07:00"},
+ # 充电会话逐点曲线(功率/电压/电流/电池加热):i=10..20 加热中
+ "charging/curve":{"charge_id":7,
+   "points":[[NOW-7200000+i*60000, 10 if i%2 else 11, 228, 16, 1 if 10<=i<=20 else 0] for i in range(60)],
+   "heater_spans":[[NOW-7200000+600000, NOW-7200000+1260000]]},
  "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"speed_max":80,"start_ideal_range_km":400,"end_ideal_range_km":388,"start_name":XSS,"end_name":"合成终点","points":[[0,0,50,0],[0.005,0.005,65,35],[0.01,0.01,80,125]]}]},
  "activity":{"days":7,"battery":[[NOW-3600000,80],[NOW,75]],"drives":[],"charges":[],"sentry":[],"idle":[],"kwh_per_pct":0.75},
  "efficiency/trend":{"points":[{"start_ts":NOW-3600000,"eff_wh_km":145,"distance":10,"duration_min":30,"start_name":XSS,"end_name":"合成终点"}]},
@@ -95,7 +99,7 @@ def run():
             page.locator('.tab[data-page="drives"]').click()
             page.locator('.rt-row').first.click()
             page.wait_for_timeout(150)
-            assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==6
+            assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==9
             assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
             assert page.locator('.rt-map.maplibregl-map').count()==1  # 详情小地图
             assert page.locator('.rt-speed-legend').count()==1  # 轨迹按车速变色 + 色带图例
@@ -138,6 +142,20 @@ def run():
                 assert page.locator('.cs-home-sel').input_value()=='auto'
             else:
                 assert page.locator('.cs-home-sel').count()==0
+            # 充电曲线:展开懒加载渲染 ECharts(按上报情况画轴+加热底纹),收起后销毁
+            page.locator('.cs-curve-toggle').first.click()
+            page.wait_for_timeout(200)
+            assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.cs-curve-chart'))")
+            assert page.locator('.cs-curve-toggle.open').count()==1
+            # 主题切换触发全量重渲染:展开的曲线必须自动恢复(挂在 isConnected 检查之后)
+            page.locator('#theme-btn').click()
+            page.wait_for_timeout(300)
+            assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.cs-curve-chart'))")
+            page.locator('#theme-btn').click()
+            page.wait_for_timeout(300)
+            page.locator('.cs-curve-toggle').first.click()
+            page.wait_for_timeout(80)
+            assert page.evaluate("!echarts.getInstanceByDom(document.querySelector('.cs-curve-chart'))")
             page.locator('.tab[data-page="activity"]').click()
             page.locator('#chart-efficiency').scroll_into_view_if_needed()
             page.evaluate("echarts.getInstanceByDom(document.getElementById('chart-efficiency')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0})")

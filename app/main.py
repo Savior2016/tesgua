@@ -1031,6 +1031,66 @@ def charging_sessions(car_id: int | None = Query(default=None),
     return {"charges": out}
 
 
+def _thin_rows(rows: list, cap: int = 800) -> list:
+    """等间隔抽稀到不超过 cap 行(始终保留首尾),点少时原样返回。"""
+    if len(rows) <= cap:
+        return rows
+    step = (len(rows) - 1) / (cap - 1)
+    idx = {round(i * step) for i in range(cap)}
+    return [r for i, r in enumerate(rows) if i in idx]
+
+
+def _heater_spans(points: list) -> list:
+    """从 [ts, power, voltage, current, heater] 点列提取电池加热的连续区间 [[起, 止], ...]。
+
+    区间止于最后一个 heater=1 点的时间;首尾未闭合(结束时仍在加热)则延伸到末点。
+    """
+    spans, start = [], None
+    for p in points:
+        if p[4] and start is None:
+            start = p[0]
+        elif not p[4] and start is not None:
+            spans.append([start, p[0]])
+            start = None
+    if start is not None and points:
+        spans.append([start, points[-1][0]])
+    return spans
+
+
+@app.get("/api/charging/curve")
+def charging_curve(charge_id: int = Query(...), car_id: int | None = Query(default=None)):
+    """单次充电的逐点曲线:功率 / 电压 / 电流 / 电池加热(charges 表,充电时约 6–12s 一点)。
+
+    返回紧凑数组 points=[[ts, power_kW, voltage_V, current_A, heater0/1], ...],
+    heater_spans 为加热连续区间(前端画底纹用)。
+    """
+    cid = get_car_id(car_id)
+    owner = q("SELECT id FROM charging_processes WHERE id = %s AND car_id = %s",
+              (charge_id, cid))
+    if not owner:
+        raise HTTPException(status_code=404, detail="充电会话不存在")
+    rows = q(
+        f"""
+        SELECT {local_ts('c.date', 'date')},
+               c.charger_power, c.charger_voltage, c.charger_actual_current,
+               coalesce(c.battery_heater_on, c.battery_heater, false) AS heater
+        FROM charges c
+        WHERE c.charging_process_id = %s
+        ORDER BY c.date
+        """,
+        (charge_id,),
+    )
+    rows = _thin_rows(rows)
+    points = [[int(r["date_ts"]),
+               int(r["charger_power"]) if r["charger_power"] is not None else None,
+               int(r["charger_voltage"]) if r["charger_voltage"] is not None else None,
+               int(r["charger_actual_current"]) if r["charger_actual_current"] is not None else None,
+               1 if r["heater"] else 0]
+              for r in rows]
+    return {"charge_id": charge_id, "points": points,
+            "heater_spans": _heater_spans(points)}
+
+
 @app.post("/api/charging/extras")
 def set_charging_extra(payload: ChargeExtraIn):
     """录入/清除某次充电的桩端计费总耗电(kWh,含充电损耗)。"""
