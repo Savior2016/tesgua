@@ -144,11 +144,13 @@
               <text id="car-odo" class="car-odo-val" x="170" y="91">—</text>
               <!-- 前风挡:当前电量 -->
               <text id="car-batt-val" class="car-batt-val" x="170" y="131">—</text>
+              <!-- 电量下方小字:按额定续航折算的剩余里程 -->
+              <text id="car-batt-range" class="car-batt-range" x="170" y="145"></text>
               <!-- 玻璃顶中央:Tesla 图形车标,下方陪伴天数与车内温度 -->
               <path id="car-logo" class="car-logo" transform="translate(153 231) scale(1.4167)"
                     d="M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362l-.004.002H12v-.002zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.349c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46v.003z"/>
-              <!-- 车型下方空白处:陪伴天数(点击设置提车日期) -->
-              <text id="car-companion" class="car-companion" x="170" y="278" role="button" tabindex="0">—</text>
+              <!-- 车型下方空白处:陪伴天数(未设置时可点击设置提车日期;已设置后修改在个人中心) -->
+              <text id="car-companion" class="car-companion" x="170" y="278">—</text>
               <text id="car-center-temp" class="car-center-temp" x="170" y="296">—</text>
               <!-- 后风挡:车外温度 -->
               <text id="car-temp-val" class="car-temp-val" x="170" y="410">—</text>
@@ -676,13 +678,12 @@
   </button>
 </nav>
 
-<!-- 提车日期设置弹层(总览页车图「陪伴天数」点击唤起) -->
+<!-- 提车日期设置弹层(总览页车图「陪伴天数」在未设置时点击唤起;已设置后修改在个人中心) -->
 <div class="companion-pop" id="companion-pop" hidden>
   <div class="companion-card" role="dialog" aria-label="设置提车日期">
     <h3>设置提车日期</h3>
     <input type="date" id="companion-date">
     <div class="companion-actions">
-      <button id="companion-clear" class="ghost" hidden>清除</button>
       <button id="companion-cancel" class="ghost">取消</button>
       <button id="companion-save">保存</button>
     </div>

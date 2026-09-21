@@ -269,4 +269,37 @@
 
   loadStatus();
   pollTimer = setInterval(loadStatus, 15000); // 授权完成前每 15 秒自动刷新状态
+
+  /* 车辆信息:提车日期(与总览页「已陪伴 N 天」同一数据源 /api/vehicle/delivery;
+     总览页只在未设置时提供入口,修改/清除统一在这里) */
+  const delDateInp = $('delivery-date');
+  (async () => {
+    try {
+      const r = await api('/api/vehicle/delivery');
+      if (r.date) delDateInp.value = r.date;
+    } catch (e) {
+      msg($('delivery-msg'), e.message, false);
+    }
+  })();
+  const submitDelivery = async (date) => {
+    const m = $('delivery-msg');
+    try {
+      await api('/api/vehicle/delivery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date }),
+      });
+      msg(m, date ? '✓ 已保存,总览页将显示陪伴天数' : '✓ 已清除', true);
+    } catch (e) {
+      msg(m, e.message, false);
+    }
+  };
+  $('delivery-save').onclick = () => {
+    if (!delDateInp.value) { delDateInp.focus(); return; }
+    submitDelivery(delDateInp.value);
+  };
+  $('delivery-clear').onclick = () => {
+    delDateInp.value = '';
+    submitDelivery('');
+  };
 })();

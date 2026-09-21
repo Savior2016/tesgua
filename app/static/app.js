@@ -1407,6 +1407,8 @@
       wr.closest('svg').classList.toggle('charging', o.state === 'charging');
     }
     $('#car-batt-val').textContent = usable === null ? '—' : `${fmtNum(usable, 0)}%`;
+    // 电量下方小字:按额定续航折算的剩余里程(无法折算时留空)
+    $('#car-batt-range').textContent = usable === null ? '' : kmSuffix(usable);
     // 玻璃顶中央固定 Tesla 图形车标(见 index.html #car-logo),不再随车型切换徽章
     const inT = lat && lat.inside_temp != null ? Number(lat.inside_temp) : null;
     const outT = lat && lat.outside_temp != null ? Number(lat.outside_temp) : null;
@@ -2435,16 +2437,21 @@
     if (!S.delivery) {
       t.textContent = '点这里设置提车日期';
       t.classList.add('is-empty');
+      t.setAttribute('role', 'button');
+      t.setAttribute('tabindex', '0');
       return;
     }
     t.classList.remove('is-empty');
+    // 已设置后仅展示:修改入口在个人中心,车身文字不再可点
+    t.removeAttribute('role');
+    t.removeAttribute('tabindex');
     // 提车当天算第 1 天(本地时区)
     const [y, m, d] = S.delivery.split('-').map(Number);
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const days = Math.max(1, Math.round((today - new Date(y, m - 1, d)) / 86400000) + 1);
     t.textContent = `已陪伴 ${days} 天`;
-    t.setAttribute('aria-label', `提车日期 ${S.delivery},已陪伴 ${days} 天,点击修改`);
+    t.setAttribute('aria-label', `提车日期 ${S.delivery},已陪伴 ${days} 天`);
   }
 
   function initCompanion() {
@@ -2459,14 +2466,15 @@
         const p = (v) => String(v).padStart(2, '0');
         return `${n.getFullYear()}-${p(n.getMonth() + 1)}-${p(n.getDate())}`;
       })();
-      $('#companion-clear').hidden = !S.delivery;
       pop.hidden = false;
       dateInp.focus();
     };
     const closePop = () => { pop.hidden = true; };
-    t.addEventListener('click', openPop);
+    // 仅在未设置时从总览页唤起设置弹层;已设置后修改统一去个人中心
+    const tryOpen = () => { if (!S.delivery) openPop(); };
+    t.addEventListener('click', tryOpen);
     t.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPop(); }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tryOpen(); }
     });
     $('#companion-cancel').addEventListener('click', closePop);
     pop.addEventListener('click', (e) => { if (e.target === pop) closePop(); });
@@ -2493,7 +2501,6 @@
       if (!dateInp.value) { dateInp.focus(); return; }
       submit(dateInp.value);
     });
-    $('#companion-clear').addEventListener('click', () => submit(''));
   }
 
   function initParking() {

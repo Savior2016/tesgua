@@ -744,6 +744,8 @@ button { touch-action: manipulation; }
 
 /* 深色玻璃上的文字固定浅色 */
 .car-batt-val { fill: #fff; font-size: 14px; font-weight: 650; }
+/* 电量下方小字:折算剩余里程 */
+.car-batt-range { fill: rgba(255, 255, 255, 0.58); font-size: 8.5px; font-weight: 500; letter-spacing: 0.4px; }
 .car-temp-val { fill: var(--series-1); font-size: 11px; font-weight: 600; }
 
 /* 玻璃顶中央的 Tesla 图形车标(玻璃两种主题下都是深色,固定品牌红) */
@@ -758,16 +760,15 @@ button { touch-action: manipulation; }
 }
 .car-center-temp { fill: var(--series-2); font-size: 12px; font-weight: 600; }
 
-/* 陪伴天数(玻璃顶徽章下方,点击设置提车日期) */
+/* 陪伴天数(玻璃顶徽章下方;未设置时可点开提车日期弹层,已设置后仅展示,修改在个人中心) */
 .car-companion {
   fill: rgba(255, 255, 255, 0.62);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 1px;
-  cursor: pointer;
 }
-.car-companion:hover { fill: rgba(255, 255, 255, 0.9); }
-.car-companion.is-empty { fill: var(--series-1); text-decoration: underline; }
+.car-companion.is-empty { fill: var(--series-1); text-decoration: underline; cursor: pointer; }
+.car-companion.is-empty:hover { opacity: 0.8; }
 
 /* 提车日期设置弹层 */
 .companion-pop {
@@ -1288,7 +1289,7 @@ button { touch-action: manipulation; }
   .life-item { min-width: 0; flex-basis: 40%; }
 }
 
-/* ===== 总览页车辆卡:火星表面全景(铺满放大);展开两侧详情 → 过渡为巨大星球弧面 ===== */
+/* ===== 总览页车辆卡:火星表面全景 + 巨大星球弧面(两层常驻,折叠两侧面板不改变亮度) ===== */
 #car-card { position: relative; overflow: hidden; }
 
 #car-card .ov-bg {
@@ -1297,12 +1298,13 @@ button { touch-action: manipulation; }
   transition: opacity 1.1s ease;
 }
 
-/* 默认层:火星表面(好奇号全景裁剪,双色调上色),inset 负值让画面始终大于卡片 */
+/* 默认层:火星表面(好奇号全景裁剪,双色调上色),inset 负值让画面始终大于卡片;
+   不透明度固定,不随两侧面板展开/收起变化(折叠态整体亮度保持不变) */
 #car-card .ov-bg-surface {
   --mars-o: .18;
   inset: -14%;
   background: url(/mars-surface.webp) center 30% / cover no-repeat;
-  opacity: var(--mars-o);
+  opacity: calc(var(--mars-o) * .3);
   /* 四缘渐隐融入玻璃卡,无明显边界 */
   -webkit-mask-image: radial-gradient(115% 125% at 50% 46%, #000 52%, transparent 88%);
   mask-image: radial-gradient(115% 125% at 50% 46%, #000 52%, transparent 88%);
@@ -1318,15 +1320,11 @@ button { touch-action: manipulation; }
   left: 50%;
   bottom: calc(min(920px, 175vw) / -4);
   transform: translateX(-50%);
-  opacity: 0;
+  opacity: var(--pl-o);   /* 星球弧面常驻:折叠两侧面板时整体亮度不变 */
   filter: saturate(.95);
   -webkit-mask-image: linear-gradient(to bottom, transparent 2%, #000 16%);
   mask-image: linear-gradient(to bottom, transparent 2%, #000 16%);
 }
-
-/* 展开两侧详情(统计/图例面板)时:地表退隐,星球弧面浮现 */
-#car-card:has(.carview:not(.sides-stowed)) .ov-bg-surface { opacity: calc(var(--mars-o) * .3); animation-play-state: paused; }
-#car-card:has(.carview:not(.sides-stowed)) .ov-bg-planet { opacity: var(--pl-o); }
 
 [data-theme="dark"] #car-card .ov-bg-surface { --mars-o: .26; }
 [data-theme="dark"] #car-card .ov-bg-planet { --pl-o: .46; }
