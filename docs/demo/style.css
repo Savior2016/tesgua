@@ -187,8 +187,8 @@ body::before {
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
-  width: 52px;
-  height: 52px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: 1.5px solid color-mix(in srgb, var(--text-muted) 50%, transparent);
   z-index: 0;
@@ -199,10 +199,25 @@ body::before {
 
 #space-mark.peek { opacity: 1; }
 
+/* 圈圈上的旋转高光弧:一段亮弧沿圆环持续扫圈 */
+#space-mark::before {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 64%,
+    color-mix(in srgb, var(--text-muted) 90%, transparent) 82%, transparent 98%);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 1.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 1.5px));
+  animation: sm-spin 3.2s linear infinite;
+}
+
+@keyframes sm-spin { to { transform: rotate(1turn); } }
+
 /* 星舰缓缓悬浮;尾焰在圆圈底部持续脉动 */
 #space-mark i {
   position: absolute;
-  inset: 9px 11px 13px;
+  inset: 7px 9px 10px;
   background: color-mix(in srgb, var(--text-muted) 62%, transparent);
   -webkit-mask: url(starship.svg) center / contain no-repeat;
   mask: url(starship.svg) center / contain no-repeat;
@@ -213,9 +228,9 @@ body::before {
   content: '';
   position: absolute;
   left: 50%;
-  bottom: 5px;
-  width: 7px;
-  height: 11px;
+  bottom: 4px;
+  width: 6px;
+  height: 9px;
   transform: translateX(-50%);
   background: radial-gradient(50% 100% at 50% 0,
     #ffc46b 0%, #ff7a1a 55%, transparent 78%);
@@ -235,7 +250,7 @@ body::before {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #space-mark i, #space-mark::after { animation: none; }
+  #space-mark i, #space-mark::before, #space-mark::after { animation: none; }
 }
 
 /* ===== 顶栏:sticky,下滑收缩成紧凑徽章栏并钉在顶部,回顶展开 ===== */
@@ -245,7 +260,9 @@ header {
   z-index: 1100;             /* 压过 Leaflet 控件容器(1000),低于 Tab 栏(1200) */
   margin: 0 -20px;            /* 满幅:盖住 .wrap 两侧 padding,防止边缘漏出滚动内容 */
   padding: 6px 20px 14px;     /* 下间距折进 padding,背景覆盖,不留缝隙 */
-  transition: padding .35s ease;
+  /* 常驻不透明底色:顶栏区域任何时候都不透出下层内容(页面顶部本来就是纯底色,视觉无差) */
+  background: var(--page);
+  transition: padding .35s ease, background 0.25s ease;
 }
 
 /* 玻璃底放在伪元素上:顶部不透明实色 → 向下渐变半透明磨砂(模糊只在半透明区可见),
