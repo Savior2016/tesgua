@@ -259,8 +259,7 @@ header {
   top: 0;
   z-index: 1100;             /* 压过 Leaflet 控件容器(1000),低于 Tab 栏(1200) */
   margin: 0 -20px;            /* 满幅:盖住 .wrap 两侧 padding,防止边缘漏出滚动内容 */
-  /* 上间距加大:整体下移避开 iOS 主屏 web app 顶部状态栏的液态玻璃模糊区 */
-  padding: 13px 20px 14px;    /* 下间距折进 padding,背景覆盖,不留缝隙 */
+  padding: 6px 20px 14px;     /* 下间距折进 padding,背景覆盖,不留缝隙 */
   /* 常驻不透明底色:顶栏区域任何时候都不透出下层内容(页面顶部本来就是纯底色,视觉无差) */
   background: var(--page);
   transition: padding .35s ease, background 0.25s ease;
@@ -285,8 +284,8 @@ header::before {
   transition: opacity .35s ease;
 }
 
-/* 收缩态:更紧凑,玻璃底淡入(模糊滤镜随收缩态一起挂上;上间距仍保留安全余量) */
-header.mini { padding: 11px 20px 10px; }
+/* 收缩态:更紧凑,玻璃底淡入(模糊滤镜随收缩态一起挂上) */
+header.mini { padding: 4px 20px 10px; }
 header.mini::before {
   opacity: 1;
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
@@ -3045,8 +3044,8 @@ footer a { color: var(--text-muted); }
   .tabbar .tab svg { width: 20px; height: 20px; }
 
   /* 顶栏:车图右侧跨两行,服务器资源在页脚;满幅边距随 .wrap 收窄 */
-  header { margin: 0 -12px; padding: 13px 12px 12px; }
-  header.mini { padding: 11px 12px 8px; }
+  header { margin: 0 -12px; padding: 6px 12px 12px; }
+  header.mini { padding: 4px 12px 8px; }
   .header-main { gap: 10px; }
   .header-main .model-icon { height: 58px; }
   header.mini .header-main .model-icon { height: 34px; }
