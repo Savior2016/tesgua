@@ -1407,8 +1407,9 @@
       wr.closest('svg').classList.toggle('charging', o.state === 'charging');
     }
     $('#car-batt-val').textContent = usable === null ? '—' : `${fmtNum(usable, 0)}%`;
-    // 电量下方小字:按额定续航折算的剩余里程(无法折算时留空)
-    $('#car-batt-range').textContent = usable === null ? '' : kmSuffix(usable);
+    // 电量下方小字:按额定续航折算的剩余里程(不带约等号;无法折算时留空)
+    const battKm = usable === null ? null : kmAtPct(usable);
+    $('#car-batt-range').textContent = battKm === null ? '' : `${fmtNum(battKm, 0)} km`;
     // 玻璃顶中央固定 Tesla 图形车标(见 index.html #car-logo),不再随车型切换徽章
     const inT = lat && lat.inside_temp != null ? Number(lat.inside_temp) : null;
     const outT = lat && lat.outside_temp != null ? Number(lat.outside_temp) : null;

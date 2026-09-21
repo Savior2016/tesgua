@@ -249,7 +249,9 @@ header {
 }
 
 /* 玻璃底放在伪元素上:顶部不透明实色 → 向下渐变半透明磨砂(模糊只在半透明区可见),
-   并向下多出一段渐隐尾巴,底部分界线柔和过渡;不遮挡栏内内容;opacity 参与收缩过渡 */
+   并向下多出一段渐隐尾巴,底部分界线柔和过渡;不遮挡栏内内容;opacity 参与收缩过渡。
+   backdrop-filter 与 mask 只在 .mini 态声明(见下):未收缩时这一层连模糊滤镜都不存在,
+   避免 Safari 对 backdrop-filter + mask + opacity 组合渲染异常而在页面顶部漏出一条模糊 */
 header::before {
   content: '';
   position: absolute;
@@ -261,17 +263,19 @@ header::before {
     var(--page) 0%,
     color-mix(in srgb, var(--page) 82%, transparent) 38%,
     color-mix(in srgb, var(--page) 42%, transparent) 100%);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  backdrop-filter: blur(20px) saturate(1.6);
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
   opacity: 0;
   transition: opacity .35s ease;
 }
 
-/* 收缩态:更紧凑,玻璃底淡入 */
+/* 收缩态:更紧凑,玻璃底淡入(模糊滤镜随收缩态一起挂上) */
 header.mini { padding: 4px 20px 10px; }
-header.mini::before { opacity: 1; }
+header.mini::before {
+  opacity: 1;
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+}
 
 /* 顶栏主体:左侧两行,右侧车图 */
 .header-main {
