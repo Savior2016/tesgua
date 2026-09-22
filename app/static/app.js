@@ -1799,16 +1799,50 @@
       head.appendChild(chg);
       item.appendChild(head);
 
-      /* 字段区:label + value,两列网格 */
-      const fields = el('div', 'cs-fields');
-      const field = (label, val) => {
-        const f = el('div', 'cs-field');
-        f.appendChild(el('span', 'cs-label', label));
-        const v = el('span', 'cs-val');
+      /* hero 区:充入电量大数字 + 起止电量进度条(底段=充前已有,亮段=本次充入) */
+      const hero = el('div', 'cs-hero');
+      const energyBox = el('div', 'cs-energy');
+      const hasEnergy = c.energy_kwh !== null && c.energy_kwh !== undefined;
+      const eVal = el('div', 'cs-energy-val');
+      eVal.appendChild(el('b', '', hasEnergy ? `+${fmtNum(c.energy_kwh, 1)}` : '—'));
+      if (hasEnergy) eVal.appendChild(el('span', 'cs-energy-unit', 'kWh'));
+      energyBox.appendChild(eVal);
+      energyBox.appendChild(el('div', 'cs-energy-sub', '充入电量'));
+      hero.appendChild(energyBox);
+
+      const hasLevels = c.start_battery_level !== null && c.end_battery_level !== null
+        && c.start_battery_level !== undefined && c.end_battery_level !== undefined;
+      if (hasLevels) {
+        const p0 = Math.max(0, Math.min(100, c.start_battery_level));
+        const p1 = Math.max(p0, Math.min(100, c.end_battery_level));
+        const batt = el('div', 'cs-batt');
+        const track = el('div', 'cs-batt-track');
+        const base = el('i', 'cs-batt-base');
+        base.style.width = p1 + '%';
+        const addSeg = el('i', 'cs-batt-add');
+        addSeg.style.left = p0 + '%';
+        addSeg.style.width = (p1 - p0) + '%';
+        track.appendChild(base);
+        track.appendChild(addSeg);
+        batt.appendChild(track);
+        const lab = el('div', 'cs-batt-lab');
+        lab.appendChild(el('span', '', fmtNum(p0, 0) + '%'));
+        lab.appendChild(el('b', '', fmtNum(p1, 0) + '%'));
+        batt.appendChild(lab);
+        hero.appendChild(batt);
+      }
+      item.appendChild(hero);
+
+      /* 指标瓦片:label 在上、数值在下,自动换行网格 */
+      const tiles = el('div', 'cs-tiles');
+      const tile = (label, val) => {
+        const t = el('div', 'cs-tile');
+        t.appendChild(el('span', 'cs-tile-label', label));
+        const v = el('span', 'cs-tile-val');
         if (typeof val === 'string') v.textContent = val;
         else v.appendChild(val);
-        f.appendChild(v);
-        fields.appendChild(f);
+        t.appendChild(v);
+        tiles.appendChild(t);
       };
       const numInput = (placeholder) => {
         const inp = el('input', 'cost-input');
@@ -1820,8 +1854,7 @@
         return inp;
       };
 
-      field('充电量', c.energy_kwh !== null && c.energy_kwh !== undefined
-        ? `${fmtNum(c.energy_kwh, 2)} kWh` : '—');
+      tile('充电时长', fmtDur(c.duration_min));
 
       // 总耗电(桩端计费电量,含损耗):手填优先,未填显示车端记录值并标注
       const totalWrap = el('span', 'cs-inline');
@@ -1847,7 +1880,7 @@
           c.total_kwh_manual ? 'cs-tag cs-tag-manual' : 'cs-tag',
           c.total_kwh_manual ? '手填' : '车端'));
       }
-      field('总耗电', totalWrap);
+      tile('总耗电', totalWrap);
 
       // 充电费用(与「充电费用」表共用同一份数据)
       const costWrap = el('span', 'cs-inline');
@@ -1870,7 +1903,7 @@
           && c.cost_home !== null && c.cost_home !== undefined) {
         costWrap.appendChild(el('span', 'cs-tag cs-tag-home', `家充 ¥${fmtNum(c.cost_home, 2)}`));
       }
-      field('充电费用', costWrap);
+      tile('充电费用', costWrap);
 
       // 家充计价方式:自动(按地点)/ 本次不计 / 指定某个家充,改后自动重算电费
       const hcCfg = S.homeCharge;
@@ -1886,24 +1919,20 @@
             sel.disabled = true;
             csSave('/api/charging/home/assign', { charge_id: c.id, mode: sel.value }, [], true);
           });
-          field('家充计价', sel);
+          tile('家充计价', sel);
         } else {
-          field('家充计价', mode === 'off' ? '本次不按家充计'
+          tile('家充计价', mode === 'off' ? '本次不按家充计'
             : mode === 'auto' ? '自动(按地点)' : `按「${c.home_name}」计`);
         }
       }
 
-      field('电费单价', c.rate_yuan_kwh !== null && c.rate_yuan_kwh !== undefined
+      tile('电费单价', c.rate_yuan_kwh !== null && c.rate_yuan_kwh !== undefined
         ? `¥${fmtNum(c.rate_yuan_kwh, 2)} /kWh` : '—');
-      field('起止电量', (c.start_battery_level !== null && c.end_battery_level !== null
-        && c.start_battery_level !== undefined && c.end_battery_level !== undefined)
-        ? `${fmtNum(c.start_battery_level, 0)}% → ${fmtNum(c.end_battery_level, 0)}%` : '—');
-      field('充电时长', fmtDur(c.duration_min));
-      field('充电后行驶里程', `${fmtNum(c.after_km, 1)} km`);
-      field('充电后每公里费用', c.per_km_yuan !== null && c.per_km_yuan !== undefined
+      tile('充电后行驶里程', `${fmtNum(c.after_km, 1)} km`);
+      tile('充电后每公里费用', c.per_km_yuan !== null && c.per_km_yuan !== undefined
         ? `¥${fmtNum(c.per_km_yuan, 2)} /km` : '—');
 
-      item.appendChild(fields);
+      item.appendChild(tiles);
 
       /* 充电曲线(功率/电压/电流 + 电池加热底纹),展开时懒加载 /api/charging/curve */
       const curveTg = el('div', 'cs-curve-toggle');

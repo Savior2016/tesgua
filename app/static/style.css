@@ -1075,15 +1075,15 @@ button { touch-action: manipulation; }
   font: inherit;
   text-align: left;
   min-width: 112px;
-  /* 压在总览卡背景图上,玻璃令牌(82%/58%)太透看不清字,芯片用近实色 */
+  /* 压在总览卡火星背景上,半透明会看不清字,芯片须完全不透明 */
   background: linear-gradient(180deg,
-    color-mix(in srgb, var(--surface-1) 96%, transparent),
-    color-mix(in srgb, var(--page) 92%, transparent));
+    var(--surface-1),
+    color-mix(in srgb, var(--surface-1) 55%, var(--page)));
   border: 1px solid var(--glass-edge);
   border-radius: 9px;
   padding: 6px 10px 8px;
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
   box-shadow: var(--ctl-shadow),
@@ -1098,7 +1098,7 @@ button { touch-action: manipulation; }
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1318,6 +1318,7 @@ button { touch-action: manipulation; }
 
 #car-card .ov-bg {
   position: absolute;
+  z-index: -1;  /* 垫在卡内内容之下:芯片/均耗条等静态内容的背景之上不能再叠火星纹理 */
   pointer-events: none;
   transition: opacity 1.1s ease;
 }
@@ -2178,11 +2179,107 @@ button { touch-action: manipulation; }
 
 .cs-loc-input { font-size: 11.5px; color: var(--text-muted); max-width: 150px; }
 
-.cs-fields {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 16px;
+/* hero 区:充入电量大数字 + 起止电量进度条 */
+.cs-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 2px 2px 12px;
 }
+
+.cs-energy { flex: 0 0 auto; }
+
+.cs-energy-val { display: flex; align-items: baseline; gap: 4px; }
+
+.cs-energy-val b {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: var(--cat-charge);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.cs-energy-unit { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+
+.cs-energy-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+/* 起止电量条:底段=充前已有(淡),亮段=本次充入(渐变发光) */
+.cs-batt { flex: 1; min-width: 0; }
+
+.cs-batt-track {
+  position: relative;
+  height: 8px;
+  border-radius: 5px;
+  background: var(--tile-track);
+}
+
+.cs-batt-track i { position: absolute; top: 0; bottom: 0; }
+
+.cs-batt-base {
+  left: 0;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--cat-charge) 24%, transparent);
+}
+
+.cs-batt-add {
+  border-radius: 5px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--cat-charge) 72%, var(--series-1)),
+    var(--cat-charge));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--cat-charge) 45%, transparent);
+}
+
+.cs-batt-lab {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cs-batt-lab b { color: var(--text-primary); font-weight: 600; }
+
+/* 指标瓦片网格:label 在上小字、数值在下加粗 */
+.cs-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.cs-tile {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 10px 8px;
+  background: color-mix(in srgb, var(--text-primary) 3%, transparent);
+  min-width: 0;
+}
+
+.cs-tile-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+  white-space: nowrap;
+}
+
+.cs-tile-val {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cs-tile-val:has(.cs-inline) { white-space: normal; }
+
+.cs-tile .cost-input { width: 76px; padding: 2px 6px; font-size: 13px; }
+
+.cs-tile .cs-home-sel { max-width: 100%; }
 
 /* 充电曲线:展开行(仿充电桩汇总行的折叠交互)+ 图表容器 */
 .cs-curve-toggle {
@@ -2218,24 +2315,6 @@ button { touch-action: manipulation; }
 
 .cs-curve-note + .cs-curve-chart { height: calc(100% - 20px); }
 
-.cs-field {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-  font-size: 13px;
-  padding: 3px 0;
-}
-
-.cs-label { color: var(--text-muted); flex-shrink: 0; }
-
-.cs-val {
-  color: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-}
-
 .cs-inline {
   display: inline-flex;
   align-items: baseline;
@@ -2244,9 +2323,7 @@ button { touch-action: manipulation; }
   justify-content: flex-end;
 }
 
-.cs-val:has(.cs-inline) { white-space: normal; }
-
-.cs-unit { font-size: 11px; color: var(--text-muted); }
+.cs-unit { font-size: 11px; font-weight: 400; color: var(--text-muted); }
 
 .cs-tag {
   font-size: 10px;
@@ -2259,8 +2336,6 @@ button { touch-action: manipulation; }
 
 .cs-tag-manual { color: var(--cat-charge); border-color: var(--cat-charge); }
 
-.cs-item .cost-input { width: 84px; padding: 3px 6px; }
-
 @media (max-width: 600px) {
   .cs-item { padding: 9px 10px 10px; }
   .cs-head { flex-direction: column; gap: 6px; }
@@ -2270,9 +2345,12 @@ button { touch-action: manipulation; }
   .cs-charger-meta .cs-brand-input { max-width: 110px; }
   .cs-charger-meta .cs-loc-input { flex: 1; }
   .cs-curve { height: 180px; }
-  .cs-fields { gap: 4px 8px; }
-  .cs-field { font-size: 12px; gap: 6px; }
-  .cs-item .cost-input { width: 56px; padding: 3px 4px; font-size: 12px; }
+  .cs-hero { gap: 14px; padding-bottom: 10px; }
+  .cs-energy-val b { font-size: 22px; }
+  .cs-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+  .cs-tile { padding: 6px 8px 7px; }
+  .cs-tile-val { font-size: 12.5px; }
+  .cs-tile .cost-input { width: 52px; padding: 2px 4px; font-size: 12px; }
   .cs-inline { gap: 3px; }
   .cs-tag { font-size: 9px; padding: 0 3px; }
 }
