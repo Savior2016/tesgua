@@ -1953,6 +1953,7 @@
       curveTg.appendChild(el('span', '', '充电曲线'));
       curveTg.appendChild(el('span', 'cg-arrow', '▾'));
       const curveBox = el('div', 'cs-curve');
+      curveBox.hidden = true;  // 初始收起必须显式 hidden:.cs-curve 固定高 220px,不设会露一块空白
       const applyCurveState = (on) => {
         curveTg.classList.toggle('open', on);
         curveBox.hidden = !on;
