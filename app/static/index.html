@@ -7,7 +7,7 @@
   <title>TESLA Home</title>
   <link rel="stylesheet" href="/maplibre-gl.css">
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/control.css?v=10">
+  <link rel="stylesheet" href="/control.css?v=11">
 </head>
 <body>
 <!-- 过冲(overscroll)露出的顶部背景中央:小圆圈 + 星舰徽标,平时被顶栏遮住 -->
@@ -280,29 +280,13 @@
     <div class="card col-12">
       <div class="card-head">
         <div>
-          <h2>电量活动时间线</h2>
-          <div class="card-sub">电量曲线与每日分隔,下方双泳道标注行程 / 充电 / 哨兵 / 驻车耗电 · 手机可拖动缩放</div>
+          <h2>平均能耗</h2>
+          <div class="card-sub">每次行程一根柱(只统计超过 2 km 的行程),柱色=与官方能耗对比:绿 ≤ 官方 / 黄 超出 15% 以内 / 红 更高;虚线为官方参考值</div>
         </div>
         <div class="card-head-right">
-          <div class="chip-legend" id="activity-legend">
-            <span class="chip cat-drive">行驶</span>
-            <span class="chip cat-charge">充电</span>
-            <span class="chip cat-sentry">哨兵</span>
-            <span class="chip cat-idle">驻车耗电</span>
-          </div>
-          <div class="seg mini batt-toggle" role="group" aria-label="电量/度数/里程切换">
-            <button data-mode="pct" class="on">电量 %</button>
-            <button data-mode="kwh">度数 kWh</button>
-            <button data-mode="km">里程 km</button>
-          </div>
+          <div class="mini-stats" id="eff-stats"></div>
         </div>
       </div>
-      <div class="chart chart-activity" id="chart-activity"></div>
-    </div>
-
-    <div class="card col-12">
-      <h2>平均能耗变化</h2>
-      <div class="card-sub">每次行程 Wh/km(只统计超过 2 km 的行程),按理想续航差值 × 校准系数估算</div>
       <div class="chart" id="chart-efficiency"></div>
     </div>
 
@@ -314,33 +298,6 @@
         </div>
       </div>
       <div id="events-list"></div>
-    </div>
-
-    <div class="card col-12">
-      <div class="card-head">
-        <div>
-          <h2>哨兵时间轴与每日耗电</h2>
-          <div class="card-sub">哨兵时段为按「驻车保持清醒 + 电量下降」推断(车辆不直接上报哨兵状态)</div>
-        </div>
-        <div class="mini-stats" id="sentry-stats"></div>
-      </div>
-      <div class="sentry-split">
-        <div class="sentry-pane">
-          <h3>每天哨兵开启时间轴</h3>
-          <div class="chart" id="chart-sentry-lanes"></div>
-        </div>
-        <div class="sentry-pane">
-          <div class="pane-head">
-            <h3>每天哨兵耗电总和</h3>
-            <div class="seg mini batt-toggle" role="group" aria-label="电量/度数/里程切换">
-              <button data-mode="pct" class="on">电量 %</button>
-              <button data-mode="kwh">度数 kWh</button>
-              <button data-mode="km">里程 km</button>
-            </div>
-          </div>
-          <div class="chart" id="chart-sentry-drain"></div>
-        </div>
-      </div>
     </div>
   </div>
   </section>
@@ -396,15 +353,36 @@
     </div>
 
     <div class="card col-6">
-      <h2>胎压变化</h2>
-      <div class="card-sub">四轮胎压(bar),仅车辆清醒时段上报</div>
-      <div class="chart" id="chart-tpms"></div>
+      <div class="card-head">
+        <div>
+          <h2>胎压</h2>
+          <div class="card-sub">四轮胎压(bar),仅车辆清醒时段上报;刻度条覆盖所选范围的最低–最高,竖线为标准胎压 2.9 bar,读数按偏差着色(≤0.15 绿 / ≤0.3 黄 / 再高红)</div>
+        </div>
+      </div>
+      <div class="tpms-grid" id="tpms-wheels"></div>
     </div>
 
     <div class="card col-6">
-      <h2>车内 / 车外温度</h2>
-      <div class="card-sub">车厢与车外温度(°C),仅车辆清醒时段上报</div>
+      <div class="card-head">
+        <div>
+          <h2>车内 / 车外温度</h2>
+          <div class="card-sub">车厢与车外温度(°C),仅车辆清醒时段上报</div>
+        </div>
+        <div class="card-head-right">
+          <div class="temp-now" id="temp-now"></div>
+        </div>
+      </div>
       <div class="chart" id="chart-temp"></div>
+    </div>
+
+    <div class="card col-12">
+      <div class="card-head">
+        <div>
+          <h2>温度与能耗 · 近一年</h2>
+          <div class="card-sub">按自然月统计:柱=当月平均能耗(Wh/km,只计超过 2 km 的行程,柱色=与官方能耗对比),线=月均车外温度;低温月份能耗通常走高</div>
+        </div>
+      </div>
+      <div class="chart" id="chart-monthly"></div>
     </div>
   </div>
   </section>
@@ -557,36 +535,61 @@
             </svg>
             <div class="ctl-chips" id="ctl-chips"></div>
             <p class="ctl-legend-hint">点按车身部位操作 · 部位发绿光 = 开启/已锁</p>
-          </div>
 
-          <div class="ctl-modules" aria-label="车辆控制模块">
-            <div class="ctl-module" data-panel="climate" style="--mc:var(--series-1)">
-              <span>空调温度</span>
-              <button class="ctl-module-open" type="button" aria-label="空调详细设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
-              <b id="ctl-module-climate">查看与调节</b>
-            </div>
-            <div class="ctl-module" data-panel="charge" style="--mc:var(--cat-charge)">
-              <span>充电控制</span>
-              <button class="ctl-module-open" type="button" aria-label="充电详细设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
-              <b id="ctl-module-charge">启停与上限</b>
-            </div>
-            <div class="ctl-module" data-panel="lights" style="--mc:var(--series-4)">
-              <span>车灯与鸣笛</span>
-              <button class="ctl-module-open" type="button" aria-label="车灯详细设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
-              <b id="ctl-module-lights">闪灯 / 鸣笛</b>
-            </div>
-            <div class="ctl-module" data-panel="nap" style="--mc:var(--cat-idle)">
-              <span>午休模式</span>
-              <button class="ctl-module-open" type="button" aria-label="午休详细设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
-              <b id="ctl-module-nap">定时露营</b>
+            <!-- 上滑展开控制模块:面板覆盖在车模同一区域,下滑/点握把返回 -->
+            <button class="ctl-sheet-peek" id="ctl-sheet-peek" type="button" aria-label="展开控制模块">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8l6 6-1.4 1.4L12 10.8l-4.6 4.6L6 14z"/></svg>
+              控制模块
+            </button>
+            <div class="ctl-sheet" id="ctl-sheet" aria-hidden="true">
+              <div class="ctl-sheet-grip" id="ctl-sheet-grip" role="button" tabindex="0"
+                   aria-label="下滑或点按返回车辆模型"><i></i></div>
+              <div class="ctl-sheet-scroll">
+                <!-- 模块网格视图:四张模块瓦片 + 刷新/审计 -->
+                <div class="ctl-sheet-home" id="ctl-sheet-home">
+                  <div class="ctl-modules" aria-label="车辆控制模块">
+                    <div class="ctl-module" data-panel="climate" style="--mc:var(--series-1)">
+                      <span>空调温度</span>
+                      <button class="ctl-module-open" type="button" aria-label="空调详细设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
+                      <b id="ctl-module-climate">查看与调节</b>
+                    </div>
+                    <div class="ctl-module" data-panel="charge" style="--mc:var(--cat-charge)">
+                      <span>充电控制</span>
+                      <button class="ctl-module-open" type="button" aria-label="充电详细设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
+                      <b id="ctl-module-charge">启停与上限</b>
+                    </div>
+                    <div class="ctl-module" data-panel="lights" style="--mc:var(--series-4)">
+                      <span>车灯与鸣笛</span>
+                      <button class="ctl-module-open" type="button" aria-label="车灯详细设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
+                      <b id="ctl-module-lights">闪灯 / 鸣笛</b>
+                    </div>
+                    <div class="ctl-module" data-panel="nap" style="--mc:var(--cat-idle)">
+                      <span>午休模式</span>
+                      <button class="ctl-module-open" type="button" aria-label="午休详细设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
+                      <b id="ctl-module-nap">定时露营</b>
+                    </div>
+                  </div>
+                  <div class="ctl-foot-actions">
+                    <button class="ctl-btn" id="ctl-refresh" type="button">刷新车辆状态</button>
+                    <button class="ctl-btn" id="ctl-audit" type="button">控制审计</button>
+                  </div>
+                </div>
+                <!-- 详情视图:复用原弹窗的元素 id(样式与渲染逻辑不变) -->
+                <div class="ctl-sheet-detail" id="ctl-sheet-detail" hidden>
+                  <div class="ctl-detail-head">
+                    <button id="ctl-sheet-back" class="ctl-sheet-back" type="button" aria-label="返回控制模块"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.4 5.4 14 4l-8 8 8 8 1.4-1.4L8.8 12z"/></svg></button>
+                    <h2 id="ctl-dialog-title"></h2>
+                    <button id="ctl-dialog-close" class="ctl-dialog-close" type="button" aria-label="关闭操作窗口"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.7 16.9 4.3 12 9.2 7.1 4.3 5.7 5.7 10.6 12l-4.9 4.9 1.4 1.4 4.9-4.9 4.9 4.9 1.4-1.4-4.9-4.9z"/></svg></button>
+                  </div>
+                  <p id="ctl-dialog-state"></p>
+                  <div id="ctl-dialog-body"></div>
+                  <p id="ctl-dialog-message" role="status" aria-live="polite"></p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
         <p class="ctl-note" id="ctl-live-note" role="status">点击刷新读取车辆当前状态。</p>
-        <div class="ctl-foot-actions">
-          <button class="ctl-btn" id="ctl-refresh" type="button">刷新车辆状态</button>
-          <button class="ctl-btn" id="ctl-audit" type="button">控制审计</button>
-        </div>
         <p class="ctl-note" id="ctl-operation-message" role="status" aria-live="polite"></p>
 
       </div>
@@ -601,11 +604,6 @@
     </div>
   </div>
   </section>
-
-  <dialog id="ctl-dialog" aria-labelledby="ctl-dialog-title">
-    <div class="ctl-dialog-head"><h2 id="ctl-dialog-title"></h2><button id="ctl-dialog-close" class="ctl-dialog-close" aria-label="关闭操作窗口"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.7 16.9 4.3 12 9.2 7.1 4.3 5.7 5.7 10.6 12l-4.9 4.9 1.4 1.4 4.9-4.9 4.9 4.9 1.4-1.4-4.9-4.9z"/></svg></button></div>
-    <p id="ctl-dialog-state"></p><div id="ctl-dialog-body"></div><p id="ctl-dialog-message" role="status" aria-live="polite"></p>
-  </dialog>
 
   <!-- 控制审计:每次指令下发记录(含定时哨兵自动执行) -->
   <dialog id="ctl-audit-dialog" aria-labelledby="ctl-audit-title">
@@ -699,7 +697,7 @@
 <script src="/echarts.min.js"></script>
 <script src="/maplibre-gl-csp.js"></script>
 <script src="/pmtiles.js"></script>
-<script src="/control.js?v=9"></script>
+<script src="/control.js?v=10"></script>
 <script src="/pageturn.js"></script>
 <script src="/app.js"></script>
 </body>

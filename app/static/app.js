@@ -44,6 +44,13 @@
     left: 8, right: isNarrow() ? 24 : 40, top, bottom: 4, containLabel: true,
   });
 
+  // hex 颜色 → rgba(渐变填充用)
+  const hexA = (hex, a) => {
+    const h = hex.replace('#', '');
+    const n = parseInt(h.length === 3 ? h.split('').map((x) => x + x).join('') : h, 16);
+    return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+  };
+
   // 电量 ⇄ 里程换算:以最近一次上报的「额定续航 / 可用电量」推定满电续航,线性折算
   const kmFull = () => {
     const lat = S.overview && S.overview.latest;
@@ -79,60 +86,6 @@
   const kwhSuffix = (pct) => {
     const w = kwhAtPct(pct);
     return w === null ? '' : `≈ ${fmtNum(w, 1)} kWh`;
-  };
-
-  // 当前生效的电量维度:所选维度的换算数据缺失时自动回退 pct
-  const battDim = () => {
-    if (S.battMode === 'km' && kmFull() !== null) return 'km';
-    if (S.battMode === 'kwh' && kwhPerPct() !== null) return 'kwh';
-    return 'pct';
-  };
-  const BATT_SERIES_NAME = { pct: '电量', kwh: '剩余电量(折算)', km: '剩余里程(折算)' };
-  const BATT_UNIT = { pct: '%', kwh: 'kWh', km: 'km' };
-  // 电量值按当前维度格式化主单位(如「42%」「35.6 kWh」「353 km」)
-  const battVal = (pct) => {
-    const dim = battDim();
-    if (dim === 'km') { const v = kmAtPct(pct); if (v !== null) return `${fmtNum(v, 0)} km`; }
-    if (dim === 'kwh') { const v = kwhAtPct(pct); if (v !== null) return `${fmtNum(v, 1)} kWh`; }
-    return `${fmtNum(pct, 0)}%`;
-  };
-  // 当前维度之外的其他维度提示,如「42% · ≈ 353 km」
-  const battAlt = (pct) => {
-    const p = Number(pct);
-    if (pct === null || pct === undefined || isNaN(p)) return '';
-    const dim = battDim();
-    const parts = [];
-    if (dim !== 'pct') parts.push(`${fmtNum(p, 0)}%`);
-    if (dim !== 'kwh') { const w = kwhAtPct(p); if (w !== null) parts.push(`≈ ${fmtNum(w, 1)} kWh`); }
-    if (dim !== 'km') { const m = kmAtPct(p); if (m !== null) parts.push(`≈ ${fmtNum(m, 0)} km`); }
-    return parts.join(' · ');
-  };
-  // 电量曲线数据按当前维度换算(折算失败点剔除)
-  const battSeriesData = (data) => {
-    const dim = battDim();
-    if (dim === 'pct') return data;
-    const conv = dim === 'km' ? kmAtPct : kwhAtPct;
-    return data.map(([t, p]) => [t, conv(p)]).filter((p) => p[1] !== null);
-  };
-  const battAxisMax = () => {
-    const dim = battDim();
-    if (dim === 'km') return Math.ceil(kmFull() / 100) * 100;
-    if (dim === 'kwh') return Math.ceil(kwhAtPct(100) / 10) * 10;
-    return 100;
-  };
-
-  // 电量曲线 tooltip 的双单位补充:主单位之外的其他维度
-  const dualBatt = {
-    '仪表电量': (v) => battAlt(v),
-    '电量': (v) => battAlt(v),
-    '剩余里程(折算)': (v) => {
-      const f = kmFull();
-      return !f ? '' : battAlt(v / f * 100);
-    },
-    '剩余电量(折算)': (v) => {
-      const k = kwhPerPct();
-      return !k ? '' : battAlt(v / k);
-    },
   };
 
   function el(tag, cls, text) {
@@ -217,8 +170,8 @@
     localStorage.setItem('ttv-batt-mode', mode);
     document.querySelectorAll('.batt-toggle button').forEach((b) =>
       b.classList.toggle('on', b.dataset.mode === mode));
-    // 仅重绘电量相关视图(避免地图 fitBounds 被重置)
-    renderHeader(); renderActivity(); renderSentry();
+    // 仅重绘顶栏胶囊(时间线/哨兵图已移除;避免地图 fitBounds 被重置)
+    renderHeader();
   }
 
   function chartTheme() {
@@ -420,198 +373,6 @@
         barMaxWidth: 24,
         itemStyle: { color: cssVar('--series-1'), borderRadius: [4, 4, 0, 0] },
       }],
-    }), { notMerge: true });
-  }
-
-  /* ---------- 渲染:电量活动时间线(顶部全宽) ---------- */
-
-  function stripSeries(name, data, tooltipBody) {
-    // 泳道标注条:data = [laneIndex, startMs, endMs, color, meta]
-    return {
-      name, type: 'custom',
-      xAxisIndex: 1, yAxisIndex: 1,
-      data, animation: false,
-      renderItem(params, api) {
-        const lane = api.value(0);
-        const x0 = api.coord([api.value(1), lane]);
-        const x1 = api.coord([api.value(2), lane]);
-        const yTop = api.coord([api.value(1), lane + 0.38]);
-        const yBot = api.coord([api.value(1), lane - 0.38]);
-        return {
-          type: 'rect',
-          shape: {
-            x: x0[0],
-            y: yBot[1],
-            width: Math.max(x1[0] - x0[0], 2),
-            height: yTop[1] - yBot[1],
-          },
-          style: { fill: api.value(3), opacity: 0.9 },
-        };
-      },
-      encode: { x: [1, 2], y: 0 },
-      tooltip: {
-        trigger: 'item',
-        backgroundColor: cssVar('--surface-1'),
-        borderColor: cssVar('--border'),
-        borderWidth: 1,
-        padding: [8, 12],
-        textStyle: { color: cssVar('--text-primary'), fontSize: 12 },
-        extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,.18);border-radius:8px;',
-        formatter(params) {
-          return tooltipBody(params.data[4]);
-        },
-      },
-    };
-  }
-
-  function activityDomain(a) {
-    const nowMs = Date.now();
-    const first = a.battery.length ? a.battery[0][0] : nowMs;
-    return {
-      min: Math.min(first, localMidnight(nowMs - S.days * 86400000)) - 3600000,
-      max: nowMs + 60000,
-    };
-  }
-
-  function renderActivity() {
-    const o = S.overview;
-    if (!o || !charts.activity || !o.activity) return;
-    const a = o.activity;
-    const domain = activityDomain(a);
-    const batt = a.battery.map((p) => [Number(p[0]), Number(p[1])]);
-    // 窄屏:y 轴标签绘制在图内,无需 96px 左边距,留出更多绘图区
-    const narrow = isNarrow();
-    // 电量 ⇄ 度数 ⇄ 里程维度切换
-    const dim = battDim();
-    const battLine = battSeriesData(batt);
-
-    // 每一天的分隔:本地零点竖虚线
-    const midnights = [];
-    for (let t = localMidnight(domain.min); t <= domain.max; t += 86400000) {
-      midnights.push({ xAxis: t });
-    }
-
-    const stripData = [];
-    const catColor = (c) => cssVar(CAT[c].colorVar);
-    a.drives.forEach((d) => stripData.push([
-      1, Number(d.start_date_ts), Number(d.end_date_ts), catColor('drive'),
-      {
-        kind: 'drive', s: Number(d.start_date_ts), e: Number(d.end_date_ts),
-        title: '行驶', body: `${fmtNum(d.distance, 1)} km · ${fmtNum(d.duration_min, 0)} 分` +
-          `${d.start_name || d.end_name ? ` · ${escapeHTML(d.start_name || '—')} → ${escapeHTML(d.end_name || '—')}` : ''}`,
-      },
-    ]));
-    a.charges.forEach((c) => stripData.push([
-      1, Number(c.start_date_ts), c.end_date_ts === null ? domain.max : Number(c.end_date_ts),
-      catColor('charge'),
-      {
-        kind: 'charge', s: Number(c.start_date_ts),
-        title: '充电', body: `${fmtNum(c.charge_energy_added, 1)} kWh · ` +
-          `${fmtNum(c.start_battery_level, 0)}% → ${fmtNum(c.end_battery_level, 0)}%` +
-          (c.start_battery_level !== null && c.end_battery_level !== null
-            ? ` · 增加 ${kmSuffix(Number(c.end_battery_level) - Number(c.start_battery_level))} ${kwhSuffix(Number(c.end_battery_level) - Number(c.start_battery_level))}` : '') +
-          (c.cost !== null && c.cost !== undefined ? ` · ¥${fmtNum(c.cost, 2)}` : '') +
-          `${c.address_name ? ` · ${escapeHTML(c.address_name)}` : ''}`,
-      },
-    ]));
-    a.sentry.forEach((p) => stripData.push([
-      0, p.s, p.e, catColor('sentry'),
-      {
-        kind: 'sentry', s: p.s, e: p.e,
-        title: '哨兵耗电', body: `${fmtNum(p.dur_min, 0)} 分钟 · 耗电 ${battVal(-p.delta)}${battAlt(-p.delta) ? ' · ' + battAlt(-p.delta) : ''}` +
-          (p.rate_pct_h !== null ? ` · 约 ${fmtNum(p.rate_pct_h, 2)} %/h` : ''),
-      },
-    ]));
-    a.idle.forEach((p) => stripData.push([
-      0, p.s, p.e, catColor('idle'),
-      {
-        kind: 'idle', s: p.s, e: p.e,
-        title: p.kind === 'climate' ? '驻车耗电(空调)' : '驻车耗电(休眠)',
-        body: `${fmtNum(p.dur_min, 0)} 分钟 · 耗电 ${battVal(-p.delta)}${battAlt(-p.delta) ? ' · ' + battAlt(-p.delta) : ''}`,
-      },
-    ]));
-
-    const stripTip = (m) =>
-      `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-bottom:4px">` +
-      `${m.title} · ${fmtTime(m.s)} – ${fmtTime(m.e)}</div>` +
-      `<div><b>${m.body}</b></div>`;
-
-    charts.activity.setOption(Object.assign({}, chartTheme(), {
-      animation: false,
-      tooltip: tooltipAxis({ '电量': '%', '剩余电量(折算)': 'kWh', '剩余里程(折算)': 'km' },
-        (v) => fmtTime(v, true), dualBatt),
-      axisPointer: { link: [{ xAxisIndex: 'all' }] },
-      grid: [
-        { left: narrow ? 6 : 96, right: narrow ? 20 : 44, top: 30, bottom: '26%' },
-        { left: narrow ? 6 : 96, right: narrow ? 20 : 44, top: '78%', bottom: '11%' },
-      ],
-      xAxis: [
-        Object.assign(timeAxis(S.days), {
-          min: domain.min, max: domain.max,
-          axisLabel: { show: false },
-          axisPointer: { label: { show: false } },
-        }),
-        Object.assign(timeAxis(S.days), {
-          gridIndex: 1, min: domain.min, max: domain.max,
-          axisPointer: { label: { show: false } },
-        }),
-      ],
-      yAxis: [
-        Object.assign(axisCommon(), {
-          type: 'value', min: 0,
-          max: battAxisMax(),
-          axisLabel: { color: cssVar('--text-muted'), fontSize: 11,
-            formatter: dim === 'pct' ? '{value}%' : '{value}', inside: true },
-        }),
-        Object.assign(axisCommon(), {
-          gridIndex: 1, type: 'value', min: 0, max: 2, interval: 0.5,
-          splitLine: { show: false },
-          axisLabel: {
-            color: cssVar('--text-muted'), fontSize: 11, inside: true,
-            formatter: (v) => (v === 1.5 ? '行驶 · 充电' : v === 0.5 ? '哨兵 · 驻车耗电' : ''),
-          },
-        }),
-      ],
-      series: [
-        Object.assign(lineSeries(BATT_SERIES_NAME[dim], battLine,
-          cssVar('--series-1')), {
-          markLine: {
-            silent: true, symbol: 'none',
-            data: midnights,
-            lineStyle: { color: cssVar('--baseline'), type: 'dashed', width: 1 },
-            label: {
-              show: S.days <= 7, position: 'insideEndTop',
-              formatter: (p) => fmtTime(p.value).slice(0, 5),
-              color: cssVar('--text-muted'), fontSize: 10,
-              backgroundColor: cssVar('--surface-1'), padding: [1, 5], borderRadius: 4,
-            },
-          },
-        }),
-        stripSeries('活动', stripData, stripTip),
-      ],
-      dataZoom: [
-        { type: 'inside', xAxisIndex: [0, 1], filterMode: 'none' },
-        {
-          type: 'slider', xAxisIndex: [0, 1], filterMode: 'none',
-          bottom: 2, height: narrow ? 20 : 16,
-          handleSize: narrow ? '130%' : '100%',
-          moveHandleSize: narrow ? 10 : 7,
-          borderColor: cssVar('--border'),
-          backgroundColor: 'transparent',
-          fillerColor: 'rgba(57,135,229,0.12)',
-          handleStyle: { color: cssVar('--series-1') },
-          moveHandleStyle: { color: cssVar('--baseline') },
-          dataBackground: {
-            lineStyle: { color: cssVar('--baseline') },
-            areaStyle: { color: 'transparent' },
-          },
-          selectedDataBackground: {
-            lineStyle: { color: cssVar('--series-1') },
-            areaStyle: { color: 'rgba(57,135,229,0.12)' },
-          },
-          textStyle: { color: cssVar('--text-muted'), fontSize: 10 },
-        },
-      ],
     }), { notMerge: true });
   }
 
@@ -844,178 +605,47 @@
     });
   }
 
-  /* ---------- 渲染:哨兵时间轴与耗电曲线 ---------- */
-
-  function renderSentry() {
-    const o = S.overview;
-    if (!o || !charts.sentryLanes || !charts.sentryDrain || !o.activity) return;
-    const a = o.activity;
-    const sentry = a.sentry || [];
-
-    // 概览统计
-    const stats = $('#sentry-stats');
-    stats.textContent = '';
-    const hours = sentry.reduce((s, p) => s + (p.e - p.s), 0) / 3600000;
-    const drain = -sentry.reduce((s, p) => s + p.delta, 0);
-    function stat(label, value, unit, extra) {
-      const t = el('span', 'mini-stat');
-      t.appendChild(el('span', '', label + ' '));
-      const b = el('b', '', fmtNum(value, value < 10 ? 1 : 0));
-      t.appendChild(b);
-      if (unit) t.appendChild(el('span', '', ' ' + unit));
-      if (extra) t.appendChild(el('span', '', ' ' + extra));
-      stats.appendChild(t);
-    }
-    stat('哨兵总时长', hours, '小时');
-    const dim = battDim();
-    const drainVal = dim === 'km' ? kmAtPct(drain) : dim === 'kwh' ? kwhAtPct(drain) : drain;
-    stat('哨兵耗电', drainVal === null ? 0 : drainVal, BATT_UNIT[dim], battAlt(drain));
-    const rateVal = hours > 0 ? (drainVal === null ? 0 : drainVal) / hours : 0;
-    stat('平均耗电速率', rateVal, BATT_UNIT[dim] + '/h');
-    stat('哨兵时段数', sentry.length, '');
-
-    // 按天拆分哨兵时段(跨零点切开)
-    const byDay = new Map();
-    sentry.forEach((p) => {
-      let cur = p.s;
-      while (cur < p.e) {
-        const ds = localMidnight(cur);
-        const de = ds + 86400000;
-        const segEnd = Math.min(p.e, de);
-        const frac = (segEnd - cur) / (p.e - p.s);
-        const key = dayKey(ds);
-        if (!byDay.has(key)) byDay.set(key, []);
-        byDay.get(key).push({
-          s: cur, e: segEnd,
-          delta: Math.round(p.delta * frac),
-          dur_min: Math.round(p.dur_min * frac),
-          rate_pct_h: p.rate_pct_h,
-        });
-        cur = de;
-      }
-    });
-    const domain = activityDomain(a);
-    const days = [];
-    for (let t = localMidnight(domain.max); t >= localMidnight(domain.min); t -= 86400000) {
-      days.push({ key: dayKey(t), ms: t });
-    }
-    const laneData = [];
-    days.forEach((d, idx) => {
-      (byDay.get(d.key) || []).forEach((seg) => {
-        laneData.push([idx, (seg.s - d.ms) / 3600000, (seg.e - d.ms) / 3600000,
-          cssVar('--cat-sentry'), { d, seg }]);
-      });
-    });
-    const laneH = Math.min(Math.max(days.length * 26 + 56, 170), 540);
-    $('#chart-sentry-lanes').style.height = laneH + 'px';
-
-    charts.sentryLanes.setOption(Object.assign({}, chartTheme(), {
-      animation: false,
-      tooltip: {
-        trigger: 'item',
-        backgroundColor: cssVar('--surface-1'),
-        borderColor: cssVar('--border'), borderWidth: 1, padding: [8, 12],
-        textStyle: { color: cssVar('--text-primary'), fontSize: 12 },
-        extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,.18);border-radius:8px;',
-        formatter(params) {
-          const m = params.data[4];
-          const hh = (x) => `${String(Math.floor(x)).padStart(2, '0')}:${String(Math.floor(x % 1 * 60)).padStart(2, '0')}`;
-          return `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-bottom:4px">` +
-            `${dayLabel(m.d.ms)} · 哨兵开启</div>` +
-            `<div><b>${hh((m.seg.s - m.d.ms) / 3600000)} – ${hh((m.seg.e - m.d.ms) / 3600000)}</b></div>` +
-            `<div style="color:${cssVar('--text-secondary')};margin-top:2px">` +
-            `约 ${fmtNum(m.seg.dur_min, 0)} 分钟 · 耗电 ${battVal(-m.seg.delta)}${battAlt(-m.seg.delta) ? ' · ' + battAlt(-m.seg.delta) : ''}` +
-            (m.seg.rate_pct_h !== null ? ` · ${fmtNum(m.seg.rate_pct_h, 2)} %/h` : '') + `</div>`;
-        },
-      },
-      grid: { left: 8, right: 20, top: 24, bottom: 4, containLabel: true },
-      xAxis: Object.assign(axisCommon(), { type: 'value', min: 0, max: 24, interval: 3,
-        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value}:00' } }),
-      yAxis: Object.assign(axisCommon(), {
-        type: 'category', inverse: true, data: days.map((d) => dayLabel(d.ms)),
-        splitLine: { show: false },
-        axisLabel: { color: cssVar('--text-secondary'), fontSize: 11 },
-      }),
-      series: [{
-        name: '哨兵', type: 'custom', data: laneData,
-        renderItem(params, api) {
-          const idx = api.value(0);
-          const x0 = api.coord([api.value(1), idx]);
-          const x1 = api.coord([api.value(2), idx]);
-          const band = api.size([0, 1]);
-          const laneHpx = Math.min(Math.max(band[1] * 0.62, 6), 22);
-          return {
-            type: 'rect',
-            shape: {
-              x: x0[0], y: x0[1] - laneHpx / 2,
-              width: Math.max(x1[0] - x0[0], 2), height: laneHpx,
-            },
-            style: { fill: api.value(3), opacity: 0.9 },
-          };
-        },
-        encode: { x: [1, 2], y: 0 },
-      }],
-    }), { notMerge: true });
-
-    // 每天哨兵耗电总和(柱状图;按当前电量维度 %/kWh/km 换算)
-    const dimDrain = battDim();
-    const convDrain = dimDrain === 'km' ? kmAtPct : dimDrain === 'kwh' ? kwhAtPct : (p) => p;
-    const drainDays = days.slice().reverse();  // 旧 → 新
-    const drainBars = drainDays.map((d) => {
-      const pct = (byDay.get(d.key) || []).reduce((s, seg) => s - seg.delta, 0);
-      const v = convDrain(pct);
-      return { day: d, pct, value: v === null ? 0 : v };
-    });
-    charts.sentryDrain.setOption(Object.assign({}, chartTheme(), {
-      animation: false,
-      tooltip: {
-        trigger: 'axis',
-        backgroundColor: cssVar('--surface-1'),
-        borderColor: cssVar('--border'), borderWidth: 1, padding: [8, 12],
-        textStyle: { color: cssVar('--text-primary'), fontSize: 12 },
-        extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,.18);border-radius:8px;',
-        axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(128,128,128,0.08)' } },
-        formatter(params) {
-          const m = drainBars[params[0].dataIndex];
-          return `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-bottom:4px">` +
-            `${dayLabel(m.day.ms)}</div>` +
-            `<div>哨兵耗电 <b>${battVal(m.pct)}</b>` +
-            (battAlt(m.pct) ? ` <span style="color:${cssVar('--text-secondary')}">${battAlt(m.pct)}</span>` : '') +
-            `</div>`;
-        },
-      },
-      grid: trendGrid(24),
-      xAxis: Object.assign(axisCommon(), { type: 'category',
-        data: drainBars.map((m) => fmtTime(m.day.ms).slice(0, 5)),
-        axisLabel: { color: cssVar('--text-muted'), fontSize: 11 } }),
-      yAxis: Object.assign(axisCommon(), { type: 'value', min: 0,
-        axisLabel: { color: cssVar('--text-muted'), fontSize: 11,
-          formatter: dimDrain === 'pct' ? '{value}%' : '{value}' } }),
-      series: [{
-        name: '哨兵耗电', type: 'bar',
-        data: drainBars.map((m) => Math.round(m.value * 100) / 100),
-        barMaxWidth: 26,
-        itemStyle: { color: cssVar('--cat-sentry'), borderRadius: [4, 4, 0, 0], opacity: 0.92 },
-      }],
-    }), { notMerge: true });
-  }
-
   /* ---------- 渲染:平均能耗 / 胎压 ---------- */
 
   function renderEfficiency() {
     const o = S.overview;
     if (!o || !charts.efficiency || !o.efficiency) return;
-    const pts = (o.efficiency.points || []).map((p) => [Number(p.start_ts), p.eff_wh_km]);
+    const raw = o.efficiency.points || [];
+    const official = Math.round(Number(o.kwhPerIdealKm || o.kwh_per_ideal_km || 0.15) * 1000);
+
+    // 头部统计:范围平均 / 最佳 / 官方参考
+    const stats = $('#eff-stats');
+    if (stats) {
+      stats.textContent = '';
+      const stat = (label, value, unit) => {
+        const t = el('span', 'mini-stat');
+        t.appendChild(el('span', '', label + ' '));
+        t.appendChild(el('b', '', String(value)));
+        if (unit) t.appendChild(el('span', '', ' ' + unit));
+        stats.appendChild(t);
+      };
+      if (raw.length) {
+        const avg = raw.reduce((s, x) => s + x.eff_wh_km, 0) / raw.length;
+        stat('平均', fmtNum(avg, 0), 'Wh/km');
+        stat('最佳', fmtNum(Math.min(...raw.map((x) => x.eff_wh_km)), 0), '');
+      }
+      stat('官方', official, '');
+    }
+
+    /* 每次行程一根柱:绿 ≤ 官方 / 黄 ≤ +15% / 红更高;虚线为官方参考 */
+    const colorFor = (v) => v <= official ? cssVar('--series-3')
+      : v <= official * 1.15 ? '#eda100' : '#d03b3b';
+    const pts = raw.map((p) => ({
+      value: [Number(p.start_ts), p.eff_wh_km],
+      itemStyle: { color: colorFor(p.eff_wh_km), borderRadius: [3, 3, 0, 0] },
+    }));
     const effTip = (params) => {
       const p0 = params[0];
       let s = `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-bottom:4px">` +
-              fmtTime(p0.axisValue, true) + '</div>';
-      params.forEach((p) => {
-        s += `<div style="line-height:1.7"><span style="display:inline-block;width:14px;height:2px;` +
-             `background:${p.color};vertical-align:middle;margin-right:6px"></span>` +
-             `<b>${fmtNum(p.value[1], 0)} Wh/km</b></div>`;
-      });
-      const d = o.efficiency.points.find((x) => x.start_ts === Number(p0.axisValue));
+              fmtTime(p0.value[0], true) + '</div>' +
+              `<div style="line-height:1.7"><b>${fmtNum(p0.value[1], 0)} Wh/km</b>` +
+              `<span style="color:${cssVar('--text-muted')};font-size:11px"> · 官方 ${official}</span></div>`;
+      const d = raw.find((x) => Number(x.start_ts) === Number(p0.value[0]));
       if (d) {
         s += `<div style="color:${cssVar('--text-muted')};margin-top:2px">` +
              `${fmtNum(d.distance, 1)} km · ${fmtNum(d.duration_min, 0)} 分` +
@@ -1023,33 +653,96 @@
       }
       return s;
     };
-    const c = cssVar('--series-1');
-    // hex → rgba(供渐变填充用)
-    const h = c.replace('#', '');
-    const n = parseInt(h.length === 3 ? h.split('').map((x) => x + x).join('') : h, 16);
-    const fade = (a) => `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
     charts.efficiency.setOption(Object.assign({}, chartTheme(), {
       tooltip: Object.assign(tooltipAxis({}, (v) => fmtTime(v, true)), { formatter: effTip }),
-      grid: trendGrid(24),
+      grid: trendGrid(8),
       xAxis: timeAxis(S.days),
       yAxis: Object.assign(axisCommon(), { type: 'value', min: 0,
         axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value}' } }),
+      series: [{
+        name: '平均能耗', type: 'bar',
+        data: pts,
+        barWidth: isNarrow() ? 7 : 10,
+        markLine: {
+          silent: true, symbol: 'none',
+          data: [{ yAxis: official }],
+          lineStyle: { color: cssVar('--text-muted'), type: 'dashed', width: 1 },
+          label: { position: 'insideEndTop', formatter: `官方 ${official}`,
+            color: cssVar('--text-muted'), fontSize: 10 },
+        },
+      }],
+    }), { notMerge: true });
+  }
+
+  /* ---------- 渲染:温度与能耗 · 近一年(月均温度线 × 月能耗柱) ---------- */
+
+  function renderMonthly() {
+    const d = S.monthly;
+    if (!d || !charts.monthly) return;
+    const months = d.months || [];
+    const official = Math.round(Number(d.kwh_per_ideal_km || 0.15) * 1000);
+    const labels = months.map((m) => {
+      const [y, mo] = m.month.split('-');
+      return mo === '01' ? `${y.slice(2)}年1月` : `${Number(mo)}月`;
+    });
+    const colorFor = (v) => v == null ? 'transparent' : v <= official ? cssVar('--series-3')
+      : v <= official * 1.15 ? '#eda100' : '#d03b3b';
+    charts.monthly.setOption(Object.assign({}, chartTheme(), {
+      tooltip: Object.assign(tooltipAxis({}), {
+        formatter(params) {
+          const p0 = params[0];
+          const m = months[p0.dataIndex];
+          let s = `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-bottom:4px">` +
+                  (m ? m.month : p0.axisValue) + '</div>';
+          params.forEach((pp) => {
+            const val = pp.seriesName === '平均能耗'
+              ? (m && m.eff_wh_km != null ? `${fmtNum(m.eff_wh_km, 0)} Wh/km` : '—')
+              : (m && m.temp_c != null ? `${fmtNum(m.temp_c, 1)} °C` : '—');
+            s += `<div style="line-height:1.7"><span style="display:inline-block;width:14px;height:2px;` +
+                 `background:${pp.color};vertical-align:middle;margin-right:6px"></span>` +
+                 `<b>${val}</b> <span style="color:${cssVar('--text-muted')}">${pp.seriesName}</span></div>`;
+          });
+          if (m && m.drive_km != null) {
+            s += `<div style="color:${cssVar('--text-muted')};margin-top:2px">当月行驶 ${fmtNum(m.drive_km, 0)} km</div>`;
+          }
+          return s;
+        },
+      }),
+      legend: {
+        top: 0, left: 6, itemWidth: 14, itemHeight: 8, itemGap: isNarrow() ? 10 : 14,
+        textStyle: { color: cssVar('--text-secondary'), fontSize: 12 },
+      },
+      grid: trendGrid(34),
+      xAxis: Object.assign(axisCommon(), {
+        type: 'category',
+        data: labels,
+        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, interval: 0, lineHeight: 14 },
+      }),
+      yAxis: [
+        Object.assign(axisCommon(), { type: 'value', min: 0,
+          axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value}' } }),
+        Object.assign(axisCommon(), { type: 'value', scale: true,
+          splitLine: { show: false },
+          axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value}°' } }),
+      ],
       series: [
-        Object.assign(lineSeries('平均能耗', pts, c), {
-          // 平滑曲线 + 曲线下渐变填充;每次行程一个小圆点
-          smooth: true,
-          smoothMonotone: 'x',
-          showSymbol: true, symbol: 'circle', symbolSize: 6,
-          itemStyle: { color: c, borderColor: cssVar('--surface-1'), borderWidth: 1.5 },
-          areaStyle: {
-            color: {
-              type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-              colorStops: [
-                { offset: 0, color: fade(0.28) },
-                { offset: 1, color: fade(0.02) },
-              ],
+        {
+          name: '平均能耗', type: 'bar', barMaxWidth: 30,
+          itemStyle: { color: cssVar('--series-3') },
+          data: months.map((m) => ({
+            value: m.eff_wh_km ?? null,
+            itemStyle: {
+              color: colorFor(m.eff_wh_km),
+              borderRadius: [5, 5, 0, 0], opacity: 0.92,
             },
-          },
+          })),
+        },
+        Object.assign(lineSeries('月均车外温度',
+          months.map((m, i) => [i, m.temp_c ?? null]).filter((p) => p[1] !== null),
+          cssVar('--series-2')), {
+          yAxisIndex: 1, smooth: true, smoothMonotone: 'x',
+          showSymbol: true, symbol: 'circle', symbolSize: 6,
+          itemStyle: { color: cssVar('--series-2'), borderColor: cssVar('--surface-1'), borderWidth: 1.5 },
         }),
       ],
     }), { notMerge: true });
@@ -1094,36 +787,89 @@
     $('#tf-light-sub').textContent = `共 ${fmtNum(t.light_n, 0)} 次`;
   }
 
+  /* ---------- 渲染:胎压(四轮读数 + 偏差刻度条,变化微小不适合曲线) ---------- */
+
+  const TPMS_STD = 2.9;                    // 标准胎压 bar
+  const TPMS_LO = 2.4, TPMS_HI = 3.4;      // 刻度条量程
+  const tpmsColor = (v) => {
+    const d = Math.abs(v - TPMS_STD);
+    return d <= 0.15 ? cssVar('--series-3') : d <= 0.3 ? '#eda100' : '#d03b3b';
+  };
+
   function renderTpms() {
     const o = S.overview;
-    if (!o || !charts.tpms || !o.tpms) return;
+    const box = $('#tpms-wheels');
+    if (!o || !box || !o.tpms) return;
     const w = o.tpms.wheels || {};
-    const names = [
-      ['fl', '左前'], ['fr', '右前'], ['rl', '左后'], ['rr', '右后'],
-    ];
-    charts.tpms.setOption(Object.assign({}, chartTheme(), {
-      tooltip: tooltipAxis({ '左前': 'bar', '右前': 'bar', '左后': 'bar', '右后': 'bar' },
-        (v) => fmtTime(v, true)),
-      legend: {
-        top: 0, left: 6, itemWidth: 14, itemHeight: 8, itemGap: isNarrow() ? 10 : 14,
-        textStyle: { color: cssVar('--text-secondary'), fontSize: 12 },
-      },
-      grid: trendGrid(34),
-      xAxis: timeAxis(S.days),
-      yAxis: Object.assign(axisCommon(), { type: 'value', scale: true,
-        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value}' } }),
-      series: names.map(([key, label], i) =>
-        lineSeries(label, (w[key] || []).map((p) => [Number(p[0]), Number(p[1])]),
-          cssVar(`--series-${i + 1}`))),
-    }), { notMerge: true });
+    box.textContent = '';
+    const pctOf = (v) => Math.max(0, Math.min(100, (v - TPMS_LO) / (TPMS_HI - TPMS_LO) * 100));
+    [['fl', '左前'], ['fr', '右前'], ['rl', '左后'], ['rr', '右后']].forEach(([key, label]) => {
+      const pts = (w[key] || []).map((pp) => Number(pp[1])).filter((v) => !isNaN(v));
+      const tile = el('div', 'tpms-tile');
+      tile.appendChild(el('span', 'tpms-pos', label));
+      if (!pts.length) {
+        tile.appendChild(el('div', 'tpms-empty', '—'));
+        box.appendChild(tile);
+        return;
+      }
+      const cur = pts[pts.length - 1];
+      const lo = Math.min(...pts), hi = Math.max(...pts);
+      const val = el('div', 'tpms-val');
+      const b = el('b', '', fmtNum(cur, 2));
+      b.style.color = tpmsColor(cur);
+      val.appendChild(b);
+      val.appendChild(el('span', '', 'bar'));
+      tile.appendChild(val);
+      /* 刻度条:轨道 + 所选时段范围带(min–max)+ 标准胎压竖线 + 当前值圆点 */
+      const scale = el('div', 'tpms-scale');
+      const band = el('i', 'tpms-band');
+      band.style.left = pctOf(lo) + '%';
+      band.style.width = Math.max(pctOf(hi) - pctOf(lo), 1.5) + '%';
+      const std = el('i', 'tpms-std');
+      std.style.left = pctOf(TPMS_STD) + '%';
+      std.title = '标准 2.9 bar';
+      const dot = el('i', 'tpms-dot');
+      dot.style.left = pctOf(cur) + '%';
+      dot.style.background = tpmsColor(cur);
+      scale.appendChild(band);
+      scale.appendChild(std);
+      scale.appendChild(dot);
+      tile.appendChild(scale);
+      tile.appendChild(el('span', 'tpms-range', `范围 ${fmtNum(lo, 2)} – ${fmtNum(hi, 2)}`));
+      box.appendChild(tile);
+    });
   }
 
-  /* ---------- 渲染:车内 / 车外温度 ---------- */
+  /* ---------- 渲染:车内 / 车外温度(头部当前值 + 渐变面积双线) ---------- */
 
   function renderTemp() {
     const o = S.overview;
     if (!o || !charts.temp || !o.temp) return;
+    // 头部当前值:取时间轴最新一点(车内暖橙 / 车外冷蓝)
+    const now = $('#temp-now');
+    if (now) {
+      now.textContent = '';
+      const lastOf = (arr) => (arr && arr.length ? Number(arr[arr.length - 1][1]) : null);
+      [['车内', lastOf(o.temp.inside), cssVar('--series-2')],
+       ['车外', lastOf(o.temp.outside), cssVar('--series-1')]].forEach(([label, v, color]) => {
+        if (v === null || isNaN(v)) return;
+        const t = el('span', 'temp-now-item');
+        t.appendChild(el('span', 'temp-now-lab', label));
+        const b = el('b', '', fmtNum(v, 1));
+        b.style.color = color;
+        t.appendChild(b);
+        t.appendChild(el('span', 'temp-now-unit', '°C'));
+        now.appendChild(t);
+      });
+    }
     const mk = (arr) => (arr || []).map((p) => [Number(p[0]), Number(p[1])]);
+    const area = (hex) => ({
+      color: {
+        type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+        colorStops: [{ offset: 0, color: hexA(hex, 0.22) }, { offset: 1, color: hexA(hex, 0.02) }],
+      },
+    });
+    const cIn = cssVar('--series-2'), cOut = cssVar('--series-1');
     charts.temp.setOption(Object.assign({}, chartTheme(), {
       tooltip: tooltipAxis({ '车内': '°C', '车外': '°C' }, (v) => fmtTime(v, true)),
       legend: {
@@ -1137,9 +883,13 @@
         axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value}°' },
       }),
       series: [
-        // 车内暖色 / 车外冷色(参考调色板 series-2 橙 / series-1 蓝)
-        lineSeries('车内', mk(o.temp.inside), cssVar('--series-2')),
-        lineSeries('车外', mk(o.temp.outside), cssVar('--series-1')),
+        // 平滑曲线 + 曲线下渐变;端点标签关掉(当前值在卡片头部)
+        Object.assign(lineSeries('车内', mk(o.temp.inside), cIn), {
+          smooth: true, smoothMonotone: 'x', areaStyle: area(cIn), endLabel: { show: false },
+        }),
+        Object.assign(lineSeries('车外', mk(o.temp.outside), cOut), {
+          smooth: true, smoothMonotone: 'x', areaStyle: area(cOut), endLabel: { show: false },
+        }),
       ],
     }), { notMerge: true });
   }
@@ -1500,7 +1250,7 @@
     renderSessions();
     renderChargers();
     renderCsBatt();
-    if (withCosts) { renderEvents(); renderActivity(); }
+    if (withCosts) { renderEvents(); }
   }
 
   async function csSave(path, body, inps, withCosts) {
@@ -1534,7 +1284,7 @@
     S.sessions = sessions;
     S.overview.activity = act;
     renderHomeCharge(); renderSessions(); renderChargers(); renderCsBatt();
-    renderEvents(); renderActivity();
+    renderEvents();
   }
 
   async function hcSave(path, body, method) {
@@ -3541,7 +3291,7 @@
     try {
       const o = await api('overview');
       if (S.carId === null) S.carId = o.car_id;
-      const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm, hm, life] = await Promise.all([
+      const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm, hm, life, monthly] = await Promise.all([
         api(`drives/daily?days=${S.days}`),
         api('charging/summary?limit=12'),
         api(`routes?days=${S.days}`),
@@ -3559,6 +3309,7 @@
         api('charging/reminder'),
         api('charging/home'),
         api('vehicle/lifetime'),
+        api('energy/monthly'),
       ]);
       S.overview = {
         ...o,
@@ -3580,6 +3331,7 @@
       S.reminder = rm;
       S.homeCharge = hm;
       S.lifetime = life;
+      S.monthly = monthly;
       $('#state-badge').dataset.state = 'unknown';
       renderSys(sys);
       renderHeader();
@@ -3595,10 +3347,9 @@
       renderDaily();
       renderRoutes();
       renderRoutesList();
-      renderActivity();
       renderEvents();
-      renderSentry();
       renderEfficiency();
+      renderMonthly();
       renderLifetime();
       renderTraffic();
       renderTpms();
@@ -3615,8 +3366,8 @@
     renderHeader();
     renderDaily();
     renderRoutes(); renderRoutesList();
-    renderActivity(); renderEvents(); renderSentry();
-    renderEfficiency(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime(); renderTraffic();
+    renderEvents();
+    renderEfficiency(); renderMonthly(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime(); renderTraffic();
   }
 
   /* ---------- 功能分页(底部液态玻璃 Tab 栏) ---------- */
@@ -3707,12 +3458,9 @@
   function init() {
     applyTheme();
     charts.daily = echarts.init($('#chart-daily'));
-    charts.activity = echarts.init($('#chart-activity'));
-    charts.sentryLanes = echarts.init($('#chart-sentry-lanes'));
-    charts.sentryDrain = echarts.init($('#chart-sentry-drain'));
     charts.efficiency = echarts.init($('#chart-efficiency'));
-    charts.tpms = echarts.init($('#chart-tpms'));
     charts.temp = echarts.init($('#chart-temp'));
+    charts.monthly = echarts.init($('#chart-monthly'));
 
     // 功能分页:底部 Tab 栏点击切换,记忆上次所在页
     $('#tabbar').addEventListener('click', (e) => {

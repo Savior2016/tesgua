@@ -1934,6 +1934,69 @@ def temp_trend(car_id: int | None = Query(default=None),
     return {"days": days, "step_seconds": step, "inside": inside, "outside": outside}
 
 
+# ---------- 车况页「温度与能耗 · 近一年」(月均车外温度 × 月均能耗) ----------
+
+# positions 全表月聚合约 1s,内存缓存 10 分钟
+_monthly_cache: dict[int, tuple[float, dict]] = {}
+_MONTHLY_TTL = 600.0
+
+
+@app.get("/api/energy/monthly")
+def energy_monthly(car_id: int | None = Query(default=None)):
+    """近 12 个自然月的月均车外温度(°C)与平均能耗(Wh/km)。
+
+    能耗口径同 /api/efficiency/trend:当月 >2km 行程的理想续航差合计 × 校准系数
+    ÷ 当月里程合计;温度取 positions.outside_temp 月均值(仅清醒时段上报)。
+    只有部分月份有数据时只返回已有月份。"""
+    cid = get_car_id(car_id)
+    hit = _monthly_cache.get(cid)
+    if hit and time.monotonic() - hit[0] < _MONTHLY_TTL:
+        return hit[1]
+    ratio = kwh_per_ideal_km(cid)
+    eff_rows = q(
+        f"""
+        SELECT to_char(d.start_date AT TIME ZONE 'UTC' AT TIME ZONE '{DISPLAY_TZ}',
+                       'YYYY-MM') AS m,
+               SUM(d.start_ideal_range_km - d.end_ideal_range_km) AS ideal_km,
+               SUM(d.distance) AS dist_km
+        FROM drives d
+        WHERE d.car_id = %s AND d.distance > 2
+          AND d.start_date >= date_trunc('month', now()) - make_interval(months => 12)
+          AND d.start_ideal_range_km IS NOT NULL AND d.end_ideal_range_km IS NOT NULL
+        GROUP BY 1
+        """,
+        (cid,),
+    )
+    temp_rows = q(
+        f"""
+        SELECT to_char(date AT TIME ZONE 'UTC' AT TIME ZONE '{DISPLAY_TZ}',
+                       'YYYY-MM') AS m,
+               AVG(outside_temp) AS t
+        FROM positions
+        WHERE car_id = %s AND outside_temp IS NOT NULL
+          AND date >= date_trunc('month', now()) - make_interval(months => 12)
+        GROUP BY 1
+        """,
+        (cid,),
+    )
+    months: dict[str, dict] = {}
+    for r in eff_rows:
+        ideal = float(r["ideal_km"] or 0)
+        dist = float(r["dist_km"] or 0)
+        if dist <= 0 or ideal <= 0:
+            continue
+        months.setdefault(r["m"], {})["eff_wh_km"] = round(ideal * ratio * 1000 / dist, 0)
+        months[r["m"]]["drive_km"] = round(dist, 1)
+    for r in temp_rows:
+        months.setdefault(r["m"], {})["temp_c"] = round(float(r["t"]), 1)
+    data = {
+        "kwh_per_ideal_km": ratio,
+        "months": [{"month": m, **v} for m, v in sorted(months.items())],
+    }
+    _monthly_cache[cid] = (time.monotonic(), data)
+    return data
+
+
 # ---------- 车况页「生涯总览」(总里程 / 总耗电量 / 充电总费用) ----------
 
 # 驻车耗电聚合要扫全量 positions(约 1s),结果内存缓存 10 分钟

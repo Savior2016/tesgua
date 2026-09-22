@@ -2,7 +2,24 @@
   'use strict';
   const $=id=>document.getElementById(id);
   let model={configured:false,role:'viewer',states:{},nap:{}}, busy=false, loading=false, vehicle={}, strobeSeconds=30;
-  const dialog=$('ctl-dialog'), confirmDlg=$('ctl-confirm');
+  const confirmDlg=$('ctl-confirm');
+  /* 详情面板=车模区域内的上滑滑层(取代原居中弹窗):home=模块网格 / detail=单项详情 */
+  const sheet=$('ctl-sheet'), sheetHome=$('ctl-sheet-home'), sheetDetail=$('ctl-sheet-detail');
+  let sheetOpen=false;
+  function showSheet(view){
+    sheetOpen=true;
+    sheet.classList.add('open');
+    sheet.setAttribute('aria-hidden','false');
+    sheetHome.hidden=view!=='home';
+    sheetDetail.hidden=view!=='detail';
+  }
+  function hideSheet(){
+    sheetOpen=false;
+    sheet.classList.remove('open');
+    sheet.setAttribute('aria-hidden','true');
+    sheetDetail.hidden=true;sheetHome.hidden=false;
+  }
+  const detailOpen=()=>sheetOpen&&!sheetDetail.hidden;
   const tri=(value,on='开启',off='关闭')=>value==null?'未知':value?on:off;
   const num=value=>value==null?'—':Number(value).toFixed(1)+'°C';
   const phases={starting:'正在开启',active:'午休中',stopping:'正在结束',retrying:'结束待确认',completed:'已结束',failed:'未开启'};
@@ -57,7 +74,7 @@
     /* 模块瓦片:开启/过渡中显示状态与倒计时,空闲时显示最后一次使用的配置(即快捷开启将用的配置) */
     $('ctl-module-nap').textContent=active()?napText():napDefaultText();
     if($('ctl-nap-status'))$('ctl-nap-status').textContent=napText()+(model.nap?.error?' · '+model.nap.error:'');
-    if(napDialogSlide&&dialog.open)napDialogSlide.set(active());  // 弹窗滑块每次打开才重建,计时结束要由这里同步回去
+    if(napDialogSlide&&detailOpen())napDialogSlide.set(active());  // 弹窗滑块每次打开才重建,计时结束要由这里同步回去
     /* 到点/正在结束时加快轮询(常规 15 秒一次),让滑块与颜色及时回到关闭状态 */
     const n=model.nap||{};
     const settling=n.phase==='stopping'||n.phase==='retrying'||(n.phase==='active'&&n.ends_at&&Date.now()/1000>=n.ends_at);
@@ -382,14 +399,14 @@
       slideRow(spec.label,'',s[spec.key]===true,flipCmd(spec.on,spec.off),spec.icon,spec.color,spec.labels);
       if(name==='sentry')renderSchedule();
     }
-    if(!dialog.open)dialog.showModal();
+    showSheet('detail');
   }
   async function command(item){
     if(busy||!canWrite())return null;
     let args=item.args;
     const inputId=item.cmd==='set_temps'?'ctl-temp-input':item.cmd==='set_charge_limit'?'ctl-limit-input':null;
     if(inputId){const i=$(inputId);if(!i.reportValidity()||!i.value)return null;args=item.cmd==='set_temps'?{driver_temp:Number(i.value)}:{percent:Number(i.value)};}
-    busy=true;dialog.querySelectorAll('#ctl-dialog-body button').forEach(b=>b.disabled=true);message(SENDING);
+    busy=true;sheet.querySelectorAll('#ctl-dialog-body button').forEach(b=>b.disabled=true);message(SENDING);
     try{
       const result=await api('command',{cmd:item.cmd,args});
       message(result.ok?(result.woke?'车辆已唤醒，':'')+'指令已接受':result.reason||'车辆未接受指令',!result.ok);
@@ -397,7 +414,7 @@
       return result;
     }
     catch(e){message(e.message,true);return null;}
-    finally{busy=false;dialog.querySelectorAll('#ctl-dialog-body button').forEach(b=>b.disabled=!canWrite());await load();}
+    finally{busy=false;sheet.querySelectorAll('#ctl-dialog-body button').forEach(b=>b.disabled=!canWrite());await load();}
   }
   function napMinutes(){
     const saved=parseInt(localStorage.getItem('ttv-nap-minutes'),10);
@@ -535,7 +552,54 @@
     const show=()=>open(['flash','honk'].includes(z.dataset.zone)?'lights':z.dataset.zone);
     z.addEventListener('click',show);z.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show();}});
   });
-  $('ctl-dialog-close').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
+  $('ctl-dialog-close').addEventListener('click',hideSheet);
+  $('ctl-sheet-back').addEventListener('click',()=>showSheet('home'));
+  /* Esc:详情退回模块网格,网格退回车模 */
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Escape'||!sheetOpen)return;
+    if(confirmDlg.open||auditDlg.open)return;
+    if(!sheetDetail.hidden)showSheet('home');else hideSheet();
+  });
+  /* 上滑展开:peek 胶囊可点可按上滑;车模上快速上滑(flick)也展开 */
+  const peek=$('ctl-sheet-peek'), carbox=document.querySelector('.ctl-carbox');
+  peek.addEventListener('click',()=>showSheet(sheetDetail.hidden?'home':'detail'));
+  let upStart=null;
+  carbox.addEventListener('pointerdown',e=>{
+    if(sheetOpen||e.target.closest('.ctl-sheet'))return;
+    upStart={y:e.clientY,x:e.clientX,t:Date.now()};
+  });
+  carbox.addEventListener('pointerup',e=>{
+    if(!upStart)return;
+    const dy=e.clientY-upStart.y,dx=e.clientX-upStart.x,dt=Date.now()-upStart.t;
+    upStart=null;
+    if(dy<-60&&Math.abs(dy)>Math.abs(dx)*2&&dt<350)showSheet('home');
+  });
+  carbox.addEventListener('pointercancel',()=>{upStart=null;});
+  /* 握把:点按关闭;按住下拉跟手,松手超阈值或快速下滑关闭 */
+  const grip=$('ctl-sheet-grip');
+  let gripDrag=null;
+  const setSheetY=(px)=>{sheet.style.transition='none';sheet.style.transform=`translateY(${Math.max(0,px)}px)`;};
+  const clearSheetY=()=>{sheet.style.transition='';sheet.style.transform='';};
+  grip.addEventListener('pointerdown',e=>{
+    gripDrag={y:e.clientY,t:Date.now(),moved:0};
+    grip.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  grip.addEventListener('pointermove',e=>{
+    if(!gripDrag)return;
+    gripDrag.moved=Math.max(gripDrag.moved,e.clientY-gripDrag.y);
+    setSheetY(gripDrag.moved);
+  });
+  const gripEnd=e=>{
+    if(!gripDrag)return;
+    const dy=gripDrag.moved,dt=Date.now()-gripDrag.t,vy=dy/Math.max(dt,1);
+    gripDrag=null;clearSheetY();
+    if(dy>90||vy>0.55){hideSheet();return;}
+    if(dy<8){if(!sheetDetail.hidden)showSheet('home');else hideSheet();}  // 轻点握把:详情回网格,网格回车模
+  };
+  grip.addEventListener('pointerup',gripEnd);
+  grip.addEventListener('pointercancel',gripEnd);
+  grip.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();hideSheet();}});
   window.TeslaControl={load,overview(value){vehicle=value||{};render();}};
   // Refresh cached state only; querying Tesla is explicit to avoid continuous billed polling.
   setInterval(()=>{if(!document.hidden&&$('page-control').classList.contains('active'))load();},15000);
