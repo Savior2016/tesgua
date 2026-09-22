@@ -2320,7 +2320,8 @@
       xAxis: Object.assign(axisCommon(), { type: 'category',
         data: pts.map((p) => fmtTime(Number(p.ts)).slice(0, 5)),
         axisLabel: { color: cssVar('--text-muted'), fontSize: 11 } }),
-      yAxis: Object.assign({ type: 'value', name: 'kWh', scale: true,
+      // 柱状图必须 0 起:scale:true 会把轴底截到 ~55,堆叠比例完全失真
+      yAxis: Object.assign({ type: 'value', name: 'kWh', min: 0,
         nameTextStyle: { color: cssVar('--text-muted'), fontSize: 10 } }, axisCommon()),
       series: [
         // 实心柱:充后总电量;上方虚线框柱:到估算满电的差额(柱顶即估算满电)
