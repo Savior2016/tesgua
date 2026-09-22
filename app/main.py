@@ -1904,6 +1904,51 @@ def tpms_trend(car_id: int | None = Query(default=None),
     return {"days": days, "step_seconds": step, "wheels": wheels}
 
 
+# 车况页胎压瓦片内的周均值曲线缓存(近 12 周,10 分钟)
+_tpms_weekly_cache: dict[int, tuple[float, dict]] = {}
+_TPMS_WEEKLY_TTL = 600.0
+
+
+@app.get("/api/tpms/weekly")
+def tpms_weekly(car_id: int | None = Query(default=None),
+                weeks: int = Query(default=12, ge=4, le=52)):
+    """四轮按 ISO 周的平均胎压(bar),供胎压瓦片里的历史曲线用。"""
+    cid = get_car_id(car_id)
+    hit = _tpms_weekly_cache.get(cid)
+    if hit and time.monotonic() - hit[0] < _TPMS_WEEKLY_TTL:
+        return hit[1]
+    rows = q(
+        f"""
+        SELECT to_char(date AT TIME ZONE 'UTC' AT TIME ZONE '{DISPLAY_TZ}',
+                       'IYYY-"W"IW') AS w,
+               MIN(date_trunc('week',
+                   date AT TIME ZONE 'UTC' AT TIME ZONE '{DISPLAY_TZ}')) AS wk_start,
+               AVG(tpms_pressure_fl) AS fl, AVG(tpms_pressure_fr) AS fr,
+               AVG(tpms_pressure_rl) AS rl, AVG(tpms_pressure_rr) AS rr
+        FROM positions
+        WHERE car_id = %s
+          AND date >= date_trunc('week', now()) - make_interval(weeks => %s)
+          AND (tpms_pressure_fl IS NOT NULL OR tpms_pressure_fr IS NOT NULL
+               OR tpms_pressure_rl IS NOT NULL OR tpms_pressure_rr IS NOT NULL)
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        (cid, weeks - 1),
+    )
+    data = {
+        "weeks": [{
+            "week": r["w"],
+            "start": r["wk_start"].strftime("%m-%d"),
+            "fl": round(float(r["fl"]), 2) if r["fl"] is not None else None,
+            "fr": round(float(r["fr"]), 2) if r["fr"] is not None else None,
+            "rl": round(float(r["rl"]), 2) if r["rl"] is not None else None,
+            "rr": round(float(r["rr"]), 2) if r["rr"] is not None else None,
+        } for r in rows],
+    }
+    _tpms_weekly_cache[cid] = (time.monotonic(), data)
+    return data
+
+
 @app.get("/api/temp/trend")
 def temp_trend(car_id: int | None = Query(default=None),
                days: int = Query(default=7, ge=1, le=30)):

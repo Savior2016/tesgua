@@ -632,45 +632,67 @@
       stat('官方', official, '');
     }
 
-    /* 每次行程一根柱:绿 ≤ 官方 / 黄 ≤ +15% / 红更高;虚线为官方参考 */
+    /* 棒棒糖偏差图(dataviz「偏离基线」形态):官方能耗为基线,
+       每次行程一根细茎从基线长到实际值、端点圆珠;低于官方向下绿茎,高于向上黄/红茎 */
     const colorFor = (v) => v <= official ? cssVar('--series-3')
       : v <= official * 1.15 ? '#eda100' : '#d03b3b';
-    const pts = raw.map((p) => ({
-      value: [Number(p.start_ts), p.eff_wh_km],
-      itemStyle: { color: colorFor(p.eff_wh_km), borderRadius: [3, 3, 0, 0] },
-    }));
     const effTip = (params) => {
-      const p0 = params[0];
+      const p0 = params.find((x) => x.seriesName === '能耗') || params[0];
       let s = `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-bottom:4px">` +
               fmtTime(p0.value[0], true) + '</div>' +
               `<div style="line-height:1.7"><b>${fmtNum(p0.value[1], 0)} Wh/km</b>` +
               `<span style="color:${cssVar('--text-muted')};font-size:11px"> · 官方 ${official}</span></div>`;
       const d = raw.find((x) => Number(x.start_ts) === Number(p0.value[0]));
       if (d) {
+        const delta = Math.round(d.eff_wh_km - official);
         s += `<div style="color:${cssVar('--text-muted')};margin-top:2px">` +
              `${fmtNum(d.distance, 1)} km · ${fmtNum(d.duration_min, 0)} 分` +
-             (d.start_name || d.end_name ? ` · ${escapeHTML(d.start_name || '—')} → ${escapeHTML(d.end_name || '—')}` : '') + '</div>';
+             (d.start_name || d.end_name ? ` · ${escapeHTML(d.start_name || '—')} → ${escapeHTML(d.end_name || '—')}` : '') +
+             ` · 较官方 ${delta > 0 ? '+' : ''}${delta}</div>`;
       }
       return s;
     };
+    /* 堆叠实现茎:底段=min(值,官方) 透明,顶段=|偏差| 着色,圆角朝数据端 */
+    const stemBase = raw.map((pt) => {
+      const v = pt.eff_wh_km;
+      return { value: [Number(pt.start_ts), Math.min(v, official)], itemStyle: { color: 'transparent' } };
+    });
+    const stemDelta = raw.map((pt) => {
+      const v = pt.eff_wh_km, up = v >= official;
+      return { value: [Number(pt.start_ts), Math.abs(v - official)],
+        itemStyle: { color: colorFor(v), borderRadius: up ? [3, 3, 0, 0] : [0, 0, 3, 3] } };
+    });
+    const dots = raw.map((pt) => {
+      const v = pt.eff_wh_km;
+      return { value: [Number(pt.start_ts), v],
+        itemStyle: { color: colorFor(v), borderColor: cssVar('--surface-1'), borderWidth: 2 } };
+    });
+    const allVals = raw.map((pt) => pt.eff_wh_km).concat([official]);
+    const yLo = Math.floor((Math.min(...allVals) - 12) / 10) * 10;
+    const yHi = Math.ceil((Math.max(...allVals) + 12) / 10) * 10;
     charts.efficiency.setOption(Object.assign({}, chartTheme(), {
       tooltip: Object.assign(tooltipAxis({}, (v) => fmtTime(v, true)), { formatter: effTip }),
       grid: trendGrid(8),
       xAxis: timeAxis(S.days),
-      yAxis: Object.assign(axisCommon(), { type: 'value', min: 0,
+      yAxis: Object.assign(axisCommon(), { type: 'value', min: yLo, max: yHi,
         axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value}' } }),
-      series: [{
-        name: '平均能耗', type: 'bar',
-        data: pts,
-        barWidth: isNarrow() ? 7 : 10,
-        markLine: {
-          silent: true, symbol: 'none',
-          data: [{ yAxis: official }],
-          lineStyle: { color: cssVar('--text-muted'), type: 'dashed', width: 1 },
-          label: { position: 'insideEndTop', formatter: `官方 ${official}`,
-            color: cssVar('--text-muted'), fontSize: 10 },
-        },
-      }],
+      series: [
+        { name: '_base', type: 'bar', stack: 'eff', data: stemBase,
+          barWidth: isNarrow() ? 4 : 5, silent: true, tooltip: { show: false },
+          emphasis: { disabled: true }, z: 1 },
+        { name: '_stem', type: 'bar', stack: 'eff', data: stemDelta,
+          silent: true, tooltip: { show: false }, emphasis: { disabled: true }, z: 2 },
+        { name: '能耗', type: 'scatter', data: dots, symbolSize: isNarrow() ? 8 : 10,
+          z: 3 },
+        { name: '_official', type: 'line', data: [], silent: true,
+          markLine: {
+            silent: true, symbol: 'none',
+            data: [{ yAxis: official }],
+            lineStyle: { color: cssVar('--text-muted'), type: 'dashed', width: 1 },
+            label: { position: 'insideEndTop', formatter: `官方 ${official}`,
+              color: cssVar('--text-muted'), fontSize: 10 },
+          } },
+      ],
     }), { notMerge: true });
   }
 
@@ -802,6 +824,11 @@
     if (!o || !box || !o.tpms) return;
     const w = o.tpms.wheels || {};
     box.textContent = '';
+    /* 重建瓦片前销毁旧 sparkline 实例(防止指向已分离 DOM) */
+    ['fl', 'fr', 'rl', 'rr'].forEach((key) => {
+      const ck = 'tpms-' + key;
+      if (charts[ck]) { charts[ck].dispose(); delete charts[ck]; }
+    });
     const pctOf = (v) => Math.max(0, Math.min(100, (v - TPMS_LO) / (TPMS_HI - TPMS_LO) * 100));
     [['fl', '左前'], ['fr', '右前'], ['rl', '左后'], ['rr', '右后']].forEach(([key, label]) => {
       const pts = (w[key] || []).map((pp) => Number(pp[1])).filter((v) => !isNaN(v));
@@ -835,6 +862,52 @@
       scale.appendChild(std);
       scale.appendChild(dot);
       tile.appendChild(scale);
+      /* 周均值历史曲线:每轮一条小 sparkline,虚线=标准 2.9,圆点按偏差着色 */
+      const wk = (S.tpmsWeekly && S.tpmsWeekly.weeks) || [];
+      const wkPts = wk.map((r) => r[key] == null ? null : Number(r[key]));
+      if (wkPts.filter((v) => v !== null).length >= 2) {
+        const spark = el('div', 'tpms-spark');
+        tile.appendChild(spark);
+        const ck = 'tpms-' + key;
+        const c = charts[ck] = echarts.init(spark);
+        const vals = wkPts.filter((v) => v !== null);
+        const dLo = Math.floor((Math.min(...vals) - 0.06) * 20) / 20;
+        const dHi = Math.ceil((Math.max(...vals) + 0.06) * 20) / 20;
+        c.setOption(Object.assign({}, chartTheme(), {
+          tooltip: Object.assign(tooltipAxis({}), {
+            trigger: 'item',
+            formatter(pp) {
+              const r = wk[pp.dataIndex];
+              return `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-bottom:2px">` +
+                     `${r.week} · ${r.start} 起</div><b>${fmtNum(pp.value, 2)} bar</b>`;
+            },
+          }),
+          grid: { left: 2, right: 34, top: 5, bottom: 3 },
+          xAxis: { type: 'category', show: false, data: wk.map((r) => r.week) },
+          yAxis: { type: 'value', show: false, min: dLo, max: dHi },
+          series: [{
+            type: 'line',
+            data: wkPts,
+            smooth: 0.35,
+            symbol: 'circle', symbolSize: 5,
+            lineStyle: { width: 2, color: cssVar('--text-muted') },
+            itemStyle: { color: cssVar('--text-muted'),
+              borderColor: cssVar('--surface-1'), borderWidth: 1.5 },
+            endLabel: { show: true, formatter: (pp) => fmtNum(pp.value, 2),
+              color: cssVar('--text-secondary'), fontSize: 10, distance: 4 },
+            areaStyle: { color: {
+              type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [{ offset: 0, color: hexA(cssVar('--series-1'), 0.14) },
+                           { offset: 1, color: hexA(cssVar('--series-1'), 0.01) }] } },
+            markLine: (TPMS_STD >= dLo && TPMS_STD <= dHi) ? {
+              silent: true, symbol: 'none',
+              data: [{ yAxis: TPMS_STD }],
+              lineStyle: { color: cssVar('--text-muted'), type: 'dashed', width: 1, opacity: 0.6 },
+              label: { show: false },
+            } : undefined,
+          }],
+        }));
+      }
       tile.appendChild(el('span', 'tpms-range', `范围 ${fmtNum(lo, 2)} – ${fmtNum(hi, 2)}`));
       box.appendChild(tile);
     });
@@ -3291,7 +3364,7 @@
     try {
       const o = await api('overview');
       if (S.carId === null) S.carId = o.car_id;
-      const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm, hm, life, monthly] = await Promise.all([
+      const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm, hm, life, monthly, tpmsWk] = await Promise.all([
         api(`drives/daily?days=${S.days}`),
         api('charging/summary?limit=12'),
         api(`routes?days=${S.days}`),
@@ -3310,6 +3383,7 @@
         api('charging/home'),
         api('vehicle/lifetime'),
         api('energy/monthly'),
+        api('tpms/weekly'),
       ]);
       S.overview = {
         ...o,
@@ -3332,6 +3406,7 @@
       S.homeCharge = hm;
       S.lifetime = life;
       S.monthly = monthly;
+      S.tpmsWeekly = tpmsWk;
       $('#state-badge').dataset.state = 'unknown';
       renderSys(sys);
       renderHeader();

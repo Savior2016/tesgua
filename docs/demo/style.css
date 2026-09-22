@@ -3413,3 +3413,6 @@ footer a { color: var(--text-muted); }
 
   footer { font-size: 11px; }
 }
+
+/* 胎压瓦片内的周均值曲线 */
+.tpms-spark { height: 46px; margin-top: 8px; }
