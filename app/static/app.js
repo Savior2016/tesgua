@@ -2145,45 +2145,63 @@
       stat('充电量合计', fmtNum(rows.reduce((s, g) => s + g.energy, 0), 1), 'kWh');
     }
 
+    const totalE = rows.reduce((s, x) => s + x.energy, 0);
     rows.forEach((g) => {
       const open = cgOpen.has(g.key);
       const item = el('div', open ? 'cg-item open' : 'cg-item');
 
-      /* 汇总行(点击展开/收起) */
+      /* 汇总行(点击展开/收起):左=名称/品牌/地点+占比条,右=充电量大数字+费用 */
       const row = el('div', 'cg-row');
       row.setAttribute('role', 'button');
       row.tabIndex = 0;
+
+      const main = el('div', 'cg-main');
       const head = el('div', 'cg-head');
       const nameLine = el('div', 'cg-name');
       nameLine.appendChild(el('b', '', g.name || g.location || '未命名充电桩'));
       if (g.brand) nameLine.appendChild(el('span', 'cg-brand', g.brand));
       head.appendChild(nameLine);
       if (g.name && g.location) head.appendChild(el('span', 'cg-loc', g.location));
-      row.appendChild(head);
+      main.appendChild(head);
 
-      const stats = el('div', 'cg-stats');
-      const chip = (label, value, cls) => {
-        const t = el('span', ('cg-chip ' + (cls || '')).trim());
-        t.appendChild(el('span', '', label + ' '));
-        t.appendChild(el('b', '', value));
-        stats.appendChild(t);
-      };
-      chip('充电', `${g.count} 次`);
-      chip('充电量', `${fmtNum(g.energy, 1)} kWh`);
-      chip('时长', fmtDur(g.dur));
-      if (g.uPaired > 0) {
-        const loss = g.uPaired - g.ePaired;
-        const pct = loss / g.uPaired * 100;
-        const cls = pct >= 10 ? 'cg-loss-high' : (pct < 5 ? 'cg-loss-low' : '');
-        chip('损耗', `${fmtNum(pct, 1)}% (${fmtNum(loss, 1)} kWh)`, cls);
-      } else {
-        chip('损耗', '—');
+      // 占比条 + 元信息:该桩充电量占合计比例 | 次数 · 时长 · 损耗 · 均价
+      const meta = el('div', 'cg-meta');
+      if (totalE > 0 && rows.length > 1 && g.energy > 0) {
+        const share = g.energy / totalE * 100;
+        const track = el('span', 'cg-share');
+        const fill = el('i');
+        fill.style.width = Math.max(share, 1.5) + '%';
+        track.appendChild(fill);
+        meta.appendChild(track);
+        meta.appendChild(el('span', 'cg-share-lab', fmtNum(share, 0) + '%'));
       }
-      if (g.hasCost) chip('费用', `¥${fmtNum(g.cost, 2)}`);
-      row.appendChild(stats);
+      meta.appendChild(el('span', 'cg-meta-item', `${g.count} 次`));
+      meta.appendChild(el('span', 'cg-meta-item', fmtDur(g.dur)));
+      if (g.uPaired > 0) {
+        // 损耗:总耗电 < 充入是计量噪声,归零显示
+        const loss = Math.max(g.uPaired - g.ePaired, 0);
+        const pct = loss / g.uPaired * 100;
+        meta.appendChild(el('span', 'cg-loss ' + (pct >= 10 ? 'cg-loss-high' : 'cg-loss-low'),
+          `损耗 ${fmtNum(pct, 1)}%`));
+      }
+      if (g.hasCost) {
+        const base = g.uPaired > 0 ? g.uPaired : g.energy;
+        if (base > 0) meta.appendChild(el('span', 'cg-meta-item',
+          `均价 ¥${fmtNum(g.cost / base, 2)}/kWh`));
+      }
+      main.appendChild(meta);
+      row.appendChild(main);
+
+      const figs = el('div', 'cg-figs');
+      const kwh = el('div', 'cg-kwh');
+      kwh.appendChild(el('b', '', fmtNum(g.energy, 1)));
+      kwh.appendChild(el('span', '', 'kWh'));
+      figs.appendChild(kwh);
+      if (g.hasCost) figs.appendChild(el('div', 'cg-cost', `¥${fmtNum(g.cost, 2)}`));
+      row.appendChild(figs);
       row.appendChild(el('span', 'cg-arrow', '▾'));
 
-      /* 详情(默认折叠):品牌填写 + 每次充电明细 */
+      /* 详情(默认折叠):品牌填写 + 每次充电明细小表 */
       const detail = el('div', 'cg-detail');
       detail.hidden = !open;
       const toggle = () => {
@@ -2199,7 +2217,7 @@
       item.appendChild(row);
 
       const brandRow = el('div', 'cg-brand-row');
-      brandRow.appendChild(el('span', 'cs-label', '品牌'));
+      brandRow.appendChild(el('span', 'cg-label', '品牌'));
       const brandInp = el('input', 'cg-brand-input');
       brandInp.type = 'text';
       brandInp.maxLength = 40;
@@ -2220,28 +2238,41 @@
       brandRow.appendChild(brandInp);
       detail.appendChild(brandRow);
 
+      /* 明细小表:数字列右对齐等宽,扫读友好 */
+      const tbl = el('div', 'cg-tbl');
+      const thRow = el('div', 'cg-tr cg-th');
+      ['时间', '充电量', '总耗电', '损耗', '时长', '费用'].forEach((t, i) => {
+        thRow.appendChild(el('span', i ? 'cg-c num' : 'cg-c', t));
+      });
+      tbl.appendChild(thRow);
       g.list.forEach((c) => {  // sessions 本身新的在前
-        const line = el('div', 'cg-line');
-        line.appendChild(el('b', '', fmtTime(c.start_ts)));
-        const parts = [];
-        if (c.energy_kwh !== null && c.energy_kwh !== undefined) {
-          parts.push(`${fmtNum(c.energy_kwh, 1)} kWh`);
-        }
-        if (c.total_kwh !== null && c.total_kwh !== undefined) {
-          parts.push(`总耗电 ${fmtNum(c.total_kwh, 1)}`);
-        }
+        const tr = el('div', 'cg-tr');
+        tr.appendChild(el('span', 'cg-c', fmtTime(c.start_ts)));
+        tr.appendChild(el('span', 'cg-c num', c.energy_kwh !== null && c.energy_kwh !== undefined
+          ? `${fmtNum(c.energy_kwh, 1)} kWh` : '—'));
+        tr.appendChild(el('span', 'cg-c num', c.total_kwh !== null && c.total_kwh !== undefined
+          ? `${fmtNum(c.total_kwh, 1)} kWh` : '—'));
         if (c.total_kwh != null && c.energy_kwh != null && Number(c.total_kwh) > 0) {
-          parts.push(`损耗 ${fmtNum((c.total_kwh - c.energy_kwh) / c.total_kwh * 100, 1)}%`);
+          const lp = Math.max((Number(c.total_kwh) - Number(c.energy_kwh)) / Number(c.total_kwh) * 100, 0);
+          tr.appendChild(el('span', 'cg-c num ' + (lp >= 10 ? 'cg-loss-high-t' : ''),
+            fmtNum(lp, 1) + '%'));
+        } else {
+          tr.appendChild(el('span', 'cg-c num', '—'));
         }
-        parts.push(fmtDur(c.duration_min));
+        tr.appendChild(el('span', 'cg-c num', fmtDur(c.duration_min)));
         const effCost = (c.cost !== null && c.cost !== undefined) ? c.cost : c.cost_effective;
         if (effCost !== null && effCost !== undefined) {
-          parts.push(`¥${fmtNum(effCost, 2)}` +
-            ((c.cost === null || c.cost === undefined) ? '(家充)' : ''));
+          const costCell = el('span', 'cg-c num', `¥${fmtNum(effCost, 2)}`);
+          if (c.cost === null || c.cost === undefined) {  // 家充自动计价(非手填)
+            costCell.appendChild(el('span', 'cg-home-tag', '家充'));
+          }
+          tr.appendChild(costCell);
+        } else {
+          tr.appendChild(el('span', 'cg-c num', '—'));
         }
-        line.appendChild(el('span', 'cg-line-sub', parts.join(' · ')));
-        detail.appendChild(line);
+        tbl.appendChild(tr);
       });
+      detail.appendChild(tbl);
       item.appendChild(detail);
       box.appendChild(item);
     });

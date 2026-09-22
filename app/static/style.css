@@ -2365,22 +2365,102 @@ button { touch-action: manipulation; }
 .cg-item {
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 9px 14px;
+  padding: 10px 14px 11px;
   background: var(--page);
 }
 
 .cg-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
   cursor: pointer;
   user-select: none;
 }
 
+.cg-main { flex: 1; min-width: 0; }
+
+/* 元信息行:占比条 + 次数/时长/均价,损耗为彩色 badge */
+.cg-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 7px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.cg-share {
+  flex: 0 0 auto;
+  position: relative;
+  width: 96px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--tile-track);
+  overflow: hidden;
+}
+
+.cg-share i {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--cat-charge) 68%, var(--series-1)),
+    var(--cat-charge));
+}
+
+.cg-share-lab {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.cg-meta-item { font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.cg-loss {
+  font-size: 10px;
+  border: 1px solid;
+  border-radius: 5px;
+  padding: 0 5px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.cg-loss-low {
+  color: var(--cat-charge);
+  border-color: color-mix(in srgb, var(--cat-charge) 45%, transparent);
+}
+
+.cg-loss-high {
+  color: #fab219;
+  border-color: color-mix(in srgb, #fab219 45%, transparent);
+}
+
+/* 右侧大数字:累计充入 + 费用 */
+.cg-figs { flex: 0 0 auto; text-align: right; }
+
+.cg-kwh b {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--cat-charge);
+  font-variant-numeric: tabular-nums;
+}
+
+.cg-kwh span { font-size: 11px; color: var(--text-muted); margin-left: 3px; }
+
+.cg-cost {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.cg-row .cg-arrow { align-self: center; }
+
 .cg-detail {
-  margin-top: 8px;
-  padding-top: 8px;
+  margin-top: 9px;
+  padding-top: 9px;
   border-top: 1px dashed var(--border);
 }
 
@@ -2388,9 +2468,11 @@ button { touch-action: manipulation; }
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   font-size: 12px;
 }
+
+.cg-label { color: var(--text-muted); flex-shrink: 0; }
 
 .cg-brand-input {
   font: inherit;
@@ -2426,17 +2508,6 @@ button { touch-action: manipulation; }
   line-height: 1.5;
 }
 
-.cg-line {
-  display: flex;
-  flex-direction: column;
-  padding: 3px 0;
-  font-size: 12px;
-}
-
-.cg-line b { font-variant-numeric: tabular-nums; font-weight: 550; }
-
-.cg-line-sub { color: var(--text-muted); font-variant-numeric: tabular-nums; }
-
 .cg-head {
   display: flex;
   flex-direction: column;
@@ -2444,37 +2515,65 @@ button { touch-action: manipulation; }
   min-width: 0;
 }
 
-.cg-head b { font-size: 14px; font-weight: 600; }
+.cg-head b { font-size: 14.5px; font-weight: 600; }
 
 .cg-loc { font-size: 11px; color: var(--text-muted); }
 
-.cg-stats {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.cg-chip {
+/* 明细小表:时间列 + 数字列右对齐等宽 */
+.cg-tbl {
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+}
+
+.cg-tr {
+  display: grid;
+  grid-template-columns: minmax(96px, 1.3fr) repeat(5, minmax(0, 1fr));
+  gap: 4px 10px;
+  padding: 5px 2px;
+  align-items: baseline;
+}
+
+.cg-tr + .cg-tr { border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent); }
+
+.cg-th {
   color: var(--text-muted);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 9px;
+  font-size: 10.5px;
+  padding-bottom: 2px;
+}
+
+.cg-th.cg-tr { border-top: none; }
+
+.cg-c {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.cg-chip b { color: var(--text-primary); font-weight: 600; }
+.cg-c.num { text-align: right; }
 
-.cg-loss-low b { color: var(--cat-charge); }
+.cg-loss-high-t { color: #fab219; }
 
-.cg-loss-high b { color: #fab219; }
+.cg-home-tag {
+  font-size: 9px;
+  color: var(--seq-blue-500);
+  border: 1px solid color-mix(in srgb, var(--seq-blue-500) 50%, transparent);
+  border-radius: 4px;
+  padding: 0 3px;
+  margin-left: 4px;
+  vertical-align: 1px;
+}
+
+.cg-tr:not(.cg-th):hover { background: color-mix(in srgb, var(--text-primary) 2.5%, transparent); }
 
 @media (max-width: 600px) {
-  .cg-row { flex-wrap: wrap; }
-  .cg-stats { justify-content: flex-start; }
+  .cg-item { padding: 9px 10px 10px; }
+  .cg-kwh b { font-size: 17px; }
+  .cg-share { width: 72px; }
   .cg-brand-input { width: 100%; flex: 1; }
+  /* 明细小表窄屏横向滑动,保持列对齐 */
+  .cg-detail { overflow-x: auto; }
+  .cg-tbl { min-width: 470px; }
 }
 
 /* ===== 地图轨迹列表 ===== */
