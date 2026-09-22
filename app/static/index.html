@@ -226,12 +226,9 @@
     </div>
 
     <div class="card col-12">
-      <h2>充电记录</h2>
-      <div class="card-sub">每次充电补充的电量</div>
-      <div class="chart" id="chart-charging"></div>
-      <!-- 电池电量估算:实心柱=充后总电量,上方虚线柱=换算的估算满电 -->
-      <div class="cg-divider">电池电量估算 <span>充后总电量 = 充至电量 × 估算满电;估算满电 = 充电量 ÷ 电量增幅(增幅 &lt;10% 的零碎充电不参与)</span></div>
-      <div class="cs-batt-chart" id="chart-cs-batt"></div>
+      <h2>电池电量估算</h2>
+      <div class="card-sub">实心柱 = 充后总电量(充至电量 × 估算满电);柱顶虚线框顶缘即估算满电 = 充电量 ÷ 电量增幅(增幅 &lt;10% 的零碎充电不参与)</div>
+      <div class="chart" id="chart-cs-batt"></div>
       <div class="empty" id="cs-batt-empty" hidden>暂无可估算的充电记录(需单次增幅 ≥10%)</div>
     </div>
 

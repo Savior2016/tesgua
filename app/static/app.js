@@ -423,54 +423,6 @@
     }), { notMerge: true });
   }
 
-  function renderCharging() {
-    const o = S.overview;
-    if (!o || !charts.charging || !o.chargingSessions) return;
-    const sess = o.chargingSessions.slice().reverse();
-    // 用户录入的费用优先于库内 cost
-    const enteredCost = {};
-    ((o.costs || {}).charges || []).forEach((c) => {
-      if (c.cost !== null && c.cost !== undefined) enteredCost[c.id] = c.cost;
-    });
-    charts.charging.setOption(Object.assign({}, chartTheme(), {
-      tooltip: {
-        trigger: 'axis',
-        backgroundColor: cssVar('--surface-1'),
-        borderColor: cssVar('--border'), borderWidth: 1, padding: [8, 12],
-        textStyle: { color: cssVar('--text-primary'), fontSize: 12 },
-        axisPointer: { type: 'shadow', shadowStyle: { color: cssVar('--tile-track') } },
-        formatter(params) {
-          const p = params[0];
-          const s = sess[p.dataIndex];
-          const up = (s.start_battery_level !== null && s.end_battery_level !== null)
-            ? Number(s.end_battery_level) - Number(s.start_battery_level) : null;
-          return `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-bottom:4px">${fmtTime(Number(s.start_date_ts), true)}</div>` +
-                 `<div><span style="display:inline-block;width:14px;height:8px;border-radius:2px;` +
-                 `background:${p.color};vertical-align:middle;margin-right:6px"></span>` +
-                 `<b>${fmtNum(s.charge_energy_added, 1)} kWh</b> <span style="color:${cssVar('--text-muted')}">充电量</span></div>` +
-                 `<div style="color:${cssVar('--text-muted')};margin-top:2px">` +
-                 `${fmtNum(s.start_battery_level, 0)}% → ${fmtNum(s.end_battery_level, 0)}%` +
-                 (up !== null ? ` (+${fmtNum(up, 0)}% ${kmSuffix(up)})` : '') +
-                 ` · ${fmtNum(s.duration_min, 0)} 分钟` +
-                 (enteredCost[s.id] !== undefined ? ` · ¥${fmtNum(enteredCost[s.id], 2)}`
-                   : s.cost != null ? ` · ¥${fmtNum(s.cost, 2)}` : '') + '</div>';
-        },
-      },
-      grid: { left: 8, right: 12, top: 24, bottom: 4, containLabel: true },
-      xAxis: Object.assign(axisCommon(), { type: 'category',
-        data: sess.map((s) => fmtTime(Number(s.start_date_ts)).slice(0, 5)),
-        axisLabel: { color: cssVar('--text-muted'), fontSize: 11 } }),
-      yAxis: Object.assign(axisCommon(), { type: 'value',
-        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value}' } }),
-      series: [{
-        name: '充电量', type: 'bar',
-        data: sess.map((s) => Number(s.charge_energy_added)),
-        barMaxWidth: 24,
-        itemStyle: { color: cssVar('--series-3'), borderRadius: [4, 4, 0, 0] },
-      }],
-    }), { notMerge: true });
-  }
-
   /* ---------- 渲染:电量活动时间线(顶部全宽) ---------- */
 
   function stripSeries(name, data, tooltipBody) {
@@ -1791,12 +1743,15 @@
     charges.forEach((c) => {
       const item = el('div', 'cs-item');
 
-      /* 头部:充电时间(左)+ 充电桩名称/地点(右,可编辑,同地点自动带出) */
+      /* 头部:充电时间(左)+ 充电桩名称/品牌·地点(右,可编辑,同地点自动带出) */
       const head = el('div', 'cs-head');
       const timeBox = el('div', 'cs-time');
       const sameDay = c.end_ts && dayKey(c.start_ts) === dayKey(c.end_ts);
-      timeBox.appendChild(el('b', '', fmtTime(c.start_ts) +
+      const tline = el('div', 'cs-time-main');
+      tline.appendChild(el('b', '', fmtTime(c.start_ts).slice(0, 5)));
+      tline.appendChild(el('span', 'cs-time-range', fmtClock(c.start_ts) +
         (c.end_ts ? ` → ${sameDay ? fmtClock(c.end_ts) : fmtTime(c.end_ts)}` : '')));
+      timeBox.appendChild(tline);
       if (!c.end_ts) timeBox.appendChild(el('span', 'cs-time-sub', '充电中'));
       head.appendChild(timeBox);
 
@@ -1835,8 +1790,12 @@
       locInp.addEventListener('change', saveCharger);
       brandInp.addEventListener('change', saveCharger);
       chg.appendChild(nameInp);
-      chg.appendChild(brandInp);
-      chg.appendChild(locInp);
+      // 品牌与地点并作一行小字:「品牌 · 地点」
+      const meta = el('div', 'cs-charger-meta');
+      meta.appendChild(brandInp);
+      meta.appendChild(el('span', 'cs-meta-dot', '·'));
+      meta.appendChild(locInp);
+      chg.appendChild(meta);
       head.appendChild(chg);
       item.appendChild(head);
 
@@ -3574,7 +3533,6 @@
       renderReminder();
       renderHomeCharge();
       renderDaily();
-      renderCharging();
       renderRoutes();
       renderRoutesList();
       renderActivity();
@@ -3595,7 +3553,7 @@
   function renderAll() {
     if (!S.overview) return;
     renderHeader();
-    renderDaily(); renderCharging();
+    renderDaily();
     renderRoutes(); renderRoutesList();
     renderActivity(); renderEvents(); renderSentry();
     renderEfficiency(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime(); renderTraffic();
@@ -3689,7 +3647,6 @@
   function init() {
     applyTheme();
     charts.daily = echarts.init($('#chart-daily'));
-    charts.charging = echarts.init($('#chart-charging'));
     charts.activity = echarts.init($('#chart-activity'));
     charts.sentryLanes = echarts.init($('#chart-sentry-lanes'));
     charts.sentryDrain = echarts.init($('#chart-sentry-drain'));
