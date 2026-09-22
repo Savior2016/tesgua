@@ -219,6 +219,7 @@ git tag v1.x.y && git push origin v1.x.y
 - 地图为 MapLibre 矢量瓦片(Protomaps 每日构建的中国区 PMTiles 单文件 + 字体/sprites 均自托管,`scripts/update-map-data.sh` 更新),深浅色主题均为原生配色,国内移动网络下也能出图
 - 堵车/红绿灯为启发式判定(特斯拉不上报红绿灯位置):低于 30 km/h 即算堵车(偶尔提速超过 30 但不超过 20 秒不中断),通畅车流中停车 5–120 秒记为红绿灯等待,堵车路程按堵车段速度×时间积分
 - 装饰素材来源:火星(NASA Hubble,公有领域)、黑洞吸积盘(NASA 渲染,Wikimedia 公有领域)、控制页好奇号火星车(NASA/JPL-Caltech 艺术渲染,公有领域)
+- 充电桩品牌背景照片(Wikimedia Commons,CC BY-SA 4.0):国家电网([中国国家电网充电桩.jpg](https://commons.wikimedia.org/wiki/File:中国国家电网充电桩.jpg),作者 Air7538)、特斯拉超充([Tesla Supercharger Inyokern California](https://commons.wikimedia.org/wiki/File:Tesla_Supercharger_Inyokern_California_2026_dllu.jpg),作者 Daniel Lu / dllu)
 
 ## 许可证
 

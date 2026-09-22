@@ -205,14 +205,23 @@
       <div class="card-head" id="cs-head" role="button" tabindex="0" title="点击展开 / 收起">
         <div>
           <h2>充电详情</h2>
-          <div class="card-sub">每次充电一张卡片;费用 / 总耗电(桩端计费电量)/ 充电桩名称与品牌可直接填写,同一地点自动带出;下方按充电桩汇总统计</div>
+          <div class="card-sub">每次充电一张卡片;费用 / 总耗电(桩端计费电量)/ 充电桩名称与品牌可直接填写,同一地点自动带出</div>
         </div>
         <div class="mini-stats" id="cs-stats"></div>
         <span class="chev card-chev">▾</span>
       </div>
       <div class="cs-list" id="cs-list"></div>
-      <!-- 充电桩统计(并入本卡,随折叠):按桩汇总充电量/时长/损耗,点击行展开明细 -->
-      <div class="cg-divider">按充电桩汇总 <span>损耗 = 总耗电 − 充入电量;点击行展开每次充电明细</span></div>
+    </div>
+
+    <div class="card col-12 collapsible open" id="cg-card">
+      <div class="card-head" id="cg-head" role="button" tabindex="0" title="点击展开 / 收起">
+        <div>
+          <h2>充电桩</h2>
+          <div class="card-sub">按充电桩汇总充电量 / 时长 / 损耗(损耗 = 总耗电 − 充入电量),点击行展开每次充电明细;已知品牌在条目背景展示充电桩照片</div>
+        </div>
+        <div class="mini-stats" id="cg-stats-head"></div>
+        <span class="chev card-chev">▾</span>
+      </div>
       <div class="cg-list" id="cg-list"></div>
     </div>
 
