@@ -2106,10 +2106,10 @@
 
   const cgOpen = new Set();  // 展开的充电桩(按地点键),跨刷新保持展开状态
 
-  /* 品牌照片背景:品牌名(用户手填)含任一别名即匹配;素材在 app/static/brand-*.webp */
+  /* 品牌 logo 背景:品牌名(用户手填)含任一别名即匹配;素材在 app/static/brand-*-logo.webp */
   const CG_BRAND_BG = [
-    { m: ['e充电', '国家电网', '国网', 'state grid'], img: '/brand-state-grid.webp' },
-    { m: ['特斯拉', 'tesla'], img: '/brand-tesla.webp' },
+    { m: ['e充电', '国家电网', '国网', 'state grid'], img: '/brand-state-grid-logo.webp' },
+    { m: ['特斯拉', 'tesla'], img: '/brand-tesla-logo.webp' },
   ];
   const cgBrandBg = (brand) => {
     if (!brand) return null;

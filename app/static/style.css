@@ -2273,14 +2273,14 @@ button { touch-action: manipulation; }
   background: var(--page);
 }
 
-/* 品牌照片背景:右缘锚定铺满整行,椭圆 mask 四缘渐隐(不显示图片边界),
+/* 品牌 logo 背景:横向放大铺满整个条目(两侧超出裁切),四缘渐隐不显示边界,
    压低不透明度保证文字可读;内容层抬到 z-index 1 压在图上 */
 .cg-brand-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  opacity: var(--cg-bg-o, 0.22);
+  opacity: var(--cg-bg-o, 0.18);
 }
 
 :root[data-theme="dark"] .cg-brand-bg { --cg-bg-o: 0.26; }
@@ -2289,13 +2289,22 @@ button { touch-action: manipulation; }
 }
 
 .cg-brand-bg img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: 72% 50%;
-  filter: saturate(0.85);
-  -webkit-mask-image: radial-gradient(115% 170% at 72% 50%, #000 30%, transparent 74%);
-  mask-image: radial-gradient(115% 170% at 72% 50%, #000 30%, transparent 74%);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 112%;
+  max-width: none;
+  height: auto;
+  transform: translate(-50%, -50%);
+  filter: saturate(0.9);
+  -webkit-mask-image:
+    linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent),
+    linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent),
+    linear-gradient(180deg, transparent, #000 22%, #000 78%, transparent);
+  mask-composite: intersect;
 }
 
 .cg-item .cg-row, .cg-item .cg-detail { position: relative; z-index: 1; }
