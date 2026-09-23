@@ -14,7 +14,7 @@ NOW = int(time.time() * 1000)
 XSS = '<img src="data:image/png;base64,invalid" onerror="window.__auditXss=true">'
 CAR = {"id":1,"name":"合成测试车辆","model":"Y","trim_badging":"long_range","efficiency":0.15}
 BASE = {
- "overview": {"role":"admin","car_id":1,"cars":[CAR],"state":"offline","software_version":"test",
+ "overview": {"role":"admin","car_id":1,"cars":[CAR],"state":"offline","software_version":"test","update_pending":True,
    "latest":{"date_ts":NOW-18*3600000,"usable_battery_level":75,"battery_level":75,"rated_battery_range_km":400,"ideal_battery_range_km":400,"odometer":10000,"inside_temp":24,"outside_temp":20},
    "kwh_per_ideal_km":0.15,"kwh_per_pct":0.75,"totals":{"drives_total":3,"month_km":300,"week_km":100,"year_km":2000,"month_energy_kwh":45},"charging":{"sessions":2,"energy_kwh":40,"cost":30,"duration_min":60}},
  "drives/daily":{"days_rows":[{"day":"2026-09-01","distance":30,"drives":2}]},
@@ -87,6 +87,8 @@ def run():
             page.goto('http://teslahome.test/',wait_until='networkidle')
             assert page.locator('#car-name').inner_text() == '合成测试车辆'
             assert page.locator('#state-text').inner_text() != '数据连接失败'
+            # 顶栏 OTA 徽标:overview.update_pending → 「OTA <version> 更新中」
+            assert page.locator('#ota-text').inner_text() == 'OTA test 更新中'
             assert page.locator('.vehicle-readings').count()==0
             assert page.locator('#tpms-on-fl').count()==1
             # 车况页「生涯总览」:总里程/总耗电量/充电总费用(火星背景卡,隐藏页也已渲染)

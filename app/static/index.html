@@ -27,6 +27,8 @@
             <span class="dot"></span><span id="state-text">加载中…</span><span class="car-name" id="car-name" role="button" tabindex="0" title="点击刷新数据">—</span>
           </span>
           <span id="sw-version"></span>
+          <!-- 有新固件时显示(优先取 Fleet 快照的 OTA 状态,否则退化为 TeslaMate 更新记录) -->
+          <span class="badge" id="ota-badge" data-state="ota" hidden><span class="dot"></span><span id="ota-text"></span></span>
           <span class="header-meta"><span id="updated-at">加载中…</span></span>
         </div>
       </div>
@@ -709,7 +711,7 @@
 <script src="/echarts.min.js"></script>
 <script src="/maplibre-gl-csp.js"></script>
 <script src="/pmtiles.js"></script>
-<script src="/control.js?v=11"></script>
+<script src="/control.js?v=12"></script>
 <script src="/pageturn.js"></script>
 <script src="/app.js"></script>
 </body>

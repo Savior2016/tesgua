@@ -303,12 +303,41 @@
     badge.dataset.state = o.state;
     $('#state-text').textContent = STATE_LABEL[o.state] || o.state;
     $('#sw-version').textContent = o.software_version ? `v${o.software_version}` : '';
+    renderOtaBadge();
     // 数据更新:固定第三行,文本更新时淡入(重启 CSS 动画)
     const ua = $('#updated-at');
     ua.textContent = o.latest ? `数据更新 ${fmtTime(Number(o.latest.date_ts))}` : '暂无数据';
     ua.classList.remove('fade-in');
     void ua.offsetWidth;
     ua.classList.add('fade-in');
+  }
+
+  /* ---------- 渲染:顶栏 OTA 徽标 ---------- */
+  // 状态文案与 control.js 保持一致;优先用 Fleet 快照(状态更细:可下载/下载中%/安装中…),
+  // 未接入控制时退化为 overview.update_pending(TeslaMate 更新记录未结束 → 更新进行中)。
+  const OTA_TEXT = {
+    downloading: (s) => `OTA 下载中 ${s.ota_perc ?? ''}%`.trim(),
+    available: (s) => `OTA ${s.ota_version || '新版本'} 可下载`,
+    installing: () => 'OTA 安装中',
+    scheduled: () => 'OTA 已预约安装',
+    wifi_wait: () => 'OTA 等待 Wi-Fi 下载',
+    downloading_wifi_wait: () => 'OTA 等待 Wi-Fi 下载',
+    downloaded: () => 'OTA 已下载待安装',
+  };
+  let ctlOta = null; // control.js 推送的最近一次 Fleet 快照状态
+  // 控制页 render() 时调用(Fleet 数据只在控制接口里,不额外计费)
+  window.TeslaHeaderOta = (states) => { ctlOta = states || {}; renderOtaBadge(); };
+  function renderOtaBadge() {
+    const el_ = $('#ota-badge');
+    if (!el_) return;
+    let text = '';
+    const fn = ctlOta && OTA_TEXT[ctlOta.ota_status];
+    if (fn) text = fn(ctlOta);
+    else if (S.overview && S.overview.update_pending && S.overview.software_version) {
+      text = `OTA ${S.overview.software_version} 更新中`;
+    }
+    el_.hidden = !text;
+    $('#ota-text').textContent = text;
   }
 
   /* ---------- 渲染:折线系列公共构造 ---------- */
@@ -936,6 +965,20 @@
       });
     }
     const mk = (arr) => (arr || []).map((p) => [Number(p[0]), Number(p[1])]);
+    // 温度按整型上报、量化台阶明显:先做中心 9 点滑动平均抹平台阶,再交给 smooth 曲线;
+    // 头部当前值仍用原始最新点(上面 lastOf),不做平均
+    const smooth9 = (arr) => {
+      const W = 4, n = arr.length;
+      return arr.map((p, i) => {
+        let sum = 0, cnt = 0;
+        for (let j = Math.max(0, i - W); j <= Math.min(n - 1, i + W); j++) {
+          const v = arr[j][1];
+          if (v === null || isNaN(v)) continue;
+          sum += v; cnt++;
+        }
+        return [p[0], cnt ? Math.round((sum / cnt) * 10) / 10 : p[1]];
+      });
+    };
     const area = (hex) => ({
       color: {
         type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
@@ -957,10 +1000,10 @@
       }),
       series: [
         // 平滑曲线 + 曲线下渐变;端点标签关掉(当前值在卡片头部)
-        Object.assign(lineSeries('车内', mk(o.temp.inside), cIn), {
+        Object.assign(lineSeries('车内', smooth9(mk(o.temp.inside)), cIn), {
           smooth: true, smoothMonotone: 'x', areaStyle: area(cIn), endLabel: { show: false },
         }),
-        Object.assign(lineSeries('车外', mk(o.temp.outside), cOut), {
+        Object.assign(lineSeries('车外', smooth9(mk(o.temp.outside)), cOut), {
           smooth: true, smoothMonotone: 'x', areaStyle: area(cOut), endLabel: { show: false },
         }),
       ],

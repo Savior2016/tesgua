@@ -53,6 +53,9 @@ with sync_playwright() as pw:
             assert page.locator('.ctl-module .ctl-slide').count()==4
             # OTA 徽标 + 车辆静态配置(车型/颜色 + 车身按实车配色)
             assert page.locator('#ctl-backend .ctl-be-label.warn').text_content()=='OTA 2026.26.3 可下载'
+            # 顶栏状态条同步显示 OTA 徽标(Fleet 快照经 window.TeslaHeaderOta 钩子推送)
+            assert page.locator('#ota-text').text_content()=='OTA 2026.26.3 可下载'
+            assert page.locator('#ota-badge').is_visible()
             assert page.locator('#ctl-card-sub').text_content()=='Model Y · 珍珠白 · Pinwheel19'
             assert page.evaluate("document.querySelector('#page-control .ctl-car').style.getPropertyValue('--car-body')")=='#f2f2f0'
             # #control 深链只生效一次:hash 被清除,刷新后靠 localStorage 停留当前页

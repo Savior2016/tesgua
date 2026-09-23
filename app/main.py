@@ -742,11 +742,13 @@ def overview(request: Request, car_id: int | None = Query(default=None)):
         state = state_row[0]["state"] if state_row else "unknown"
 
     ver = q(
-        "SELECT version FROM updates WHERE car_id = %s "
+        "SELECT version, end_date FROM updates WHERE car_id = %s "
         "ORDER BY start_date DESC LIMIT 1",
         (cid,),
     )
     version = ver[0]["version"] if ver else None
+    # 最近一次更新记录未结束 = 正在下载/安装(顶栏 OTA 徽标;TeslaMate 无 status 列,只有此信号)
+    update_pending = bool(ver and ver[0]["end_date"] is None)
 
     ratio = kwh_per_ideal_km(cid)
     # 本月/本年边界按展示时区计算,再换算为 UTC 与库中时间戳比较
@@ -801,6 +803,7 @@ def overview(request: Request, car_id: int | None = Query(default=None)):
         "car_id": cid,
         "state": state,
         "software_version": version,
+        "update_pending": update_pending,
         "latest": latest,
         "kwh_per_ideal_km": ratio,
         # 每 1% 表显电量对应的电量(kWh),前端「度数」维度的换算系数

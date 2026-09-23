@@ -219,6 +219,8 @@
     beLabel.appendChild(document.createTextNode(beTxt));
     be.appendChild(beLabel);
     const ota=OTA_TEXT[s.ota_status];
+    // 顶栏状态条同步 OTA 徽标(app.js 注册的钩子;复用已获取的 Fleet 快照,不额外计费)
+    if(window.TeslaHeaderOta)window.TeslaHeaderOta(s);
     if(ota){
       const tag=document.createElement('span');
       tag.className='ctl-be-label warn';

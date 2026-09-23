@@ -398,10 +398,12 @@ header.mini .header-main .model-icon { height: 44px; }
   to { opacity: 1; transform: none; }
 }
 
-#sw-version { overflow: hidden; max-width: 120px; opacity: 1; transition: max-width .3s ease, opacity .22s ease; }
+#sw-version, #ota-badge { overflow: hidden; max-width: 120px; opacity: 1; transition: max-width .3s ease, opacity .22s ease; }
+#ota-badge { max-width: 220px; white-space: nowrap; }
+#ota-badge[hidden] { display: none; }
 
 /* 收缩态:只留 状态(含车名)标签 */
-header.mini #sw-version, header.mini .header-meta { max-height: 0; max-width: 0; opacity: 0; }
+header.mini #sw-version, header.mini #ota-badge, header.mini .header-meta { max-height: 0; max-width: 0; opacity: 0; }
 
 
 .car-model-chip {
@@ -496,6 +498,9 @@ header.mini #sw-version, header.mini .header-meta { max-height: 0; max-width: 0;
 .badge[data-state="driving"]  .dot { background: var(--series-1); }
 .badge[data-state="charging"] .dot { background: var(--series-3); }
 .badge[data-state="online"]   .dot { background: var(--series-2); }
+/* OTA 徽标:琥珀色圆点(与行车能耗同色系的警示色) */
+.badge[data-state="ota"] { border-color: color-mix(in srgb, var(--cat-drive) 45%, var(--border)); }
+.badge[data-state="ota"] .dot { background: var(--cat-drive); }
 
 .icon-btn {
   background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
