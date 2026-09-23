@@ -719,8 +719,8 @@ button { touch-action: manipulation; }
 }
 @keyframes car-charge-pulse { 50% { opacity: 1; } }
 
-/* 能量占比环:环段路径=玻璃轮廓,加粗描边内半被 #car-ring-mask 裁掉,
-   可见部分为贴玻璃外缘的 13 宽等宽环带(描边 26 的外侧一半) */
+/* 能量占比环:环段路径=玻璃轮廓,加粗描边外半被 #car-ring-mask 裁掉,
+   可见部分为贴玻璃内缘的 13 宽等宽环带(描边 26 的内侧一半) */
 .carring {
   fill: none;
   stroke-width: 26;
