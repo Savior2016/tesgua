@@ -1090,19 +1090,18 @@
     strip.querySelectorAll('.cyc-chip').forEach((b) =>
       b.classList.toggle('on', Number(b.dataset.idx) === S.cycleIdx));
 
-    /* --- 能量占比环:围绕玻璃顶一圈(自顶点顺时针),pathLength=100 归一化 --- */
+    /* --- 能量占比环:贴玻璃顶外缘一圈(自顶点顺时针),pathLength=100 归一化,段间无缝 --- */
     const RING_KEYS = ['uncharged', 'idle', 'sentry', 'drive', 'remaining'];
-    const GAP = 0.8;  // 段间缝隙(占环长 %)
     const setRing = (k, start, len) => {
       const p = $(`#carring-${k}`);
       if (!p) return;
-      if (len <= GAP) {
+      if (len <= 0.05) {
         p.setAttribute('stroke-dasharray', '0 100');
         return;
       }
       p.setAttribute('stroke-dasharray',
-        `${(len - GAP).toFixed(2)} ${(100 - len + GAP).toFixed(2)}`);
-      p.setAttribute('stroke-dashoffset', (-(start + GAP / 2)).toFixed(2));
+        `${len.toFixed(2)} ${(100 - len).toFixed(2)}`);
+      p.setAttribute('stroke-dashoffset', (-start).toFixed(2));
     };
     if (!cyc) {
       RING_KEYS.forEach((k) => {

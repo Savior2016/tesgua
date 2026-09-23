@@ -24,6 +24,9 @@ ROOT = Path(os.environ.get("FLEET_DATA_DIR", "/data/fleet"))
 PROXY_DIR = Path(os.environ.get("FLEET_PROXY_DIR", "/data/tesla-proxy"))
 ORIGIN = os.environ.get("FLEET_PUBLIC_ORIGIN", "").rstrip("/")
 PROXY_URL = os.environ.get("FLEET_PROXY_URL", "https://tesla-proxy:4443")
+# vehicle_data 一次请求返回的分段(同一请求不额外计费):
+# 三个实时状态段 + 车辆静态配置 + 车机定时充电/定时出发(只读展示用)。
+ENDPOINTS = "vehicle_state;climate_state;charge_state;vehicle_config;charge_schedule_data;preconditioning_schedule_data"
 SCOPES = "openid offline_access vehicle_device_data vehicle_cmds vehicle_charging_cmds"
 REGIONS = {
     "cn": ("https://fleet-api.prd.cn.vn.cloud.tesla.cn", "https://auth.tesla.cn", "https://auth.tesla.cn/oauth2/v3/token"),
@@ -242,7 +245,7 @@ def vehicle_data(vin):
         d = read()
         access = token(d)
         audience = REGIONS[d["region"]][0]
-    path = "/api/1/vehicles/" + urllib.parse.quote(vin, safe="") + "/vehicle_data?endpoints=vehicle_state%3Bclimate_state%3Bcharge_state"
+    path = "/api/1/vehicles/" + urllib.parse.quote(vin, safe="") + "/vehicle_data?endpoints=" + urllib.parse.quote(ENDPOINTS, safe="")
     return remote(audience + path, token=access).get("response") or {}
 
 

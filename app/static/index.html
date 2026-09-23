@@ -7,7 +7,7 @@
   <title>TESLA Home</title>
   <link rel="stylesheet" href="/maplibre-gl.css">
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/control.css?v=11">
+  <link rel="stylesheet" href="/control.css?v=12">
 </head>
 <body>
 <!-- 过冲(overscroll)露出的顶部背景中央:小圆圈 + 星舰徽标,平时被顶栏遮住 -->
@@ -95,6 +95,12 @@
                   <stop offset="0" stop-color="#fff" stop-opacity="0.10"/>
                   <stop offset="0.45" stop-color="#fff" stop-opacity="0"/>
                 </linearGradient>
+                <!-- 能量环只显示在玻璃轮廓之外:环段路径=玻璃轮廓(处处平行),
+                     加粗描边的内半由 mask 裁掉,可见部分即贴边等宽环带 -->
+                <mask id="car-ring-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="340" height="460">
+                  <rect x="0" y="0" width="340" height="460" fill="#fff"/>
+                  <path fill="#000" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z"/>
+                </mask>
               </defs>
               <!-- 手机端整体放大车辆用(裁掉 HUD 角标与留白),见 style.css #car-zoom -->
               <g id="car-zoom">
@@ -131,13 +137,14 @@
               <rect x="90" y="150" width="160" height="250" clip-path="url(#car-glass-clip)" fill="url(#car-glass-shine)" pointer-events="none"/>
               <!-- 玻璃顶描边 -->
               <path class="car-glass-line" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z"/>
-              <!-- 能量占比环:围绕玻璃顶一圈(自顶点顺时针:未充 / 驻车耗电 / 哨兵 / 行驶 / 剩余) -->
-              <g class="car-ring">
-                <path id="carring-uncharged" class="carring" pathLength="100" stroke="url(#car-hatch)" stroke-dasharray="0 100" d="M170 158 C211 158 241 164 246 189 C249 230 249 301 244 344 C242 374 210 388 170 388 C130 388 98 374 96 344 C91 301 91 230 94 189 C99 164 129 158 170 158 Z"/>
-                <path id="carring-idle" class="carring carring-idle" pathLength="100" stroke-dasharray="0 100" d="M170 158 C211 158 241 164 246 189 C249 230 249 301 244 344 C242 374 210 388 170 388 C130 388 98 374 96 344 C91 301 91 230 94 189 C99 164 129 158 170 158 Z"/>
-                <path id="carring-sentry" class="carring carring-sentry" pathLength="100" stroke-dasharray="0 100" d="M170 158 C211 158 241 164 246 189 C249 230 249 301 244 344 C242 374 210 388 170 388 C130 388 98 374 96 344 C91 301 91 230 94 189 C99 164 129 158 170 158 Z"/>
-                <path id="carring-drive" class="carring carring-drive" pathLength="100" stroke-dasharray="0 100" d="M170 158 C211 158 241 164 246 189 C249 230 249 301 244 344 C242 374 210 388 170 388 C130 388 98 374 96 344 C91 301 91 230 94 189 C99 164 129 158 170 158 Z"/>
-                <path id="carring-remaining" class="carring carring-remaining" pathLength="100" stroke-dasharray="0 100" d="M170 158 C211 158 241 164 246 189 C249 230 249 301 244 344 C242 374 210 388 170 388 C130 388 98 374 96 344 C91 301 91 230 94 189 C99 164 129 158 170 158 Z"/>
+              <!-- 能量占比环:贴玻璃顶外缘一圈(自顶点顺时针:未充 / 驻车耗电 / 哨兵 / 行驶 / 剩余);
+                   五段共用玻璃轮廓路径,段与段首尾相接无缝隙 -->
+              <g class="car-ring" mask="url(#car-ring-mask)">
+                <path id="carring-uncharged" class="carring" pathLength="100" stroke="url(#car-hatch)" stroke-dasharray="0 100" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z"/>
+                <path id="carring-idle" class="carring carring-idle" pathLength="100" stroke-dasharray="0 100" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z"/>
+                <path id="carring-sentry" class="carring carring-sentry" pathLength="100" stroke-dasharray="0 100" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z"/>
+                <path id="carring-drive" class="carring carring-drive" pathLength="100" stroke-dasharray="0 100" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z"/>
+                <path id="carring-remaining" class="carring carring-remaining" pathLength="100" stroke-dasharray="0 100" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z"/>
               </g>
               <!-- 车头:总里程 -->
               <text class="car-odo-label" x="170" y="74">总里程</text>
@@ -422,7 +429,7 @@
       <div class="card-head">
         <div>
           <h2>车辆控制</h2>
-          <div class="card-sub">车身部位点按查看 · 模块右滑开启、回滑关闭</div>
+          <div class="card-sub" id="ctl-card-sub">车身部位点按查看 · 模块右滑开启、回滑关闭</div>
         </div>
         <div id="ctl-backend"></div>
       </div>
@@ -568,6 +575,11 @@
                       <button class="ctl-module-open" type="button" aria-label="午休详细设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
                       <b id="ctl-module-nap">定时露营</b>
                     </div>
+                    <div class="ctl-module ctl-module-wide" data-panel="nav" style="--mc:var(--seq-blue-300)">
+                      <span>导航推送</span>
+                      <button class="ctl-module-open" type="button" aria-label="导航推送设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
+                      <b id="ctl-module-nav">地址发送到车机</b>
+                    </div>
                   </div>
                   <div class="ctl-foot-actions">
                     <button class="ctl-btn" id="ctl-refresh" type="button">刷新车辆状态</button>
@@ -697,7 +709,7 @@
 <script src="/echarts.min.js"></script>
 <script src="/maplibre-gl-csp.js"></script>
 <script src="/pmtiles.js"></script>
-<script src="/control.js?v=10"></script>
+<script src="/control.js?v=11"></script>
 <script src="/pageturn.js"></script>
 <script src="/app.js"></script>
 </body>

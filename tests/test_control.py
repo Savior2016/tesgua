@@ -208,6 +208,105 @@ def test_wake_timeout_returns_504(client,monkeypatch):
     assert '唤醒超时' in response.json()['detail']
 
 
+def extended():
+    """sample() + 新增分段:OTA/舒适/充电细节/车机定时/静态配置。"""
+    p=sample()
+    p['vehicle_state']['software_update']={"status":"downloading","version":"2026.26.3","download_perc":45}
+    p['climate_state'].update({"steering_wheel_heater":True,"defrost_mode":2,"bioweapon_mode":False,
+                               "seat_heater_left":3,"seat_heater_right":1,"seat_heater_rear_left":0})
+    p['charge_state'].update({"charging_state":"Charging","charge_current_request":16,"charge_amps":14,
+                              "charger_power":11,"time_to_full_charge":2.5})
+    p['charge_schedule_data']={"schedules":[{"name":"家","days_of_week":"All","start_enabled":True,"start_time":1380,
+                                             "end_enabled":True,"end_time":420,"enabled":True,"one_time":False,
+                                             "latitude":31.2,"longitude":121.5}]}
+    p['preconditioning_schedule_data']={"schedules":[{"name":"上班","days_of_week":"Weekdays","precondition_time":510,
+                                                      "enabled":True,"one_time":False,"latitude":31.2,"longitude":121.5}]}
+    p['vehicle_config']={"exterior_color":"PearlWhiteMultiCoat","car_type":"modely","wheel_type":"Pinwheel19","vin":"HIDDEN"}
+    return p
+
+
+def test_normalize_extended_fields():
+    r=control.normalize_vehicle(extended())
+    assert r['ota_status']=='downloading' and r['ota_version']=='2026.26.3' and r['ota_perc']==45
+    assert r['wheel_heater'] is True and r['defrost'] is True and r['bioweapon'] is False
+    assert r['seats']=={'0':3,'1':1,'2':0}
+    assert r['charge_amps']==16 and r['charge_power']==11 and r['charge_eta']==2.5
+    cs=r['charge_schedules'][0]
+    assert cs['name']=='家' and cs['days']=='All' and cs['start']==1380 and cs['end']==420
+    assert 'latitude' not in cs and 'longitude' not in cs  # 坐标绝不入快照
+    ps=r['precondition_schedules'][0]
+    assert ps['time']==510 and 'latitude' not in ps and 'longitude' not in ps
+    assert r['vehicle_config']=={'exterior_color':'PearlWhiteMultiCoat','car_type':'modely','wheel_type':'Pinwheel19'}
+
+
+def test_normalize_missing_new_sections_keeps_none():
+    r=control.normalize_vehicle(sample())
+    for key in ['ota_status','charge_amps','charge_power','charge_eta','wheel_heater','defrost','bioweapon','seats']:
+        assert r[key] is None
+    assert r['charge_schedules']==[] and r['precondition_schedules']==[]
+    assert 'vehicle_config' not in r
+
+
+def test_validate_new_commands():
+    args=control._validate_args('share',{'value':' 上海市浦东新区特斯拉中心\n','junk':1})
+    assert args['type']=='share_ext_content_raw'
+    assert args['value']=={'android.intent.extra.TEXT':'上海市浦东新区特斯拉中心'}
+    assert set(args)=={'type','value','locale','timestamp_ms'}
+    with pytest.raises(HTTPException):control._validate_args('share',{'value':''})
+    with pytest.raises(HTTPException):control._validate_args('share',{'value':'x'*501})
+    assert control._validate_args('set_charging_amps',{'charging_amps':16})=={'charging_amps':16}
+    with pytest.raises(HTTPException):control._validate_args('set_charging_amps',{'charging_amps':40})
+    assert control._validate_args('remote_seat_heater_request',{'heater':2,'level':3})=={'heater':2,'level':3}
+    with pytest.raises(HTTPException):control._validate_args('remote_seat_heater_request',{'heater':9,'level':3})
+    with pytest.raises(HTTPException):control._validate_args('remote_steering_wheel_heater_request',{'on':1})
+
+
+def test_state_patch_new_commands():
+    assert control._state_patch('set_charging_amps',{'charging_amps':8})=={'charge_amps':8}
+    assert control._state_patch('remote_steering_wheel_heater_request',{'on':True})=={'wheel_heater':True}
+    assert control._state_patch('set_preconditioning_max',{'on':False})=={'defrost':False}
+    assert control._state_patch('set_bioweapon_mode',{'on':True})=={'bioweapon':True}
+
+
+def test_state_patch_seat_merges_existing(monkeypatch):
+    monkeypatch.setattr(control,'_optimistic',lambda:{'seats':{'0':3}})
+    assert control._state_patch('remote_seat_heater_request',{'heater':1,'level':2})=={'seats':{'0':3,'1':2}}
+
+
+def test_command_new_whitelist_entries(client,monkeypatch):
+    calls=command_harness(monkeypatch,True,lambda cmd,calls:{'ok':True,'reason':''})
+    login(client)
+    for body in [{'cmd':'share','args':{'value':'公司'}},{'cmd':'set_charging_amps','args':{'charging_amps':10}},
+                 {'cmd':'remote_seat_heater_request','args':{'heater':0,'level':2}},
+                 {'cmd':'remote_steering_wheel_heater_request','args':{'on':True}},
+                 {'cmd':'set_preconditioning_max','args':{'on':True}},{'cmd':'set_bioweapon_mode','args':{'on':True}}]:
+        assert client.post('/api/control/command',json=body).status_code==200, body
+    assert calls==['share','set_charging_amps','remote_seat_heater_request',
+                   'remote_steering_wheel_heater_request','set_preconditioning_max','set_bioweapon_mode']
+    assert client.post('/api/control/command',json={'cmd':'share','args':{'value':''}}).status_code==422
+
+
+def test_refresh_persists_vehicle_config(client,monkeypatch):
+    saved=[]
+    monkeypatch.setattr(control,'CONTROL_API_URL','http://backend.test')
+    monkeypatch.setattr(control,'CONTROL_API_TOKEN','test-token')
+    monkeypatch.setattr(control,'_vin',lambda:'vin-test')
+    monkeypatch.setattr(control,'vehicle_data',lambda vin:extended())
+    monkeypatch.setattr(control,'_snapshot',{})
+    monkeypatch.setattr(control,'_snapshot_checked',0.0)
+    monkeypatch.setattr(control,'_snapshot_vin','')
+    monkeypatch.setattr(control,'_snapshot_error','')
+    monkeypatch.setattr(control,'_config_cached',lambda:{})
+    monkeypatch.setattr(control,'_save_config',lambda c:saved.append(c))
+    login(client)
+    r=client.post('/api/control/refresh')
+    assert r.status_code==200 and r.json()['ok'] is True
+    assert saved==[{'exterior_color':'PearlWhiteMultiCoat','car_type':'modely','wheel_type':'Pinwheel19'}]
+    states=r.json()['states']
+    assert states['ota_status']=='downloading' and states['charge_amps']==16
+    assert states['charge_schedules'][0]['name']=='家'
+
+
 def test_refresh_throttled_second_call_does_not_deadlock(client,monkeypatch):
     """回归:10 秒节流窗口内的第二次 refresh 曾在持有 _snapshot_lock 时调用 _states()
     (同一把非重入锁),线程自死锁,随后所有 status 请求排队堵死,控制页瘫痪。"""

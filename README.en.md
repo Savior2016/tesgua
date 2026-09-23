@@ -54,7 +54,7 @@ The official app is about *controlling* the car; TESLA Home is about *understand
 - Battery activity timeline: dual-lane segments for driving / charging / sentry / parked drain
 - Activity events, sentry timeline & drain curve, efficiency trend, tire pressure trend, in/out-cabin temperature, daily distance, charging log
 - Trip map: day-grouped collapsible drive list; expanded detail shows a key-value table (avg speed / efficiency / cost), an elevation profile chart and a per-trip mini map; clicking a route on the map expands the matching trip
-- **Vehicle control** page: whitelisted commands for doors / windows / climate / charging / sentry / lights & horn / trunk & frunk, slide-to-toggle switches, automatic vehicle wake before commands, command audit log, scheduled sentry slots; the command backend works with the official tesla-http-proxy or hosted services (see [docs/CONTROL.md](docs/CONTROL.md))
+- **Vehicle control** page: whitelisted commands for doors / windows / climate / charging (amps control + live power) / sentry / lights & horn / trunk & frunk / navigation share / defrost / wheel & seat heaters / bioweapon mode, slide-to-toggle switches, automatic vehicle wake before commands, command audit log, scheduled sentry slots; OTA update badge, car body painted with the actual vehicle color, read-only view of in-car charge schedules; the command backend works with the official tesla-http-proxy or hosted services (see [docs/CONTROL.md](docs/CONTROL.md))
 - Battery % ⇄ kWh ⇄ range km three-way toggle; mobile-friendly; dark/light themes
 
 **All-in-one deployment**

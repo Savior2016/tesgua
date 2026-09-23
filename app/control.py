@@ -94,6 +94,14 @@ _CMDS = {
     "set_charge_limit": {"percent": (50, 100)},
     "window_control": {"command": ("vent", "close")},  # lat/lon 由后端自动补车当前位置
     "actuate_trunk": {"which_trunk": ("front", "rear")},
+    # 导航推送:地址文本在 _validate_args 里组装成 share_ext_content_raw 载荷
+    "share": {},
+    "set_charging_amps": {"charging_amps": (5, 32)},
+    # 座椅加热:0 主驾 / 1 副驾 / 2 左后 / 4 中后 / 5 右后 / 6-7 第三排(Tesla 官方编号,无 3)
+    "remote_seat_heater_request": {"heater": (0, 7), "level": (0, 3)},
+    "remote_steering_wheel_heater_request": {"on": bool},
+    "set_preconditioning_max": {"on": bool},  # 前风挡最大除霜
+    "set_bioweapon_mode": {"on": bool},       # 仅 HEPA 车型支持,车辆不支持会拒绝
 }
 
 # 爆闪:flash_lights 官方指令只闪一次,这里用后台线程循环调用模拟;
@@ -161,6 +169,19 @@ def _state_patch(cmd: str, args: dict) -> dict | None:
         return {"charging": True}
     if cmd == "charge_stop":
         return {"charging": False}
+    if cmd == "set_charging_amps":
+        return {"charge_amps": args.get("charging_amps")}
+    if cmd == "remote_seat_heater_request":
+        # 座椅按编号逐个补丁:与已有乐观状态合并,避免覆盖其他座位
+        seats = dict(_optimistic().get("seats") or {})
+        seats[str(args["heater"])] = args["level"]
+        return {"seats": seats}
+    if cmd == "remote_steering_wheel_heater_request":
+        return {"wheel_heater": bool(args.get("on"))}
+    if cmd == "set_preconditioning_max":
+        return {"defrost": bool(args.get("on"))}
+    if cmd == "set_bioweapon_mode":
+        return {"bioweapon": bool(args.get("on"))}
     return None
 
 
@@ -189,12 +210,54 @@ _snapshot = {}
 _snapshot_vin = ""
 _snapshot_checked = 0.0
 _snapshot_error = ""
-CURRENT_FIELDS = ("locked", "sentry", "windows_open", "charge_port", "frunk_open", "trunk_open", "climate_on", "climate_temp", "inside_temp", "charging", "cable", "charge_limit", "camp_mode")
+CURRENT_FIELDS = ("locked", "sentry", "windows_open", "charge_port", "frunk_open", "trunk_open", "climate_on", "climate_temp", "inside_temp", "charging", "cable", "charge_limit", "camp_mode",
+                  "ota_status", "ota_version", "ota_perc", "charge_amps", "charge_power", "charge_eta",
+                  "wheel_heater", "defrost", "bioweapon", "seats", "charge_schedules", "precondition_schedules")
+
+# 座椅加热:climate_state 字段名 → Tesla 指令的 heater 编号(与 remote_seat_heater_request 一致,无 3)
+_SEAT_FIELDS = {"seat_heater_left": 0, "seat_heater_right": 1, "seat_heater_rear_left": 2, "seat_heater_rear_center": 4,
+                "seat_heater_rear_right": 5, "seat_heater_third_row_left": 6, "seat_heater_third_row_right": 7}
 
 
 def _fresh(section):
     stamp = section.get("timestamp")
     return isinstance(stamp, (int, float)) and -30 <= time.time() - stamp / 1000 <= 120
+
+
+def _schedules(payload):
+    """车机里的定时充电/定时出发(只读展示);绝不携带坐标,只保留展示字段。"""
+    out = {"charge_schedules": [], "precondition_schedules": []}
+    csd = payload.get("charge_schedule_data")
+    if isinstance(csd, dict):
+        for s in csd.get("schedules") or []:
+            if not isinstance(s, dict):
+                continue
+            entry = {"name": str(s.get("name") or "")[:40], "days": str(s.get("days_of_week") or "")[:20],
+                     "enabled": bool(s.get("enabled")), "one_time": bool(s.get("one_time"))}
+            if s.get("start_enabled") and isinstance(s.get("start_time"), (int, float)):
+                entry["start"] = int(s["start_time"])  # 分钟(午夜起算)
+            if s.get("end_enabled") and isinstance(s.get("end_time"), (int, float)):
+                entry["end"] = int(s["end_time"])
+            out["charge_schedules"].append(entry)
+    psd = payload.get("preconditioning_schedule_data")
+    if isinstance(psd, dict):
+        for s in psd.get("schedules") or []:
+            if not isinstance(s, dict):
+                continue
+            entry = {"name": str(s.get("name") or "")[:40], "days": str(s.get("days_of_week") or "")[:20],
+                     "enabled": bool(s.get("enabled")), "one_time": bool(s.get("one_time"))}
+            if isinstance(s.get("precondition_time"), (int, float)):
+                entry["time"] = int(s["precondition_time"])
+            out["precondition_schedules"].append(entry)
+    return out
+
+
+def _config(payload):
+    """车辆静态配置(颜色/车型/轮毂);不含 VIN 与坐标。无该分段返回 None。"""
+    vc = payload.get("vehicle_config")
+    if not isinstance(vc, dict):
+        return None
+    return {k: str(vc.get(k) or "")[:40] for k in ("exterior_color", "car_type", "wheel_type")}
 
 
 def normalize_vehicle(payload):
@@ -211,11 +274,29 @@ def normalize_vehicle(payload):
         windows = [vs.get(k) for k in ("fd_window", "fp_window", "rd_window", "rp_window")]
         if all(type(v) in (int, float) for v in windows):
             result["windows_open"] = any(v != 0 for v in windows)
+        su = vs.get("software_update")
+        if isinstance(su, dict):
+            # OTA:status 空串=无更新;available/downloading/installing 等用于徽标展示
+            result["ota_status"] = str(su.get("status") or "")[:20]
+            result["ota_version"] = str(su.get("version") or "")[:40] or None
+            perc = su.get("download_perc")
+            result["ota_perc"] = min(100, max(0, int(perc))) if isinstance(perc, (int, float)) else None
     if _fresh(cs):
         stamps.append(cs["timestamp"])
         mode = cs.get("climate_keeper_mode")
         result.update(climate_on=boolean(cs.get("is_climate_on")), climate_temp=cs.get("driver_temp_setting"), inside_temp=cs.get("inside_temp"))
         result["camp_mode"] = (mode == 3 or str(mode).lower() == "camp") if mode in (0, 1, 2, 3, "off", "on", "dog", "camp", "Off", "On", "Dog", "Camp") else None
+        result["wheel_heater"] = boolean(cs.get("steering_wheel_heater"))
+        result["bioweapon"] = boolean(cs.get("bioweapon_mode"))
+        defrost = cs.get("defrost_mode")
+        result["defrost"] = (defrost != 0) if type(defrost) in (int, float) else None
+        seats = {}
+        for field, heater in _SEAT_FIELDS.items():
+            level = cs.get(field)
+            if isinstance(level, (int, float)):
+                seats[str(heater)] = min(3, max(0, int(level)))
+        if seats:
+            result["seats"] = seats
     if _fresh(ch):
         stamps.append(ch["timestamp"])
         state = ch.get("charging_state")
@@ -223,6 +304,16 @@ def normalize_vehicle(payload):
         if state in ("Charging", "Complete", "Stopped", "Starting", "Disconnected", "NoPower"):
             result["charging"] = state == "Charging"
             result["cable"] = state != "Disconnected"
+        # 设定电流优先取请求值(车辆实际值 charge_amps 会随桩波动)
+        amps = ch.get("charge_current_request") if isinstance(ch.get("charge_current_request"), (int, float)) else ch.get("charge_amps")
+        result["charge_amps"] = int(amps) if isinstance(amps, (int, float)) else None
+        result["charge_power"] = int(ch["charger_power"]) if isinstance(ch.get("charger_power"), (int, float)) else None
+        eta = ch.get("time_to_full_charge")
+        result["charge_eta"] = round(float(eta), 2) if isinstance(eta, (int, float)) else None
+    result.update(_schedules(payload))
+    config = _config(payload)
+    if config and any(config.values()):
+        result["vehicle_config"] = config
     result["reported_at"] = min(stamps) if stamps else None
     result["source"] = "fleet" if stamps else "unknown"
     return result
@@ -234,7 +325,7 @@ def vehicle_data(vin):
         return fleet.vehicle_data(vin)
     if not (CONTROL_API_URL and CONTROL_API_TOKEN):
         raise HTTPException(409, "请先在个人中心完成控制配置")
-    url = CONTROL_API_URL + "/api/1/vehicles/" + urllib.parse.quote(vin, safe="") + "/vehicle_data?endpoints=vehicle_state%3Bclimate_state%3Bcharge_state"
+    url = CONTROL_API_URL + "/api/1/vehicles/" + urllib.parse.quote(vin, safe="") + "/vehicle_data?endpoints=" + urllib.parse.quote(fleet.ENDPOINTS, safe="")
     return fleet.remote(url, token=CONTROL_API_TOKEN).get("response") or {}
 
 
@@ -268,6 +359,27 @@ def _states():
 
 _refresh_lock = threading.Lock()
 
+# 车辆静态配置(颜色/车型/轮毂):refresh 时顺带解析,变化才落盘 panel_manual,
+# 随数据库备份;status 直接回缓存,不为此发起任何计费查询。
+_CONFIG_KIND = "vehicle_config"
+
+
+def _config_cached() -> dict:
+    try:
+        return dict(_m()._manual_all(_CONFIG_KIND).get("current") or {})
+    except Exception:  # noqa: BLE001 — 配置读取失败只影响展示
+        return {}
+
+
+def _save_config(config: dict) -> None:
+    _m()._exec(
+        """
+        INSERT INTO panel_manual (kind, key, payload) VALUES (%s, 'current', %s)
+        ON CONFLICT (kind, key) DO UPDATE SET payload = EXCLUDED.payload
+        """,
+        (_CONFIG_KIND, Jsonb(config)),
+    )
+
 
 @router.post("/api/control/refresh")
 def refresh_vehicle(request: Request):
@@ -288,6 +400,13 @@ def refresh_vehicle(request: Request):
             if not throttled:
                 try:
                     snap = normalize_vehicle(vehicle_data(vin))
+                    # 静态配置单独持久化(颜色/车型/轮毂),快照只保留实时字段
+                    config = snap.pop("vehicle_config", None)
+                    if config and config != _config_cached():
+                        try:
+                            _save_config(config)
+                        except Exception:  # noqa: BLE001 — 配置落盘失败不影响状态刷新
+                            pass
                     err = "" if snap.get("reported_at") else "车辆未返回新鲜状态，请确认车辆在线后重试"
                 except HTTPException as e:
                     snap, err = {k: None for k in CURRENT_FIELDS}, e.detail
@@ -323,6 +442,15 @@ def _vin() -> str:
 
 def _validate_args(cmd: str, args: dict) -> dict:
     """按白名单校验参数类型与范围,多余的键直接丢弃(不透传未知参数)。"""
+    if cmd == "share":
+        # 导航推送:纯文本地址 → Tesla share_ext_content_raw 载荷;剔除控制字符防注入
+        text = "".join(ch for ch in str(args.get("value") or "") if ch.isprintable()).strip()
+        if not 1 <= len(text) <= 500:
+            raise HTTPException(status_code=422, detail="地址需为 1–500 个字符")
+        return {"type": "share_ext_content_raw",
+                "value": {"android.intent.extra.TEXT": text},
+                "locale": "zh-CN",
+                "timestamp_ms": str(int(time.time() * 1000))}
     spec = _CMDS[cmd]
     out: dict = {}
     for k, rule in spec.items():
@@ -490,7 +618,7 @@ def control_status(request: Request):
     """控制功能是否已配置指令后端(不泄露令牌,只回域名与 VIN 后 6 位)+ 车辆状态。"""
     from . import fleet, nap
     saved = fleet.read()
-    base = {"configured": False, "role": request.state.role, "ever_configured": bool(saved.get("client_id") or (CONTROL_API_URL and CONTROL_API_TOKEN)), "strobe_active": _strobe_active(), "states": _states(), "nap": nap.status()}
+    base = {"configured": False, "role": request.state.role, "ever_configured": bool(saved.get("client_id") or (CONTROL_API_URL and CONTROL_API_TOKEN)), "strobe_active": _strobe_active(), "states": _states(), "nap": nap.status(), "vehicle": _config_cached()}
     from . import fleet
     if not (fleet.configured() or (CONTROL_API_URL and CONTROL_API_TOKEN)):
         return base

@@ -719,10 +719,11 @@ button { touch-action: manipulation; }
 }
 @keyframes car-charge-pulse { 50% { opacity: 1; } }
 
-/* 能量占比环:围绕玻璃顶一圈,各段用 dasharray 沿环分布 */
+/* 能量占比环:环段路径=玻璃轮廓,加粗描边内半被 #car-ring-mask 裁掉,
+   可见部分为贴玻璃外缘的 13 宽等宽环带(描边 26 的外侧一半) */
 .carring {
   fill: none;
-  stroke-width: 13;
+  stroke-width: 26;
   cursor: pointer;
   transition: stroke-dasharray 0.6s ease, stroke-dashoffset 0.6s ease, opacity 0.25s ease;
 }

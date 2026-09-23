@@ -174,6 +174,26 @@
     nap:{icon:'nap',color:'var(--cat-idle)',labels:['滑动开启','午休中']},
   };
   const tileSlides={};
+  /* OTA 徽标:software_update.status → 展示文案(空串=无更新,不显示) */
+  const OTA_TEXT={downloading:s=>`OTA 下载中 ${s.ota_perc??''}%`.trim(),available:s=>`OTA ${s.ota_version||'新版本'} 可下载`,installing:()=>'OTA 安装中',scheduled:()=>'OTA 已预约安装',wifi_wait:()=>'OTA 等待 Wi-Fi 下载',downloading_wifi_wait:()=>'OTA 等待 Wi-Fi 下载',downloaded:()=>'OTA 已下载待安装'};
+  /* 车辆静态配置(Fleet vehicle_config,服务端缓存):车型/颜色名 + 车身按实车配色 */
+  const CAR_TYPES={models:'Model S',model3:'Model 3',modelx:'Model X',modely:'Model Y'};
+  const PAINT_NAMES={PearlWhite:'珍珠白',PearlWhiteMultiCoat:'珍珠白',SolidBlack:'纯黑',MidnightSilver:'冷光银',DeepBlue:'深海蓝',MetallicBlue:'深海蓝',RedMulticoat:'中国红',Red:'中国红',ObsidianBlack:'曜石黑',StealthGrey:'星空灰',Quicksilver:'快银',GlacierBlue:'冰川蓝',MarineBlue:'深海蓝',SignatureRed:'中国红',UltraRed:'Ultra 红'};
+  const PAINT_HEX={PearlWhite:'#f2f2f0',PearlWhiteMultiCoat:'#f2f2f0',SolidBlack:'#17171a',MidnightSilver:'#5b5f66',DeepBlue:'#1f3a8f',MetallicBlue:'#1f3a8f',RedMulticoat:'#a41217',Red:'#a41217',ObsidianBlack:'#101014',StealthGrey:'#4c5054',Quicksilver:'#aab0b6',GlacierBlue:'#86b3d8',MarineBlue:'#274472',SignatureRed:'#9e1119',UltraRed:'#bf0d0f'};
+  const SEAT_NAMES={0:'主驾',1:'副驾',2:'左后',4:'中后',5:'右后',6:'三排左',7:'三排右'};
+  function renderVehicleConfig(){
+    const cfg=model.vehicle||{},sub=$('ctl-card-sub');
+    const car=document.querySelector('#page-control .ctl-car');
+    if(cfg.car_type||cfg.exterior_color){
+      const bits=[CAR_TYPES[(cfg.car_type||'').toLowerCase()]||cfg.car_type,PAINT_NAMES[cfg.exterior_color]||cfg.exterior_color,cfg.wheel_type].filter(Boolean);
+      sub.textContent=bits.join(' · ');
+      const hex=PAINT_HEX[cfg.exterior_color];
+      if(car)hex?car.style.setProperty('--car-body',hex):car.style.removeProperty('--car-body');
+    }else{
+      sub.textContent='车身部位点按查看 · 模块右滑开启、回滑关闭';
+      if(car)car.style.removeProperty('--car-body');
+    }
+  }
   function renderSwitches(){
     Object.keys(SWITCH).forEach(name=>{
       const tile=document.querySelector(`.ctl-module[data-panel="${name}"]`);if(!tile)return;
@@ -198,6 +218,15 @@
     beLabel.appendChild(document.createElement('i'));
     beLabel.appendChild(document.createTextNode(beTxt));
     be.appendChild(beLabel);
+    const ota=OTA_TEXT[s.ota_status];
+    if(ota){
+      const tag=document.createElement('span');
+      tag.className='ctl-be-label warn';
+      tag.appendChild(document.createElement('i'));
+      tag.appendChild(document.createTextNode(ota(s)));
+      be.appendChild(tag);
+    }
+    renderVehicleConfig();
     renderZones();
     renderSwitches();
     $('ctl-model-temp').textContent=num(s.climate_temp);
@@ -257,6 +286,43 @@
     return s;
   }
   function tip(text){const p=document.createElement('p');p.className='ctl-tip';p.textContent=text;$('ctl-dialog-body').appendChild(p);}
+  /* 座椅加热:每座一行档位芯片(关/1/2/3);无实报时至少给主驾/副驾 */
+  function seatRows(s){
+    const seats=s.seats||{};
+    const known=Object.keys(SEAT_NAMES).filter(h=>seats[h]!=null);
+    (known.length?known:['0','1']).forEach(h=>{
+      const row=document.createElement('div');row.className='ctl-slide-row';
+      const head=document.createElement('div');head.className='ctl-slide-row-head';
+      const span=document.createElement('span');span.textContent=SEAT_NAMES[h]+'座椅加热';head.appendChild(span);
+      row.appendChild(head);
+      const seg=document.createElement('div');seg.className='ctl-seg';
+      [0,1,2,3].forEach(level=>{
+        const b=document.createElement('button');b.type='button';b.textContent=level===0?'关':String(level);
+        b.classList.toggle('on',seats[h]===level);b.disabled=!canWrite();
+        b.addEventListener('click',async()=>{
+          if(!guardWrite())return;
+          const result=await command({cmd:'remote_seat_heater_request',args:{heater:Number(h),level}});
+          if(result&&result.ok){seats[h]=level;seg.querySelectorAll('button').forEach((x,i)=>x.classList.toggle('on',i===level));}
+        });
+        seg.appendChild(b);
+      });
+      row.appendChild(seg);$('ctl-dialog-body').appendChild(row);
+    });
+  }
+  /* 车机定时充电/定时出发(只读,在 Tesla App 或车机里编辑) */
+  function renderChargeSchedules(s){
+    const list=s.charge_schedules||[],pre=s.precondition_schedules||[];
+    if(!list.length&&!pre.length)return;
+    const hm=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+    const days=d=>({All:'每天',Weekdays:'工作日',Weekends:'周末'}[d]||d||'');
+    const line=e=>{
+      const span=document.createElement('span');
+      span.textContent=[e.name||'',days(e.days),e.start!=null?hm(e.start):'',e.end!=null?'– '+hm(e.end):'',e.time!=null?hm(e.time):''].filter(Boolean).join(' · ')+(e.enabled?'':'（已停用）');
+      return span;
+    };
+    if(list.length){tip('车机定时充电（只读）:');list.forEach(e=>{const p=document.createElement('p');p.className='ctl-tip';p.appendChild(line(e));$('ctl-dialog-body').appendChild(p);});}
+    if(pre.length){tip('定时出发/预热（只读）:');pre.forEach(e=>{const p=document.createElement('p');p.className='ctl-tip';p.appendChild(line(e));$('ctl-dialog-body').appendChild(p);});}
+  }
   function input(id,label,value,min,max,step=1){
     const l=document.createElement('label');l.textContent=label;const i=document.createElement('input');i.id=id;i.type='number';i.min=min;i.max=max;i.step=step;i.value=value;i.inputMode='decimal';l.appendChild(i);$('ctl-dialog-body').appendChild(l);return i;
   }
@@ -315,7 +381,7 @@
   }
   function open(name){
     const s=model.states||{};const body=$('ctl-dialog-body');body.textContent='';$('ctl-dialog-message').textContent='';napDialogSlide=null;
-    const titles={climate:'空调温度',charge:'充电控制',lights:'车灯与鸣笛',nap:'午休模式',lock:'车锁',sentry:'哨兵模式',windows:'车窗',chargeport:'充电口',frunk:'前备箱',trunk:'后备箱'};
+    const titles={climate:'空调温度',charge:'充电控制',lights:'车灯与鸣笛',nap:'午休模式',nav:'导航推送',lock:'车锁',sentry:'哨兵模式',windows:'车窗',chargeport:'充电口',frunk:'前备箱',trunk:'后备箱'};
     $('ctl-dialog-title').textContent=titles[name]||'车辆操作';
     const stateText=canWrite()?'':(model.role==='viewer'?'只读账号，仅可查看状态。':'请先在个人中心完成控制配置。');
     $('ctl-dialog-state').textContent=stateText;$('ctl-dialog-state').hidden=!stateText;
@@ -328,10 +394,28 @@
       input('ctl-temp-input','设定温度（15–30°C）',s.climate_temp??21.5,15,30,.5);
       addButtons([btn('设置温度','set_temps')]);
       slideRow('空调','',s.climate_on===true,flipCmd(['auto_conditioning_start',{}],['auto_conditioning_stop',{}]),'climate','var(--series-1)',['滑动开启','空调运行中']);
+      /* 冬季/空气组:状态未知(车型不支持或未上报)的项不显示 */
+      if(s.defrost!=null)slideRow('除霜','前风挡最大除霜',s.defrost===true,flipCmd(['set_preconditioning_max',{on:true}],['set_preconditioning_max',{on:false}]),'climate','var(--series-1)',['滑动开启','除霜中']);
+      if(s.wheel_heater!=null)slideRow('方向盘加热','',s.wheel_heater===true,flipCmd(['remote_steering_wheel_heater_request',{on:true}],['remote_steering_wheel_heater_request',{on:false}]),'climate','var(--series-1)',['滑动开启','加热中']);
+      if(s.bioweapon!=null)slideRow('生化模式','HEPA 全功率过滤',s.bioweapon===true,flipCmd(['set_bioweapon_mode',{on:true}],['set_bioweapon_mode',{on:false}]),'climate','var(--series-1)',['滑动开启','过滤中']);
+      seatRows(s);
     }else if(name==='charge'){
       input('ctl-limit-input','充电上限（50–100%）',s.charge_limit??80,50,100,1);
       addButtons([btn('设置上限','set_charge_limit')]);
+      if(s.charge_power!=null||s.charge_eta!=null){
+        const eta=s.charge_eta==null?'':` · 预计剩余 ${Math.floor(s.charge_eta)} 小时 ${Math.round((s.charge_eta%1)*60)} 分`;
+        tip('当前功率 '+(s.charge_power==null?'—':s.charge_power+' kW')+eta);
+      }
+      input('ctl-amps-input','充电电流（5–32A）',s.charge_amps??16,5,32,1);
+      addButtons([btn('设置电流','set_charging_amps')]);
       slideRow('充电','',s.charging===true,flipCmd(['charge_start',{}],['charge_stop',{}]),'charge','var(--cat-charge)',['滑动开始充电','充电中']);
+      renderChargeSchedules(s);
+    }else if(name==='nav'){
+      const l=document.createElement('label');l.textContent='推送目的地到车机导航';
+      const i=document.createElement('input');i.id='ctl-nav-input';i.type='text';i.maxLength=500;i.autocomplete='off';i.placeholder='地址、商户名或经纬度';
+      l.appendChild(i);$('ctl-dialog-body').appendChild(l);
+      addButtons([btn('推送到车机','share')]);
+      tip('推送后目的地会出现在车机导航中；车辆休眠时会先自动唤醒。');
     }else if(name==='lights'){
       addButtons([btn('闪灯一次','flash_lights'),btn('鸣笛一次','honk_horn')]);
       const segLabel=document.createElement('p');segLabel.className='ctl-tip';segLabel.textContent='连续闪灯时长';$('ctl-dialog-body').appendChild(segLabel);
@@ -401,11 +485,18 @@
     }
     showSheet('detail');
   }
+  /* 指令参数来自输入框的指令:输入框 id → 参数构造函数 */
+  const INPUT_ARGS={
+    set_temps:['ctl-temp-input',v=>({driver_temp:Number(v)})],
+    set_charge_limit:['ctl-limit-input',v=>({percent:Number(v)})],
+    set_charging_amps:['ctl-amps-input',v=>({charging_amps:Number(v)})],
+    share:['ctl-nav-input',v=>({value:v})],
+  };
   async function command(item){
     if(busy||!canWrite())return null;
     let args=item.args;
-    const inputId=item.cmd==='set_temps'?'ctl-temp-input':item.cmd==='set_charge_limit'?'ctl-limit-input':null;
-    if(inputId){const i=$(inputId);if(!i.reportValidity()||!i.value)return null;args=item.cmd==='set_temps'?{driver_temp:Number(i.value)}:{percent:Number(i.value)};}
+    const spec=INPUT_ARGS[item.cmd];
+    if(spec){const i=$(spec[0]);if(!i.reportValidity()||!i.value.trim())return null;args=spec[1](i.value.trim());}
     busy=true;sheet.querySelectorAll('#ctl-dialog-body button').forEach(b=>b.disabled=true);message(SENDING);
     try{
       const result=await api('command',{cmd:item.cmd,args});
@@ -504,15 +595,19 @@
   }
   /* 控制审计:指令下发记录弹窗 */
   const auditDlg=$('ctl-audit-dialog');
-  const CMD_NAMES={wake_up:'唤醒车辆',door_lock:'锁车',door_unlock:'解锁',honk_horn:'鸣笛',flash_lights:'闪灯一次',flash_strobe:'连续闪灯',flash_strobe_stop:'停止闪灯',sentry_mode:'哨兵模式',set_sentry_mode:'哨兵模式',auto_conditioning_start:'开启空调',auto_conditioning_stop:'关闭空调',set_temps:'设定温度',charge_start:'开始充电',charge_stop:'停止充电',charge_port_door_open:'打开充电口',charge_port_door_close:'关闭充电口',set_charge_limit:'设置充电上限',window_control:'车窗控制',actuate_trunk:'开合前/后备箱'};
+  const CMD_NAMES={wake_up:'唤醒车辆',door_lock:'锁车',door_unlock:'解锁',honk_horn:'鸣笛',flash_lights:'闪灯一次',flash_strobe:'连续闪灯',flash_strobe_stop:'停止闪灯',sentry_mode:'哨兵模式',set_sentry_mode:'哨兵模式',auto_conditioning_start:'开启空调',auto_conditioning_stop:'关闭空调',set_temps:'设定温度',charge_start:'开始充电',charge_stop:'停止充电',charge_port_door_open:'打开充电口',charge_port_door_close:'关闭充电口',set_charge_limit:'设置充电上限',window_control:'车窗控制',actuate_trunk:'开合前/后备箱',share:'导航推送',set_charging_amps:'设置充电电流',remote_seat_heater_request:'座椅加热',remote_steering_wheel_heater_request:'方向盘加热',set_preconditioning_max:'除霜',set_bioweapon_mode:'生化模式'};
   function auditArgs(e){
     const a=e.args||{};
     if(e.cmd==='set_sentry_mode'||e.cmd==='sentry_mode')return a.on?'（开启）':'（关闭）';
     if(e.cmd==='set_temps')return `（${a.driver_temp}°C）`;
     if(e.cmd==='set_charge_limit')return `（${a.percent}%）`;
+    if(e.cmd==='set_charging_amps')return `（${a.charging_amps}A）`;
     if(e.cmd==='window_control')return a.command==='vent'?'（通风）':'（关闭）';
     if(e.cmd==='actuate_trunk')return a.which_trunk==='front'?'（前备箱）':'（后备箱）';
     if(e.cmd==='flash_strobe')return `（${a.seconds||''} 秒）`;
+    if(e.cmd==='remote_seat_heater_request')return `（${SEAT_NAMES[a.heater]||'座椅'} ${a.level===0?'关':a.level+' 档'}）`;
+    if(['remote_steering_wheel_heater_request','set_preconditioning_max','set_bioweapon_mode'].includes(e.cmd))return a.on?'（开启）':'（关闭）';
+    if(e.cmd==='share')return '';  // 地址不写入审计展示,避免旁观泄露
     return '';
   }
   async function openAudit(){
