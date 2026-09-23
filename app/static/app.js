@@ -213,6 +213,7 @@
         let s = `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-bottom:4px">` +
                 (headerFmt ? headerFmt(p0.axisValue) : p0.axisValue) + '</div>';
         params.forEach((p) => {
+          if (p.seriesName && p.seriesName.startsWith('_')) return; // 内部辅助系列(温差带等)不进 tooltip
           const v = p.value != null && p.value[1] != null ? fmtNum(p.value[1], 1) : '—';
           const unit = (unitMap && unitMap[p.seriesName]) || '';
           const alt = (dual && dual[p.seriesName]) ? dual[p.seriesName](Number(p.value[1])) : '';
@@ -979,18 +980,37 @@
         return [p[0], cnt ? Math.round((sum / cnt) * 10) / 10 : p[1]];
       });
     };
-    const area = (hex) => ({
-      color: {
-        type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
-        colorStops: [{ offset: 0, color: hexA(hex, 0.22) }, { offset: 1, color: hexA(hex, 0.02) }],
-      },
-    });
     const cIn = cssVar('--series-2'), cOut = cssVar('--series-1');
+    const inS = smooth9(mk(o.temp.inside)), outS = smooth9(mk(o.temp.outside));
+    // 渐变温度线:visualMap 按数值给描边着色(该时段最冷=蓝 → 最热=红),颜色本身即温度;
+    // 范围取两条线的实际极值 ±1°,动态映射保证任何季节都有足够的色彩对比
+    const vals = inS.concat(outS).map((p) => p[1]).filter((v) => v !== null && !isNaN(v));
+    const lo = vals.length ? Math.floor(Math.min(...vals)) - 1 : 0;
+    const hi = vals.length ? Math.ceil(Math.max(...vals)) + 1 : 30;
+    // 温差带:inside/outside 同一次查询产出、时间戳精确对齐,取交集配对后
+    // 用 stack(下轨 + |温差|)把两条线之间填成暖→冷渐变带;负温差同样填充
+    const outMap = new Map(outS.map((p) => [p[0], p[1]]));
+    const pairs = inS.filter((p) => outMap.has(p[0]));
+    const bandBase = pairs.map((p) => [p[0], Math.min(p[1], outMap.get(p[0]))]);
+    const bandDelta = pairs.map((p) => [p[0], Math.abs(p[1] - outMap.get(p[0]))]);
+    const band = (name, data, areaStyle) => ({
+      name, type: 'line', data, stack: 'temp-band',
+      showSymbol: false, silent: true, z: 1,
+      lineStyle: { width: 0, opacity: 0 }, itemStyle: { color: 'transparent' },
+      areaStyle, // undefined → 无填充(下轨)
+    });
     charts.temp.setOption(Object.assign({}, chartTheme(), {
       tooltip: tooltipAxis({ '车内': '°C', '车外': '°C' }, (v) => fmtTime(v, true)),
       legend: {
+        data: ['车内', '车外'],
         top: 0, left: 6, itemWidth: 14, itemHeight: 8, itemGap: isNarrow() ? 10 : 14,
         textStyle: { color: cssVar('--text-secondary'), fontSize: 12 },
+      },
+      visualMap: {
+        type: 'continuous', show: false, seriesIndex: [2, 3], dimension: 1,
+        min: lo, max: hi,
+        // 冷蓝 → 青 → 绿 → 暖黄 → 橙 → 热红
+        inRange: { color: ['#2f7bff', '#22c3e6', '#3ecf8e', '#f5c542', '#f58a3c', '#ef4444'] },
       },
       grid: trendGrid(34),
       xAxis: timeAxis(S.days),
@@ -999,12 +1019,29 @@
         axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value}°' },
       }),
       series: [
-        // 平滑曲线 + 曲线下渐变;端点标签关掉(当前值在卡片头部)
-        Object.assign(lineSeries('车内', smooth9(mk(o.temp.inside)), cIn), {
-          smooth: true, smoothMonotone: 'x', areaStyle: area(cIn), endLabel: { show: false },
+        // 温差带(z=1 垫底;下轨无填充,上轨面积 = 两线之间的区域)
+        band('_band_base', bandBase),
+        band('_band_delta', bandDelta, {
+          color: {
+            type: 'linear', x: 0, y: 0, x2: 0, y2: 1,
+            colorStops: [{ offset: 0, color: hexA(cIn, 0.24) }, { offset: 1, color: hexA(cOut, 0.24) }],
+          },
         }),
-        Object.assign(lineSeries('车外', smooth9(mk(o.temp.outside)), cOut), {
-          smooth: true, smoothMonotone: 'x', areaStyle: area(cOut), endLabel: { show: false },
+        // 平滑曲线,描边颜色由 visualMap 按温度值着色;端点标签关掉(当前值在卡片头部)
+        Object.assign(lineSeries('车内', inS, cIn), {
+          smooth: true, smoothMonotone: 'x', endLabel: { show: false },
+          lineStyle: { width: 2.5, color: cIn, cap: 'round', join: 'round' },
+          // 20–26°C 舒适区:浅绿底带,弱化存在感
+          markArea: {
+            silent: true,
+            itemStyle: { color: 'rgba(62, 207, 142, 0.07)' },
+            label: { show: true, position: 'insideTopRight', color: cssVar('--text-muted'), fontSize: 10, formatter: '舒适区 20–26°' },
+            data: [[{ yAxis: 20 }, { yAxis: 26 }]],
+          },
+        }),
+        Object.assign(lineSeries('车外', outS, cOut), {
+          smooth: true, smoothMonotone: 'x', endLabel: { show: false },
+          lineStyle: { width: 2.5, color: cOut, cap: 'round', join: 'round' },
         }),
       ],
     }), { notMerge: true });

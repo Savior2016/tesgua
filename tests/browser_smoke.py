@@ -96,6 +96,11 @@ def run():
             assert page.locator('#life-kwh').inner_text() == '340'
             assert '未计价' in page.locator('#life-cost-sub').inner_text()
             assert page.locator('#life-cycles').inner_text() == '4.8'
+            # 温度卡片:渐变温度线(visualMap 按值着色)+ 温差带(_ 前缀内部系列不进图例/tooltip)
+            opt = page.evaluate("echarts.getInstanceByDom(document.querySelector('#chart-temp')).getOption()")
+            assert len(opt['visualMap']) == 1 and opt['visualMap'][0]['seriesIndex'] == [2, 3]
+            names = [s['name'] for s in opt['series']]
+            assert names == ['_band_base', '_band_delta', '车内', '车外']
             for width in [320,390,1440]:
                 page.set_viewport_size({"width":width,"height":900})
                 for tab in ['overview','charging','activity','vehicle','drives','control']:
