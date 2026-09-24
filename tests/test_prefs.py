@@ -78,3 +78,45 @@ def test_unauthenticated(env):
     client, _ = env
     assert client.get("/api/prefs").status_code == 401
     assert client.post("/api/prefs", json={"days": 1}).status_code == 401
+
+
+def test_default_overview_mode(env):
+    client, _ = env
+    login(client)
+    assert client.get("/api/prefs").json()["overview_mode"] == "car"
+
+
+def test_set_overview_mode(env):
+    client, prefs = env
+    login(client)
+    r = client.post("/api/prefs", json={"overview_mode": "data"})
+    assert r.status_code == 200 and r.json()["overview_mode"] == "data"
+    assert client.get("/api/prefs").json()["overview_mode"] == "data"
+    assert prefs["owner"] == {"overview_mode": "data"}
+
+
+def test_merge_semantics(env):
+    """合并语义:只发 overview_mode 不清空已存的 days,反之亦然。"""
+    client, prefs = env
+    login(client)
+    client.post("/api/prefs", json={"days": 30})
+    client.post("/api/prefs", json={"overview_mode": "data"})
+    assert prefs["owner"] == {"days": 30, "overview_mode": "data"}
+    got = client.get("/api/prefs").json()
+    assert got == {"days": 30, "overview_mode": "data"}
+    client.post("/api/prefs", json={"days": 1})
+    assert prefs["owner"] == {"days": 1, "overview_mode": "data"}
+
+
+def test_invalid_overview_mode(env):
+    client, _ = env
+    login(client)
+    assert client.post("/api/prefs", json={"overview_mode": "fancy"}).status_code == 422
+
+
+def test_viewer_can_write_overview_mode(env):
+    client, prefs = env
+    login(client, "guest")
+    r = client.post("/api/prefs", json={"overview_mode": "data"})
+    assert r.status_code == 200, r.text  # 中间件已放行 /api/prefs
+    assert prefs["guest"] == {"overview_mode": "data"}

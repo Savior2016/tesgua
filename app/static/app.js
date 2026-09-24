@@ -8,6 +8,7 @@
     theme: localStorage.getItem('ttv-theme') || 'dark',
     battMode: localStorage.getItem('ttv-batt-mode') || 'pct',
     carMode: localStorage.getItem('ttv-car-mode') || 'pct',
+    ovMode: localStorage.getItem('ttv-ovmode') === 'data' ? 'data' : 'car',  // 总览样式:车模 / 数据
     overview: null,
     health: null,
     cycles: null,
@@ -1081,6 +1082,231 @@
     if (cv) cv.classList.toggle('has-sel', !!carSel);
   }
 
+  /* --- 总览样式:车模 ⇄ 数据(个人中心「显示偏好」设置,存服务端按账号隔离) --- */
+  /* 胎压着色复用车况页的 TPMS_STD/tpmsColor(2.9 bar 偏差,全站统一口径) */
+  function applyOvMode() {
+    const cv = $('#carview');
+    const dv = $('#car-dataview');
+    if (!cv || !dv) return;
+    const isData = S.ovMode === 'data';
+    cv.classList.toggle('mode-data', isData);
+    dv.hidden = !isData;
+    if (isData) {
+      // 环图容器刚从 hidden 变为可见,下一帧再重置尺寸并重渲染
+      // (主题切换会 notMerge 清空 option,仅 resize 可能得到空图,故必须走 renderCar)
+      requestAnimationFrame(() => {
+        if (charts.cdDonut) charts.cdDonut.resize();
+        renderCar();
+      });
+    }
+  }
+
+  /* --- 数据模式:KPI 大数字横排 + 能量分布环图 + 次要指标列(与车模同一份数据) --- */
+  function renderCarData(o, cyc) {
+    const dv = $('#car-dataview');
+    if (!dv || dv.hidden) return;
+    const lat = o.latest || null;
+    const t = o.totals || {};
+    const usable = lat && lat.usable_battery_level != null ? Number(lat.usable_battery_level) : null;
+    const odo = lat && lat.odometer != null ? Number(lat.odometer) : null;
+    const inT = lat && lat.inside_temp != null ? Number(lat.inside_temp) : null;
+    const outT = lat && lat.outside_temp != null ? Number(lat.outside_temp) : null;
+
+    /* 顶部 KPI 横排:剩余续航 / 总里程 / 电池健康 / 车内外温度 */
+    const kpis = $('#cd-kpis');
+    kpis.textContent = '';
+    const battKm = usable === null ? null : kmAtPct(usable);
+    const bh = S.health;
+    const bhHas = bh && bh.health_pct !== null && bh.health_pct !== undefined;
+    const kpiDefs = [
+      {
+        name: '剩余续航',
+        v: battKm === null ? '—' : `${fmtNum(battKm, 0)}`,
+        unit: 'km',
+        sub: usable === null ? '' : `电量 ${fmtNum(usable, 0)}%`,
+      },
+      { name: '总里程', v: odo === null ? '—' : fmtNum(odo, 0), unit: 'km', sub: '' },
+      {
+        name: '电池健康',
+        v: bhHas ? fmtNum(bh.health_pct, 1) : '—',
+        unit: bhHas ? '%' : '',
+        sub: bhHas ? `估算 ${fmtNum(bh.current_kwh, 1)} / 基准 ${fmtNum(bh.nominal_kwh, 1)} kWh` : '暂无充电数据',
+        color: bhHas ? (bh.health_pct >= 97 ? '#3fae72' : bh.health_pct >= 90 ? '#fab219' : '#d03b3b') : null,
+      },
+      {
+        name: '车内 / 外温度',
+        v: `${inT === null ? '—' : fmtNum(inT, 0)}° / ${outT === null ? '—' : fmtNum(outT, 0)}°`,
+        unit: '',
+        sub: '',
+      },
+    ];
+    kpiDefs.forEach((k) => {
+      const d = el('div', 'cd-kpi');
+      d.appendChild(el('span', 'cd-kpi-name', k.name));
+      const val = el('div', 'cd-kpi-val');
+      const b = el('b', '', k.v);
+      if (k.color) b.style.color = k.color;
+      val.appendChild(b);
+      if (k.unit) val.appendChild(el('span', 'cd-kpi-unit', ` ${k.unit}`));
+      d.appendChild(val);
+      if (k.sub) d.appendChild(el('span', 'cd-kpi-sub', k.sub));
+      kpis.appendChild(d);
+    });
+
+    /* 环心:当前电量 + 折算续航 */
+    $('#cd-batt').textContent = usable === null ? '—' : `${fmtNum(usable, 0)}%`;
+    $('#cd-range').textContent = battKm === null ? '' : `${fmtNum(battKm, 0)} km`;
+
+    /* 能量分布环图:与车模玻璃顶能量环同口径(未充/驻车耗电/哨兵/行驶/剩余),
+       充入区各段按估算值归一化填满 level_after */
+    const segs = [
+      { k: 'uncharged', name: '本次未充', pct: cyc ? Number(cyc.uncharged_pct) : null, hatch: true },
+      { k: 'idle', name: '驻车耗电', pct: cyc ? Number(cyc.idle_pct) : null, color: cssVar('--cat-idle') },
+      { k: 'sentry', name: '哨兵', pct: cyc ? Number(cyc.sentry_pct) : null, color: cssVar('--cat-sentry') },
+      { k: 'drive', name: '行驶', pct: cyc ? Number(cyc.drive_pct) : null, color: cssVar('--cat-drive') },
+      { k: 'remaining', name: cyc && !cyc.active ? '周期末剩余' : '当前剩余',
+        pct: cyc ? Number(cyc.remaining_pct) : null, color: cssVar('--series-1') },
+    ];
+    let ringData = [];
+    if (cyc) {
+      const normSum = segs.slice(1).reduce((s, x) => s + x.pct, 0);
+      const scale = normSum > 0 ? Number(cyc.level_after) / normSum : 0;
+      ringData = segs.map((s) => ({
+        key: s.k,
+        name: s.name,
+        value: Math.max(0, s.k === 'uncharged' ? s.pct : s.pct * scale),
+        rawPct: s.pct,
+        itemStyle: s.hatch
+          ? {  // 斜纹 = 未充部分(与车模能量环的斜纹段一致)
+              color: cssVar('--gridline'),
+              decal: {
+                symbol: 'rect', symbolSize: 1, rotation: Math.PI / 4,
+                dashArrayX: [1, 0], dashArrayY: [2, 5],
+                color: cssVar('--text-muted'),
+              },
+            }
+          : { color: s.color },
+      }));
+    }
+    if (!charts.cdDonut) charts.cdDonut = echarts.init($('#cd-donut'));
+    const cap = cyc && cyc.cap_kwh ? Number(cyc.cap_kwh) : 84;
+    charts.cdDonut.setOption(Object.assign({}, chartTheme(), {
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: cssVar('--surface-1'),
+        borderColor: cssVar('--border'),
+        borderWidth: 1,
+        padding: [8, 12],
+        textStyle: { color: cssVar('--text-primary'), fontSize: 12 },
+        extraCssText: 'box-shadow: 0 4px 16px rgba(0,0,0,.18);border-radius:8px;',
+        formatter(p) {
+          const d = ringData[p.dataIndex];
+          if (!d) return '';
+          const conv = carConvPct(d.rawPct, cap);
+          const alt = carModeEffective() === 'pct' || conv.v === null
+            ? '' : ` <span style="color:${cssVar('--text-muted')}">${fmtNum(d.rawPct, 1)}%</span>`;
+          const main = carModeEffective() === 'pct' || conv.v === null
+            ? `${fmtNum(d.rawPct, 1)}%` : `${fmtNum(conv.v, conv.dec)} ${conv.unit}`;
+          return `<b>${p.name}</b><br>${main}${alt}`;
+        },
+      },
+      series: [{
+        type: 'pie',
+        radius: ['58%', '80%'],
+        center: ['50%', '50%'],
+        avoidLabelOverlap: true,
+        label: { show: false },
+        labelLine: { show: false },
+        itemStyle: {
+          borderRadius: 7,
+          borderColor: cssVar('--page'),
+          borderWidth: 2,
+        },
+        emphasis: {
+          scale: true,
+          scaleSize: 5,
+          itemStyle: { shadowBlur: 14, shadowColor: 'rgba(0,0,0,.3)' },
+        },
+        selectedMode: false,
+        data: ringData,
+      }],
+    }), { notMerge: true });
+
+    /* 环下图例:点击 ⇄ 扇区联动高亮(复用 setCarSel 的选中态) */
+    const lg = $('#cd-legend');
+    lg.textContent = '';
+    segs.forEach((s) => {
+      const d = el('div', 'cl-item');
+      d.dataset.k = s.k;
+      d.style.setProperty('--cl-c', s.color || 'var(--baseline)');
+      if (carSel === s.k) d.classList.add('on');
+      const dot = el('span', 'cl-dot' + (s.hatch ? ' dot-hatch' : ''));
+      if (s.color) dot.style.background = s.color;
+      d.appendChild(dot);
+      const tx = el('div');
+      tx.appendChild(el('b', '', s.name));
+      if (s.pct === null || carModeEffective() === 'pct') {
+        tx.appendChild(el('span', 'cl-val', s.pct === null ? '—' : `${fmtNum(s.pct, 1)}%`));
+      } else {
+        const conv = carConvPct(s.pct, cap);
+        tx.appendChild(el('span', 'cl-val',
+          conv.v === null ? '—' : `${fmtNum(conv.v, conv.dec)} ${conv.unit}`));
+        tx.appendChild(el('span', 'cl-sub', `${fmtNum(s.pct, 1)}%`));
+      }
+      d.appendChild(tx);
+      d.addEventListener('click', () => setCarSel(carSel === s.k ? null : s.k));
+      lg.appendChild(d);
+    });
+    // 选中态 → 扇区高亮(dispatchAction 与图例 .on 双向同步)
+    ringData.forEach((d2, i) => {
+      charts.cdDonut.dispatchAction({
+        type: carSel === d2.key ? 'highlight' : 'downplay',
+        seriesIndex: 0, dataIndex: i,
+      });
+    });
+    charts.cdDonut.off('click');
+    charts.cdDonut.on('click', (p) => {
+      const d2 = ringData[p.dataIndex];
+      if (d2) setCarSel(carSel === d2.key ? null : d2.key);
+    });
+
+    /* 右侧次要指标:胎压四宫 / 本月里程 / 本周里程 / 陪伴天数 */
+    const side = $('#cd-side');
+    side.textContent = '';
+    const tp = el('div', 'cd-tile cd-tpms');
+    tp.appendChild(el('span', 'cd-tile-name', '胎压 (bar)'));
+    const grid = el('div', 'cd-tpms-grid');
+    const w = (o.tpms24 && o.tpms24.wheels) || {};
+    const POS = { fl: '左前', fr: '右前', rl: '左后', rr: '右后' };
+    ['fl', 'fr', 'rl', 'rr'].forEach((key) => {
+      const data = (w[key] || []).map((p) => [Number(p[0]), Number(p[1])]);
+      const lastV = data.length ? data[data.length - 1][1] : null;
+      const cell = el('div', 'cd-tpms-cell');
+      cell.appendChild(el('span', 'cd-tpms-pos', POS[key]));
+      const v = el('b', '', lastV === null ? '—' : fmtNum(lastV, 1));
+      v.style.color = lastV === null ? 'var(--text-muted)' : tpmsColor(lastV);
+      cell.appendChild(v);
+      grid.appendChild(cell);
+    });
+    tp.appendChild(grid);
+    side.appendChild(tp);
+    const compDays = companionDays();
+    [
+      { name: '本月里程', v: t.month_km != null ? `${fmtNum(Number(t.month_km), 0)} km` : '—', sub: '' },
+      { name: '本周里程', v: t.week_km != null ? `${fmtNum(Number(t.week_km), 0)} km` : '—', sub: '' },
+      {
+        name: '陪伴天数',
+        v: compDays === null ? '—' : `${fmtNum(compDays, 0)} 天`,
+        sub: compDays === null ? '提车日期未设置(个人中心可设)' : `自 ${S.delivery} 起`,
+      },
+    ].forEach((s) => {
+      const d = el('div', 'cd-tile');
+      d.appendChild(el('span', 'cd-tile-name', s.name));
+      d.appendChild(el('b', 'cd-tile-val', s.v));
+      if (s.sub) d.appendChild(el('span', 'cd-tile-sub', s.sub));
+      side.appendChild(d);
+    });
+  }
   /* --- 总览两侧面板:默认只留小圆点,点任一侧两边一起展开,无操作几秒后自动收起 --- */
   const SIDE_AUTO_MS = 4500;
   let sideTimer = 0;
@@ -1356,11 +1582,6 @@
 
     /* --- 四轮胎压:当前值直接写在轮胎上(最近 24 小时最后一条上报);
            统一按与标准胎压 2.9 bar 的偏差着色;趋势图见「车况」页 --- */
-    const TPMS_STD = 2.9;
-    const tpmsColor = (v) => {
-      const dev = Math.abs(v - TPMS_STD);
-      return dev <= 0.15 ? '#3fae72' : dev <= 0.3 ? '#fab219' : '#d03b3b';
-    };
     const w = (o.tpms24 && o.tpms24.wheels) || {};
     ['fl', 'fr', 'rl', 'rr'].forEach((key) => {
       const data = (w[key] || []).map((p) => [Number(p[0]), Number(p[1])]);
@@ -1370,6 +1591,9 @@
       t.textContent = lastV === null ? '—' : fmtNum(lastV, 1);
       t.style.fill = lastV === null ? 'var(--text-muted)' : tpmsColor(lastV);
     });
+
+    // 数据模式:KPI 横排 + 能量分布环图 + 次要指标列(与车模同一份数据)
+    renderCarData(o, cyc);
   }
 
   /* ---------- 渲染:充电详情(卡片式,纵向布局,适配手机) ---------- */
@@ -2534,10 +2758,20 @@
 
   /* ---------- 陪伴天数(提车日期,存 panel_manual settings) ---------- */
 
+  // 陪伴天数:提车当天算第 1 天(本地时区);未设置返回 null
+  function companionDays() {
+    if (!S.delivery) return null;
+    const [y, m, d] = S.delivery.split('-').map(Number);
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.max(1, Math.round((today - new Date(y, m - 1, d)) / 86400000) + 1);
+  }
+
   function renderCompanion() {
     const t = $('#car-companion');
     if (!t) return;
-    if (!S.delivery) {
+    const days = companionDays();
+    if (days === null) {
       t.textContent = '点这里设置提车日期';
       t.classList.add('is-empty');
       t.setAttribute('role', 'button');
@@ -2548,11 +2782,6 @@
     // 已设置后仅展示:修改入口在个人中心,车身文字不再可点
     t.removeAttribute('role');
     t.removeAttribute('tabindex');
-    // 提车当天算第 1 天(本地时区)
-    const [y, m, d] = S.delivery.split('-').map(Number);
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const days = Math.max(1, Math.round((today - new Date(y, m - 1, d)) / 86400000) + 1);
     t.textContent = `已陪伴 ${days} 天`;
     t.setAttribute('aria-label', `提车日期 ${S.delivery},已陪伴 ${days} 天`);
   }
@@ -3783,14 +4012,24 @@
       placeTabBubble(false);  // 气泡宽度随 Tab 布局变化,不播滑动动画
     });
 
-    // 默认时间范围:个人中心「显示偏好」设置,存服务端按账号隔离;
+    // 默认时间范围 + 总览样式:个人中心「显示偏好」设置,存服务端按账号隔离;
     // localStorage 做秒开缓存,服务端返回不同值时校正并重刷一次
     const cachedDays = Number(localStorage.getItem('ttv-days'));
     if ([1, 7, 30].includes(cachedDays)) S.days = cachedDays;
+    applyOvMode();  // 总览样式:先按 localStorage 缓存应用(S.ovMode 已在状态初始化时读入)
     api('prefs').then((p) => {
-      if (p && [1, 7, 30].includes(p.days)) {
+      if (!p) return;
+      if ([1, 7, 30].includes(p.days)) {
         localStorage.setItem('ttv-days', String(p.days));
         if (p.days !== S.days) { S.days = p.days; refresh(); }
+      }
+      if (p.overview_mode === 'car' || p.overview_mode === 'data') {
+        localStorage.setItem('ttv-ovmode', p.overview_mode);
+        if (p.overview_mode !== S.ovMode) {
+          S.ovMode = p.overview_mode;
+          applyOvMode();
+          renderCar();
+        }
       }
     }).catch(() => { /* 偏好拉取失败就用缓存/默认值 */ });
 

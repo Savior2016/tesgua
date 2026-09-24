@@ -1062,6 +1062,172 @@ button { touch-action: manipulation; }
   margin-top: 1px;
 }
 
+/* ===== 总览·数据模式(个人中心「显示偏好 → 总览样式」切换)=====
+   顶部 KPI 大数字横排 + 左能量分布环图 + 右次要指标列;
+   均耗条(.car-eff)与充电周期条(.cycle-strip)两种模式共用 */
+.car-data[hidden] { display: none; }
+
+.carview.mode-data { display: block; padding-bottom: 42px; }
+.carview.mode-data .car-side,
+.carview.mode-data .car-mid { display: none; }
+/* 三态切换在数据模式下常驻(盖住 sides-stowed 的隐藏规则,须放在其后) */
+.carview.mode-data #car-mode-seg {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* 顶部 KPI 横排 */
+.cd-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.cd-kpi {
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  border: 1px solid var(--glass-edge);
+  border-radius: 12px;
+  padding: 12px 14px 11px;
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+  min-width: 0;
+}
+.cd-kpi-name {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.cd-kpi-val {
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-kpi-val b {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--series-1);
+  font-variant-numeric: tabular-nums;
+}
+.cd-kpi-unit { font-size: 13px; color: var(--text-secondary); }
+.cd-kpi-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 下方双列:左环图,右指标列 */
+.cd-body {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+  align-items: stretch;
+}
+
+.cd-donut-wrap {
+  position: relative;
+  border: 1px solid var(--glass-edge);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+  padding: 10px 10px 12px;
+}
+.cd-donut { height: 300px; }
+.cd-donut-center {
+  position: absolute;
+  /* 环体纵向中心 ≈ (padding-top 10 + 环高 300/2) */
+  top: calc(10px + 150px);
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+.cd-donut-center b {
+  display: block;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.cd-donut-center span {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.cd-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.cd-legend .cl-item {
+  flex: 1 1 30%;
+  min-width: 96px;
+  padding: 6px 9px;
+  gap: 6px;
+}
+.cd-legend .cl-val { font-size: 14px; }
+
+/* 右侧指标列 */
+.cd-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cd-tile {
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  border: 1px solid var(--glass-edge);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+}
+.cd-tile-name {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.cd-tile-val {
+  display: block;
+  margin-top: 3px;
+  font-size: 19px;
+  font-weight: 650;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.cd-tile-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.cd-tpms { flex: 1; }
+.cd-tpms-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin-top: 8px;
+}
+.cd-tpms-cell {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.cd-tpms-pos { font-size: 11.5px; color: var(--text-muted); }
+.cd-tpms-cell b { font-size: 16px; font-weight: 650; }
+
 /* 充电周期横条:横向滑动点选每次充电 */
 /* 充电周期横滑选择条(卡片底部) */
 .cycle-strip {
@@ -3338,6 +3504,11 @@ footer a { color: var(--text-muted); }
   /* 行程详情:窄屏键值网格改 2 列 */
   .rt-kv { grid-template-columns: repeat(2, 1fr); }
   .rt-map { height: 170px; }
+
+  /* 总览·数据模式:环图与指标列改单列(环图在上) */
+  .cd-body { grid-template-columns: 1fr; }
+  .cd-donut { height: 260px; }
+  .cd-donut-center { top: calc(10px + 130px); }
 }
 
 /* ===== 响应式:手机 ===== */
@@ -3399,6 +3570,16 @@ footer a { color: var(--text-muted); }
   }
   .cl-item { padding: 7px 6px; gap: 5px; }
   .cl-val { font-size: 15px; }
+
+  /* 总览·数据模式:KPI 改 2×2,数值与环图收窄 */
+  .cd-kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .cd-kpi { padding: 10px 11px 9px; }
+  .cd-kpi-val b { font-size: 19px; }
+  .cd-donut { height: 220px; }
+  .cd-donut-center { top: calc(10px + 110px); }
+  .cd-donut-center b { font-size: 26px; }
+  .cd-legend .cl-item { min-width: 86px; }
+  .cd-tile-val { font-size: 17px; }
 
   /* 事件列表:日期行允许换行,摘要芯片独占一行防溢出 */
   .day-head { flex-wrap: wrap; padding: 9px 10px; }

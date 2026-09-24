@@ -256,12 +256,39 @@
       msg($('days-msg'), err.message, false);
     }
   });
+  /* 总览样式:车模 / 数据(POST 为合并语义,这里只发 overview_mode,不影响 days) */
+  const ovSeg = $('ovmode-seg');
+  const OV_MODES = ['car', 'data'];
+  function markOvMode(m) {
+    ovSeg.querySelectorAll('button').forEach((b) =>
+      b.classList.toggle('on', b.dataset.ovmode === m));
+  }
+  ovSeg.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const m = btn.dataset.ovmode;
+    markOvMode(m);
+    localStorage.setItem('ttv-ovmode', m);  // 面板下次打开即刻生效
+    try {
+      await api('/api/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overview_mode: m }),
+      });
+      msg($('days-msg'), '已保存', true);
+    } catch (err) {
+      msg($('days-msg'), err.message, false);
+    }
+  });
   (async () => {
     try {
       const p = await api('/api/prefs');
       const d = DAYS.includes(p.days) ? p.days : 7;
       markDays(d);
       localStorage.setItem('ttv-days', String(d));
+      const m = OV_MODES.includes(p.overview_mode) ? p.overview_mode : 'car';
+      markOvMode(m);
+      localStorage.setItem('ttv-ovmode', m);
     } catch (e) {
       msg($('days-msg'), e.message, false);
     }
