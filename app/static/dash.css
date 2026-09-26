@@ -1,0 +1,289 @@
+/* ===== 仪表盘(行车实时表盘,多皮肤横屏全屏) =====
+   深底为主:行车场景夜间不刺眼;令牌跟随主题,浅色主题同样可用。 */
+
+.dash-stage {
+  position: relative;
+  height: calc(100dvh - 170px);   /* 扣除顶栏与 Dock */
+  min-height: 420px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #0a0d12;
+  color: #e8eef5;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* 全屏时铺满 */
+.dash-stage:fullscreen { border-radius: 0; border: 0; height: 100dvh; }
+
+/* ---- 皮肤切换圆点 + 全屏钮 ---- */
+.dash-chrome {
+  position: absolute;
+  top: 10px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: opacity .4s;
+}
+.dash-stage.chrome-hidden .dash-chrome { opacity: 0; pointer-events: none; }
+.dash-dots {
+  display: flex;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(20, 26, 34, 0.72);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.dash-dot {
+  appearance: none;
+  border: 0;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(232, 238, 245, 0.75);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  transition: background .2s, color .2s;
+}
+.dash-dot.on { background: #3b82f6; color: #fff; }
+.dash-fs {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(20, 26, 34, 0.72);
+  backdrop-filter: blur(12px);
+  color: rgba(232, 238, 245, 0.8);
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.dash-fs svg { width: 15px; height: 15px; }
+
+/* ---- 皮肤通用 ---- */
+.dash-skin { position: absolute; inset: 0; display: none; }
+.dash-skin.on { display: block; }
+
+/* ---- 皮肤 1:极简数字 ---- */
+.ds-minimal { font-variant-numeric: tabular-nums; }
+.dsm-corner {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  color: rgba(232, 238, 245, 0.9);
+}
+.dsm-corner b { font-size: 22px; font-weight: 650; }
+.dsm-corner span { font-size: 11px; color: rgba(232, 238, 245, 0.45); }
+.dsm-tl { top: 18px; left: 22px; }
+.dsm-tr { top: 18px; right: 22px; text-align: right; }
+.dsm-bl { bottom: 16px; left: 22px; }
+.dsm-br { bottom: 16px; right: 22px; text-align: right; }
+.dsm-speed {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+}
+.dsm-speed b {
+  font-size: clamp(120px, 26vw, 240px);
+  font-weight: 200;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  transition: color .3s;
+}
+.dsm-unit { font-size: 18px; color: rgba(232, 238, 245, 0.45); align-self: flex-end; margin-bottom: 12%; }
+.dsm-shift {
+  font-style: normal;
+  font-size: 15px;
+  border: 1px solid rgba(232, 238, 245, 0.35);
+  border-radius: 6px;
+  padding: 2px 8px;
+  align-self: flex-start;
+  margin-top: 18%;
+  color: rgba(232, 238, 245, 0.75);
+}
+.dsm-power {
+  position: absolute;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  width: min(58%, 560px);
+  text-align: center;
+}
+.dsm-powerbar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.09);
+  overflow: hidden;
+}
+.dsm-powerbar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+  background: #f59e0b;
+  transition: width .18s linear, background-color .3s, margin-left .18s linear;
+}
+.dsm-power span { font-size: 13px; color: rgba(232, 238, 245, 0.6); margin-top: 6px; display: block; }
+.dsm-trace {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  width: 100%;
+  height: 36px;
+  opacity: 0.85;
+}
+
+/* ---- 皮肤 2:双圆机械表 ---- */
+.ds-gauges { display: none; place-items: center; }
+.ds-gauges.on { display: grid; }
+#ds-g-svg { width: min(96%, 900px); height: auto; max-height: 88%; }
+.dsg-center {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+.dsg-center b { display: block; font-size: 40px; font-weight: 300; }
+.dsg-center span { font-size: 14px; color: rgba(232, 238, 245, 0.55); border: 1px solid rgba(232,238,245,.3); border-radius: 6px; padding: 1px 8px; }
+
+/* ---- 皮肤 3:导航优先地图 ---- */
+.dash-map { position: absolute; inset: 0; }
+.dsmap-speed {
+  position: absolute;
+  top: 16px; left: 16px;
+  z-index: 5;
+  background: rgba(20, 26, 34, 0.78);
+  backdrop-filter: blur(10px);
+  border-radius: 14px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.dsmap-speed b { font-size: 34px; font-weight: 300; font-variant-numeric: tabular-nums; }
+.dsmap-speed span { font-size: 12px; color: rgba(232, 238, 245, 0.55); }
+.dsmap-power {
+  position: absolute;
+  top: 16px; right: 16px;
+  z-index: 5;
+  background: rgba(20, 26, 34, 0.78);
+  backdrop-filter: blur(10px);
+  border-radius: 999px;
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.dsmap-power i { display: block; width: 46px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); position: relative; overflow: hidden; }
+.dsmap-power i::after { content: ""; position: absolute; inset: 0; width: var(--pw, 0%); background: var(--pc, #f59e0b); border-radius: 3px; }
+.dsmap-dest {
+  position: absolute;
+  top: 56px; left: 50%;   /* 避开顶部皮肤切换条 */
+  transform: translateX(-50%);
+  z-index: 5;
+  background: rgba(59, 130, 246, 0.85);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dsmap-trip {
+  position: absolute;
+  bottom: 14px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  background: rgba(20, 26, 34, 0.78);
+  backdrop-filter: blur(10px);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(232, 238, 245, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  white-space: nowrap;
+}
+
+/* ---- 皮肤 4:航空速带 ---- */
+.ds-aviator { background: #05080c; }
+#ds-a-canvas { width: 100%; height: 100%; display: block; }
+
+/* ---- 皮肤 5:SpaceX 遥测网格 ---- */
+.ds-spacex { background: #0b0b0d; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+.dsx-grid {
+  position: absolute;
+  inset: 14px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 1fr;
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+}
+.dsx-cell {
+  background: #0b0b0d;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 14px;
+  gap: 4px;
+}
+.dsx-cell .dsx-k { font-size: 10px; letter-spacing: 0.18em; color: rgba(232, 238, 245, 0.42); }
+.dsx-cell .dsx-v { font-size: clamp(20px, 4.2vw, 42px); font-weight: 300; font-variant-numeric: tabular-nums; }
+.dsx-cell .dsx-u { font-size: 10px; color: rgba(232, 238, 245, 0.42); }
+.dsx-cell.hero { grid-column: span 2; grid-row: span 2; align-items: center; }
+.dsx-cell.hero .dsx-v { font-size: clamp(64px, 13vw, 130px); font-weight: 200; }
+.dsx-dots { display: flex; gap: 3px; }
+.dsx-filler { align-items: center; justify-content: center; }
+.dsx-dots i { width: 4px; height: 4px; border-radius: 50%; background: rgba(232, 238, 245, 0.25); }
+.dsx-dots i.on { background: #4ade80; }
+
+/* ---- 驻车/充电覆盖层 ---- */
+.dash-parked {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: radial-gradient(120% 100% at 50% 0%, #10151d 0%, #0a0d12 70%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.dash-parked[hidden] { display: none; }  /* display:flex 会盖住 hidden 的 UA 样式,须显式声明 */
+.dsp-soc b { font-size: clamp(80px, 16vw, 150px); font-weight: 200; font-variant-numeric: tabular-nums; }
+.dsp-soc span { font-size: 14px; color: rgba(232, 238, 245, 0.5); margin-left: 10px; }
+.dsp-range { font-size: 16px; color: rgba(232, 238, 245, 0.65); }
+.dsp-chips { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; justify-content: center; }
+.dsp-chips .dsp-chip {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(232, 238, 245, 0.6);
+}
+.dsp-chips .dsp-chip.on { border-color: rgba(74, 222, 128, 0.5); color: #4ade80; }
+.dsp-eta { font-size: 20px; color: #4ade80; font-variant-numeric: tabular-nums; }
+.dsp-clock { position: absolute; bottom: 22px; font-size: 15px; color: rgba(232, 238, 245, 0.4); font-variant-numeric: tabular-nums; }
+
+/* 竖屏(未全屏手机)收窄适配 */
+@media (max-width: 600px) {
+  .dash-stage { height: calc(100dvh - 210px); min-height: 380px; }
+  .dsm-corner b { font-size: 18px; }
+  .dsx-grid { grid-template-columns: repeat(2, 1fr); }
+  .dsx-cell.hero { grid-column: span 2; }
+}

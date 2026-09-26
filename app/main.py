@@ -2427,6 +2427,8 @@ from .monthly_backup import router as monthly_backup_router
 app.include_router(monthly_backup_router)
 from .telemetry import router as telemetry_router
 app.include_router(telemetry_router)  # 须在 app.mount("/") 之前注册
+from .dashboard import router as dash_router
+app.include_router(dash_router)  # 含 WebSocket /api/dash/ws,须在 mount 之前
 
 app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static"),
                            html=True), name="static")

@@ -3868,6 +3868,9 @@
     const q = S.carId === null ? '' : (path.includes('?') ? '&' : '?') + 'car_id=' + S.carId;
     return fetchJSON('/api/' + path + q);
   }
+  // 桥给独立模块(dash.js 行车仪表盘)复用,避免重复实现
+  window.__ttvApi = api;
+  window.__ttvLoadMapStyle = loadMapStyle;
 
   async function refresh() {
     try {
@@ -4060,7 +4063,10 @@
     const afterShow = () => requestAnimationFrame(() => {
       resizeSection(contentSection(name));
       if (name === 'overview') renderCar();  // 俯视图标注随舞台尺寸定位,重算一次
+      if (name === 'dash') window.TTVDash?.enter();  // 行车仪表盘:进页连 WS+自动全屏
     });
+    // 离开仪表盘页:断开实时通道并退出全屏(动画与直切两条路径都要覆盖)
+    if (curPage && curPage.id === 'page-dash' && name !== 'dash') window.TTVDash?.leave();
     // 动画路径:Tab 态与气泡滑动先行(手感即时),旧页模块从四周退出,再切页、新页模块从四周进入
     // 「数据」页的动画目标委托给当前激活子页(pageturn 只认 :scope > .grid > .card)
     if (cur && nxt && cur !== nxt && window.TTVPageTurn) {

@@ -123,9 +123,21 @@ def run():
             assert len(opt['visualMap']) == 1 and opt['visualMap'][0]['seriesIndex'] == [2, 3]
             names = [s['name'] for s in opt['series']]
             assert names == ['_band_base', '_band_delta', '车内', '车外']
-            # 占位页:仪表盘/导航各一张 soon-card;数据页默认充电子页
-            page.locator('.tab[data-page="dash"]').click();page.wait_for_timeout(100)
-            assert page.locator('#page-dash .soon-card').count()==1
+            # 仪表盘:5 套皮肤容器 + 圆点切换;离线 mock 下 WS/快照失败须静默容忍,驻车覆盖层照常渲染
+            page.locator('.tab[data-page="dash"]').click()
+            page.wait_for_selector('.dash-skin[data-skin="minimal"].on', timeout=4000)  # 默认极简数字(进场动画完成后挂载)
+            assert page.locator('#page-dash .dash-skin').count()==5
+            assert page.locator('#dash-dots .dash-dot').count()==5
+            assert page.locator('#page-dash #ds-m-speed').count()==1
+            assert page.locator('#page-dash #ds-m-powerfill').count()==1
+            assert page.locator('#dash-parked:not([hidden])').count()==1  # 非行车态驻车布局
+            for skin in ['gauges','map','aviator','spacex','minimal']:
+                page.locator('.dash-dot[data-skin="'+skin+'"]').click();page.wait_for_timeout(80)
+                assert page.locator('.dash-skin[data-skin="'+skin+'"].on').count()==1, skin
+                assert page.locator('.dash-dot[data-skin="'+skin+'"].on').count()==1, skin
+            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+            page.evaluate('if(document.fullscreenElement) document.exitFullscreen()')  # 窄屏自动全屏会罩住 Dock,先退出
+            page.wait_for_timeout(150)
             page.locator('.tab[data-page="nav"]').click();page.wait_for_timeout(100)
             assert page.locator('#page-nav .soon-card').count()==1
             page.locator('.tab[data-page="data"]').click();page.wait_for_timeout(120)
@@ -134,6 +146,7 @@ def run():
             for width in [320,390,1440]:
                 page.set_viewport_size({"width":width,"height":900})
                 for tab in ['overview','dash','nav','data','control']:
+                    page.evaluate('if(document.fullscreenElement) document.exitFullscreen()')  # dash 窄屏自动全屏先退出
                     page.locator('.tab[data-page="'+tab+'"]').click();page.wait_for_timeout(80)
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (role,width,tab)
                     if tab == 'data':

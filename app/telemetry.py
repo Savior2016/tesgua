@@ -33,6 +33,16 @@ KEYS = {
     "charge_limit_soc",
 }
 
+# 仪表盘实时话题:不落库,只维护最新值快照并扇出给 WebSocket 订阅者
+DASH_KEYS = {
+    "state", "speed", "power", "heading", "shift_state",
+    "battery_level", "rated_battery_range_km", "ideal_battery_range_km",
+    "inside_temp", "outside_temp", "elevation", "odometer",
+    "latitude", "longitude",
+    "active_route_destination", "time_to_full_charge",
+    "is_climate_on", "locked", "sentry_mode",
+}
+
 ON = {"true", "True", "1"}
 # 小憩(车内有人驻车)最短计入时长:过滤解锁取物等碎片
 OCCUPIED_MIN_MS = 15 * 60 * 1000
@@ -45,6 +55,31 @@ _lock = threading.Lock()
 _last: dict = {}          # {(car_id, key): value} 去重基线
 _status = {"connected": False, "last_ts": None}
 _client = None
+
+# 仪表盘实时层:_live 保存 DASH_KEYS 最新值;_dash_queues 为 WS 订阅者队列
+_live: dict = {}          # {(car_id, key): (value, iso_ts)}
+_dash_queues: set = set()  # {queue.Queue}
+
+
+def subscribe_dash():
+    """返回一个接收 (car_id, key, value) 的队列;满即丢(仪表盘只要最新值)。"""
+    import queue
+    q: queue.Queue = queue.Queue(maxsize=100)
+    with _lock:
+        _dash_queues.add(q)
+    return q
+
+
+def unsubscribe_dash(q) -> None:
+    with _lock:
+        _dash_queues.discard(q)
+
+
+def live_snapshot(car_id: int) -> dict:
+    """仪表盘首屏快照:{key: value}(字符串原值)+ 采集器状态。"""
+    with _lock:
+        data = {k: v for (cid, k), (v, _ts) in _live.items() if cid == car_id}
+    return {"values": data, "collector": collector_status()}
 
 
 # ---------- MQTT 采集 ----------
@@ -84,10 +119,22 @@ def _on_message(client, userdata, msg):
     if len(parts) != 4 or not parts[2].isdigit():
         return
     key = parts[3]
-    if key not in KEYS:
-        return
     car_id = int(parts[2])
     value = msg.payload.decode("utf-8", "replace")
+    if key in DASH_KEYS:
+        # 仪表盘实时层:只留最新值并扇出,不落库
+        with _lock:
+            prev = _live.get((car_id, key))
+            if prev is None or prev[0] != value:
+                _live[(car_id, key)] = (
+                    value, datetime.now(timezone.utc).isoformat())
+                for q in _dash_queues:
+                    try:
+                        q.put_nowait((car_id, key, value))
+                    except Exception:
+                        pass  # 队列满:丢弃旧帧,订阅者只关心最新值
+    if key not in KEYS:
+        return
     slot = (car_id, key)
     with _lock:
         if _last.get(slot) == value:

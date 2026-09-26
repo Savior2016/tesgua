@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/maplibre-gl.css">
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/control.css?v=12">
+  <link rel="stylesheet" href="/dash.css?v=1">
 </head>
 <body>
 <!-- 过冲(overscroll)露出的顶部背景中央:小圆圈 + 星舰徽标,平时被顶栏遮住 -->
@@ -213,13 +214,70 @@
   </div>
   </section>
 
-  <!-- ===== 分页 2:仪表盘(占位,阶段三填内容) ===== -->
+  <!-- ===== 分页 2:仪表盘(实时速度/功率/导航,多表盘横屏全屏) ===== -->
   <section class="page" id="page-dash">
-  <div class="grid">
-    <div class="card col-12 soon-card">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5A9.5 9.5 0 0 0 2.5 13c0 2.6 1 5 2.7 6.7l1.4-1.4A7.5 7.5 0 1 1 19.5 13c0 2-.8 3.9-2.1 5.3l1.4 1.4a9.5 9.5 0 0 0 2.7-6.7A9.5 9.5 0 0 0 12 3.5z"/><path d="M12 15.2a1.7 1.7 0 0 1-.6-3.3l4.6-3-3 4.6a1.7 1.7 0 0 1-1 1.7z"/></svg>
-      <h2>仪表盘</h2>
-      <p>正在开发中 · 实时速度、功率与多种表盘,行车专属的横屏界面</p>
+  <div class="dash-stage" id="dash-stage">
+
+    <!-- 皮肤切换圆点 + 全屏钮(全屏 3s 无操作自动隐藏,点边缘唤出) -->
+    <div class="dash-chrome" id="dash-chrome">
+      <div class="dash-dots" id="dash-dots" role="tablist" aria-label="表盘样式">
+        <button class="dash-dot" data-skin="minimal" role="tab" title="极简数字"><span>数字</span></button>
+        <button class="dash-dot" data-skin="gauges" role="tab" title="双圆机械表"><span>圆表</span></button>
+        <button class="dash-dot" data-skin="map" role="tab" title="导航地图"><span>地图</span></button>
+        <button class="dash-dot" data-skin="aviator" role="tab" title="航空速带"><span>速带</span></button>
+        <button class="dash-dot" data-skin="spacex" role="tab" title="遥测网格"><span>遥测</span></button>
+      </div>
+      <button class="dash-fs" id="dash-fs" title="全屏" aria-label="全屏">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+      </button>
+    </div>
+
+    <!-- 皮肤 1:极简数字 -->
+    <div class="dash-skin ds-minimal" data-skin="minimal">
+      <div class="dsm-corner dsm-tl"><b id="ds-m-soc">—</b><span>电量</span></div>
+      <div class="dsm-corner dsm-tr"><b id="ds-m-range">—</b><span>续航</span></div>
+      <div class="dsm-speed"><b id="ds-m-speed">0</b><span class="dsm-unit">km/h</span><i id="ds-m-shift" class="dsm-shift">P</i></div>
+      <div class="dsm-power">
+        <div class="dsm-powerbar"><i id="ds-m-powerfill"></i></div>
+        <span id="ds-m-powerval">0 kW</span>
+      </div>
+      <canvas class="dsm-trace" id="ds-m-trace" height="36"></canvas>
+      <div class="dsm-corner dsm-bl"><b id="ds-m-intemp">—</b><span>车内</span></div>
+      <div class="dsm-corner dsm-br"><b id="ds-m-clock">—</b><span id="ds-m-outtemp">车外 —</span></div>
+    </div>
+
+    <!-- 皮肤 2:双圆机械表 -->
+    <div class="dash-skin ds-gauges" data-skin="gauges">
+      <svg id="ds-g-svg" viewBox="0 0 760 360" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
+      <div class="dsg-center"><b id="ds-g-soc">—</b><span id="ds-g-shift">P</span></div>
+    </div>
+
+    <!-- 皮肤 3:导航优先地图 -->
+    <div class="dash-skin ds-map" data-skin="map">
+      <div class="dash-map" id="dash-map"></div>
+      <div class="dsmap-speed"><b id="ds-map-speed">0</b><span>km/h</span></div>
+      <div class="dsmap-power"><i id="ds-map-powerfill"></i><span id="ds-map-powerval">0 kW</span></div>
+      <div class="dsmap-dest" id="ds-map-dest" hidden></div>
+      <div class="dsmap-trip" id="ds-map-trip">本次 — km · — kWh · — Wh/km</div>
+    </div>
+
+    <!-- 皮肤 4:航空速带 -->
+    <div class="dash-skin ds-aviator" data-skin="aviator">
+      <canvas id="ds-a-canvas"></canvas>
+    </div>
+
+    <!-- 皮肤 5:SpaceX 遥测网格 -->
+    <div class="dash-skin ds-spacex" data-skin="spacex">
+      <div class="dsx-grid" id="dsx-grid"></div>
+    </div>
+
+    <!-- 驻车/充电覆盖层(state 非行车时罩在所有皮肤上) -->
+    <div class="dash-parked" id="dash-parked" hidden>
+      <div class="dsp-soc"><b id="ds-p-soc">—</b><span>电量</span></div>
+      <div class="dsp-range" id="ds-p-range">—</div>
+      <div class="dsp-chips" id="ds-p-chips"></div>
+      <div class="dsp-eta" id="ds-p-eta" hidden></div>
+      <div class="dsp-clock" id="ds-p-clock">—</div>
     </div>
   </div>
   </section>
@@ -793,6 +851,7 @@
 <script src="/maplibre-gl-csp.js"></script>
 <script src="/pmtiles.js"></script>
 <script src="/control.js?v=12"></script>
+<script src="/dash.js?v=1"></script>
 <script src="/pageturn.js"></script>
 <script src="/app.js"></script>
 </body>
