@@ -3860,13 +3860,17 @@
       location.href = '/login?next=' + encodeURIComponent(location.pathname);
       throw new Error('unauthorized');
     }
-    if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
+    if (!res.ok) {
+      let detail = `${url} → HTTP ${res.status}`;
+      try { detail = (await res.json()).detail || detail; } catch (_) { /* 非 JSON 错误体 */ }
+      throw new Error(detail);
+    }
     return res.json();
   }
 
-  function api(path) {
+  function api(path, opts) {
     const q = S.carId === null ? '' : (path.includes('?') ? '&' : '?') + 'car_id=' + S.carId;
-    return fetchJSON('/api/' + path + q);
+    return fetchJSON('/api/' + path + q, opts);
   }
   // 桥给独立模块(dash.js 行车仪表盘)复用,避免重复实现
   window.__ttvApi = api;
@@ -4064,6 +4068,7 @@
       resizeSection(contentSection(name));
       if (name === 'overview') renderCar();  // 俯视图标注随舞台尺寸定位,重算一次
       if (name === 'dash') window.TTVDash?.enter();  // 行车仪表盘:进页连 WS+自动全屏
+      if (name === 'nav') window.TTNav?.enter();     // 导航页:惰性建图 + 读车辆位置
     });
     // 离开仪表盘页:断开实时通道并退出全屏(动画与直切两条路径都要覆盖)
     if (curPage && curPage.id === 'page-dash' && name !== 'dash') window.TTVDash?.leave();

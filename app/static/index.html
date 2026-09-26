@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/style.css">
   <link rel="stylesheet" href="/control.css?v=12">
   <link rel="stylesheet" href="/dash.css?v=1">
+  <link rel="stylesheet" href="/nav.css?v=1">
 </head>
 <body>
 <!-- 过冲(overscroll)露出的顶部背景中央:小圆圈 + 星舰徽标,平时被顶栏遮住 -->
@@ -282,14 +283,54 @@
   </div>
   </section>
 
-  <!-- ===== 分页 3:导航(占位,阶段四填内容) ===== -->
+  <!-- ===== 分页 3:导航(路线规划 / 沿途服务区 / 超充电量规划 / 推送车机与高德) ===== -->
   <section class="page" id="page-nav">
-  <div class="grid">
-    <div class="card col-12 soon-card">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z"/></svg>
-      <h2>导航</h2>
-      <p>正在开发中 · 途经路规划、沿途服务区与充电站电量规划</p>
+  <div class="nav-layout">
+    <div class="nav-side">
+      <div class="card nav-card">
+        <h3 class="nav-h">目的地</h3>
+        <div class="nav-search">
+          <input id="nav-dest-inp" type="search" placeholder="搜索目的地(名称 / 地址)" autocomplete="off">
+          <div class="nav-tips" id="nav-tips" hidden></div>
+        </div>
+        <div class="nav-origin" id="nav-origin">起点:读取车辆位置中…</div>
+        <div class="nav-waypts" id="nav-waypts"></div>
+        <div class="nav-row">
+          <input id="nav-via-inp" type="search" placeholder="想途经的路 / 地点(可选)" autocomplete="off">
+          <div class="nav-tips" id="nav-via-tips" hidden></div>
+        </div>
+        <div id="nav-msg" class="nav-msg"></div>
+      </div>
+
+      <div class="card nav-card" id="nav-routes-card" hidden>
+        <h3 class="nav-h">路线方案</h3>
+        <div id="nav-routes"></div>
+        <button class="btn ghost nav-svc-btn" id="nav-svc-btn">找沿途服务区</button>
+        <div id="nav-svcs" class="nav-svcs" hidden></div>
+      </div>
+
+      <div class="card nav-card" id="nav-plan-card" hidden>
+        <h3 class="nav-h">电量规划</h3>
+        <div class="nav-plan-form">
+          <label>出发电量 <b id="nav-start-soc">—</b>%</label>
+          <label>到达至少剩 <input type="number" id="nav-arr-soc" value="20" min="0" max="90"> %</label>
+          <label>每站充到 <input type="number" id="nav-dep-soc" value="80" min="20" max="100"> %</label>
+        </div>
+        <div id="nav-plan-summary" class="nav-msg"></div>
+        <div id="nav-stops"></div>
+        <div class="nav-legend" id="nav-legend"></div>
+      </div>
+
+      <div class="card nav-card" id="nav-push-card" hidden>
+        <h3 class="nav-h">发送路线</h3>
+        <div class="nav-push-row">
+          <button class="btn" id="nav-push-car">推送到车机</button>
+          <button class="btn ghost" id="nav-push-amap">高德 App 打开</button>
+        </div>
+        <div class="nav-msg" id="nav-push-msg">车机推送为单目的地;途经点已自动编入高德链接</div>
+      </div>
     </div>
+    <div class="card nav-map-card"><div id="nav-map"></div></div>
   </div>
   </section>
 
@@ -852,6 +893,7 @@
 <script src="/pmtiles.js"></script>
 <script src="/control.js?v=12"></script>
 <script src="/dash.js?v=1"></script>
+<script src="/nav.js?v=1"></script>
 <script src="/pageturn.js"></script>
 <script src="/app.js"></script>
 </body>

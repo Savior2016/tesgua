@@ -1,0 +1,94 @@
+/* ===== 导航页:侧栏规划 + 地图 ===== */
+.nav-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) 1fr;
+  gap: 14px;
+  align-items: start;
+}
+.nav-side { display: flex; flex-direction: column; gap: 14px; }
+.nav-card { padding: 16px 18px; }
+.nav-h { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+.nav-map-card { padding: 0; overflow: hidden; height: calc(100dvh - 170px); min-height: 420px; position: sticky; top: 10px; }
+#nav-map { position: absolute; inset: 0; }
+
+.nav-search { position: relative; }
+.nav-search input, .nav-row input {
+  width: 100%; box-sizing: border-box;
+  padding: 9px 12px; border-radius: 10px;
+  border: 1px solid var(--border, rgba(128,128,128,.25));
+  background: var(--card-bg, transparent); color: inherit; font-size: 14px;
+}
+.nav-tips {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30;
+  background: var(--card-bg, #1c1f26); border: 1px solid var(--border, rgba(128,128,128,.25));
+  border-radius: 10px; overflow: hidden; max-height: 260px; overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+}
+.nav-tips button {
+  display: block; width: 100%; text-align: left; border: 0; background: none;
+  color: inherit; padding: 9px 12px; cursor: pointer; font-size: 13px;
+}
+.nav-tips button:hover { background: rgba(128,128,128,.15); }
+.nav-tips button small { display: block; color: var(--text-muted, #888); font-size: 11px; }
+
+.nav-origin { font-size: 12px; color: var(--text-secondary, #999); margin-top: 8px; }
+.nav-row { position: relative; margin-top: 10px; }
+.nav-waypts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.nav-waypts:empty { display: none; }
+.nav-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; padding: 4px 8px 4px 10px; border-radius: 999px;
+  background: rgba(59,130,246,.12); color: var(--accent, #3b82f6);
+  border: 1px solid rgba(59,130,246,.3);
+}
+.nav-chip b { font-weight: 400; }
+.nav-chip button { border: 0; background: none; color: inherit; cursor: pointer; font-size: 13px; padding: 0 2px; }
+
+.nav-msg { font-size: 12px; color: var(--text-muted, #888); margin-top: 8px; min-height: 0; }
+.nav-msg.err { color: #ef4444; }
+.nav-msg.ok { color: #22c55e; }
+
+.nav-route-opt {
+  width: 100%; text-align: left; cursor: pointer; border-radius: 10px;
+  border: 1px solid var(--border, rgba(128,128,128,.25));
+  background: none; color: inherit; padding: 9px 12px; margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+}
+.nav-route-opt.on { border-color: var(--accent, #3b82f6); background: rgba(59,130,246,.1); }
+.nav-route-opt b { font-size: 15px; }
+.nav-route-opt small { color: var(--text-muted, #888); font-size: 11px; }
+
+.nav-svc-btn { width: 100%; margin-top: 4px; }
+.nav-svcs { margin-top: 8px; max-height: 220px; overflow-y: auto; }
+.nav-svcs label {
+  display: flex; align-items: center; gap: 8px; padding: 7px 4px;
+  font-size: 13px; cursor: pointer; border-bottom: 1px solid rgba(128,128,128,.1);
+}
+.nav-svcs label small { color: var(--text-muted, #888); display: block; font-size: 11px; }
+
+.nav-plan-form { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.nav-plan-form label { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.nav-plan-form input { width: 64px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--border, rgba(128,128,128,.25)); background: none; color: inherit; }
+
+.nav-stop { border-top: 1px solid rgba(128,128,128,.12); padding: 10px 0 6px; font-size: 13px; }
+.nav-stop .ns-name { font-weight: 600; }
+.nav-stop .ns-soc { color: var(--text-muted, #888); font-size: 12px; margin: 2px 0 6px; }
+.nav-stop input[type=range] { width: 100%; }
+
+.nav-legend { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 10px; font-size: 11px; color: var(--text-secondary, #999); }
+.nav-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.nav-legend i { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+
+.nav-push-row { display: flex; gap: 10px; }
+.nav-push-row .btn { flex: 1; }
+
+.nav-mk {
+  font-size: 22px; line-height: 1; cursor: default;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,.5));
+}
+.nav-mk-chg { font-size: 24px; }
+
+@media (max-width: 900px) {
+  .nav-layout { grid-template-columns: 1fr; }
+  .nav-map-card { position: static; height: 46dvh; min-height: 300px; order: -1; }
+}

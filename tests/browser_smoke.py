@@ -92,6 +92,7 @@ def run():
                     route.fulfill(status=404);return
                 route.fulfill(body=source.read_bytes(),content_type=mimetypes.guess_type(str(source))[0] or 'application/octet-stream',headers={"Content-Security-Policy":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'"})
             ctx.route("**/*",route_handler)
+            ctx.add_init_script("HTMLElement.prototype.requestFullscreen=function(){return Promise.reject(new Error('smoke: fullscreen disabled'))}")
             page=ctx.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
             page.goto('http://teslahome.test/',wait_until='networkidle')
             assert page.locator('#car-name').inner_text() == '合成测试车辆'
@@ -138,8 +139,12 @@ def run():
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
             page.evaluate('if(document.fullscreenElement) document.exitFullscreen()')  # 窄屏自动全屏会罩住 Dock,先退出
             page.wait_for_timeout(150)
-            page.locator('.tab[data-page="nav"]').click();page.wait_for_timeout(100)
-            assert page.locator('#page-nav .soon-card').count()==1
+            page.locator('.tab[data-page="nav"]').click();page.wait_for_timeout(400)
+            # 导航页:搜索框/途经点输入/地图容器;离线 mock 下(nav/config 无 key)提示去个人中心
+            assert page.locator('#nav-dest-inp').count()==1
+            assert page.locator('#nav-via-inp').count()==1
+            assert page.locator('#nav-map').count()==1
+            assert '个人中心' in page.locator('#nav-msg').inner_text()
             page.locator('.tab[data-page="data"]').click();page.wait_for_timeout(120)
             assert page.locator('.dtab[data-sub="charging"].on').count()==1
             assert page.locator('#page-charging.active').count()==1

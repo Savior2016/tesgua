@@ -2429,6 +2429,10 @@ from .telemetry import router as telemetry_router
 app.include_router(telemetry_router)  # 须在 app.mount("/") 之前注册
 from .dashboard import router as dash_router
 app.include_router(dash_router)  # 含 WebSocket /api/dash/ws,须在 mount 之前
+from .amap import router as amap_router
+from .navplan import router as navplan_router
+app.include_router(amap_router)     # 导航:高德代理 + key 存储
+app.include_router(navplan_router)  # 导航:能耗/区间带/超充规划
 
 app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static"),
                            html=True), name="static")

@@ -162,6 +162,24 @@
     <div class="form-msg" id="delivery-msg"></div>
   </section>
 
+  <!-- 导航服务:高德 Web key(仅 admin 可见可改;key 只存服务端数据库,用于路径规划/沿途搜索代理) -->
+  <section class="card" id="nav-card" style="display:none">
+    <h2>导航服务</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 10px">
+      导航页的路线规划、沿途服务区/超充搜索由高德 Web 服务提供。在
+      <a href="https://lbs.amap.com/" target="_blank" rel="noopener">高德开放平台</a>
+      创建「Web 服务」类型的应用 key 后粘贴到这里。key 只保存在你自己的服务器数据库中,不下发到浏览器。
+    </p>
+    <div class="form-row" style="align-items:center">
+      <span style="font-size:13px;color:var(--text-secondary);white-space:nowrap">Web key</span>
+      <input type="password" id="amap-key" placeholder="粘贴高德 Web 服务 key"
+             autocomplete="off" style="flex:1;min-width:200px">
+      <button class="btn" id="amap-save">保存</button>
+      <button class="btn ghost" id="amap-clear">清除</button>
+    </div>
+    <div class="form-msg" id="amap-msg"></div>
+  </section>
+
   <section class="card" id="control-settings-entry" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
       <div><h2 style="margin:0 0 6px">车辆控制配置</h2><p style="font-size:13px;color:var(--text-secondary);margin:0">管理应用凭据、Tesla 授权与虚拟钥匙配对</p></div>

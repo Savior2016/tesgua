@@ -57,8 +57,9 @@
 
   function renderStatus(s) {
     $('control-settings-entry').style.display = s.role === 'admin' ? '' : 'none';
+    $('nav-card').style.display = s.role === 'admin' ? '' : 'none';
     $('acct-user-name').textContent = s.user || '—';
-    if (s.role === 'admin') loadCertInfo();
+    if (s.role === 'admin') { loadCertInfo(); loadNavConfig(); }
 
     const banner = $('tesla-banner');
     if (s.tesla.authorized) {
@@ -328,5 +329,35 @@
   $('delivery-clear').onclick = () => {
     delDateInp.value = '';
     submitDelivery('');
+  };
+
+  // 导航服务:高德 Web key(仅 admin;key 只存服务端,界面只回显掩码尾号)
+  const amapInp = $('amap-key'), amapMsg = $('amap-msg');
+  async function loadNavConfig() {
+    try {
+      const c = await api('/api/nav/config');
+      amapInp.value = '';
+      amapInp.placeholder = c.has_key ? `已配置(${c.key_tail}),粘贴新 key 覆盖` : '粘贴高德 Web 服务 key';
+      msg(amapMsg, c.has_key ? '✓ 导航服务已启用' : '', true);
+    } catch (e) { msg(amapMsg, e.message, false); }
+  }
+  async function submitAmapKey(key) {
+    try {
+      const c = await api('/api/nav/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ web_key: key }),
+      });
+      msg(amapMsg, c.has_key ? '✓ 已保存,导航页可以使用路线规划了' : '✓ 已清除,导航规划已停用', true);
+      loadNavConfig();
+    } catch (e) { msg(amapMsg, e.message, false); }
+  }
+  $('amap-save').onclick = () => {
+    if (!amapInp.value.trim()) { amapInp.focus(); return; }
+    submitAmapKey(amapInp.value.trim());
+  };
+  $('amap-clear').onclick = () => {
+    amapInp.value = '';
+    submitAmapKey('');
   };
 })();
