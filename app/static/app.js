@@ -3957,10 +3957,13 @@
     renderEfficiency(); renderParked(); renderMonthly(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime(); renderTraffic();
   }
 
-  /* ---------- 功能分页(底部液态玻璃 Tab 栏) ---------- */
+  /* ---------- 功能分页(底部液态玻璃 Tab 栏:总览/仪表盘/导航/数据/控制) ---------- */
 
-  const PAGE_IDS = ['overview', 'charging', 'drives', 'activity', 'vehicle', 'control'];
-  let mapShown = false;  // 行程页首次显示时需 resize + 重新 fitBounds
+  const PAGE_IDS = ['overview', 'dash', 'nav', 'data', 'control'];
+  // 「数据」主 Tab 下的二级子页(保留原 section id,图表 resize/地图逻辑沿用)
+  const DATA_SUBS = ['charging', 'drives', 'activity', 'vehicle'];
+  let dataSub = localStorage.getItem('ttv-data-tab') || 'charging';
+  let mapShown = false;  // 行程子页首次显示时需 resize + 重新 fitBounds
 
   // 选中气泡跟随当前 Tab:用户切页时走 TTVPageTurn 拉伸滑动,首次定位/resize 直接落位
   function placeTabBubble(animate) {
@@ -3977,34 +3980,40 @@
     }
   }
 
-  let tabSeq = 0;  // 快速连点时作废旧切换的离场动画结果
+  // 实际承载内容的 section:「数据」页取当前激活子页,其余取 #page-<name>
+  function contentSection(name) {
+    if (name === 'data') return document.getElementById('page-' + dataSub);
+    return document.getElementById('page-' + name);
+  }
 
-  function switchTab(name, save) {
-    if (!PAGE_IDS.includes(name)) name = 'overview';
-    if (save !== false) localStorage.setItem('ttv-tab', name);
-    const cur = document.querySelector('.page.active');
-    const nxt = document.getElementById('page-' + name);
-    const setTabs = () => {
-      document.querySelectorAll('.tabbar .tab').forEach((t) => {
-        const on = t.dataset.page === name;
-        t.classList.toggle('on', on);
-        t.setAttribute('aria-selected', on ? 'true' : 'false');
-      });
-    };
-    // 隐藏页里的 ECharts / Leaflet 尺寸为 0,显示后要重算
-    const afterShow = () => requestAnimationFrame(() => {
-      const sec = document.getElementById('page-' + name);
-      if (sec) Object.values(charts).forEach((c) => {
-        if (c && sec.contains(c.getDom())) c.resize();
-      });
-      if (sec) Object.values(routeElev).forEach((c) => {
-        if (c && sec.contains(c.getDom())) c.resize();
-      });
-      if (sec) Object.values(csCurveCharts).forEach((c) => {
-        if (c && sec.contains(c.getDom())) c.resize();
-      });
-      if (name === 'drives') Object.values(routeMaps).forEach((m) => m && m.resize());
-      if (name === 'drives' && map) {
+  // 数据页二级条与子页 active 同步(子页切换为轻量渐显,不走 pageturn)
+  function setDataTabs() {
+    document.querySelectorAll('.data-tabs .dtab').forEach((t) => {
+      const on = t.dataset.sub === dataSub;
+      t.classList.toggle('on', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    DATA_SUBS.forEach((s) => {
+      const sec = document.getElementById('page-' + s);
+      if (sec) sec.classList.toggle('active', s === dataSub);
+    });
+  }
+
+  // 隐藏页里的 ECharts / Leaflet 尺寸为 0,显示后要重算
+  function resizeSection(sec) {
+    if (!sec) return;
+    Object.values(charts).forEach((c) => {
+      if (c && sec.contains(c.getDom())) c.resize();
+    });
+    Object.values(routeElev).forEach((c) => {
+      if (c && sec.contains(c.getDom())) c.resize();
+    });
+    Object.values(csCurveCharts).forEach((c) => {
+      if (c && sec.contains(c.getDom())) c.resize();
+    });
+    if (sec.id === 'page-drives') {
+      Object.values(routeMaps).forEach((m) => m && m.resize());
+      if (map) {
         map.resize();
         if (!mapShown && routesBounds) {  // 首次显示:此前 fitBounds 基于 0 尺寸,按全部轨迹重算
           mapShown = true;
@@ -4012,17 +4021,56 @@
           map.fitBounds(routesBounds, { padding: 30, animate: false });
         }
       }
+    }
+  }
+
+  function switchDataTab(sub, save) {
+    if (!DATA_SUBS.includes(sub)) sub = 'charging';
+    dataSub = sub;
+    if (save !== false) localStorage.setItem('ttv-data-tab', sub);
+    setDataTabs();
+    requestAnimationFrame(() => resizeSection(contentSection('data')));
+  }
+
+  let tabSeq = 0;  // 快速连点时作废旧切换的离场动画结果
+
+  function switchTab(name, save) {
+    if (DATA_SUBS.includes(name)) {  // 旧版「充电/行程/活动/车况」主 Tab 记忆值兼容迁移
+      dataSub = name;
+      name = 'data';
+    }
+    if (!PAGE_IDS.includes(name)) name = 'overview';
+    if (name === 'data' && !DATA_SUBS.includes(dataSub)) dataSub = 'charging';
+    if (save !== false) localStorage.setItem('ttv-tab', name);
+    // 任何切页调用都递增序号——即使目标是当前页(cur===nxt 短路),
+    // 也要作废仍在飞行中的旧离场回调,防止它晚到后把页面切回旧 Tab
+    const seq = ++tabSeq;
+    const curPage = document.querySelector('.page.active');
+    const cur = curPage && curPage.id === 'page-data' ? contentSection('data') : curPage;
+    const nxtPage = document.getElementById('page-' + name);
+    const nxt = contentSection(name);
+    const setTabs = () => {
+      document.querySelectorAll('.tabbar .tab').forEach((t) => {
+        const on = t.dataset.page === name;
+        t.classList.toggle('on', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      if (name === 'data') setDataTabs();
+    };
+    const afterShow = () => requestAnimationFrame(() => {
+      resizeSection(contentSection(name));
       if (name === 'overview') renderCar();  // 俯视图标注随舞台尺寸定位,重算一次
     });
     // 动画路径:Tab 态与气泡滑动先行(手感即时),旧页模块从四周退出,再切页、新页模块从四周进入
+    // 「数据」页的动画目标委托给当前激活子页(pageturn 只认 :scope > .grid > .card)
     if (cur && nxt && cur !== nxt && window.TTVPageTurn) {
-      const seq = ++tabSeq;
       setTabs();
       placeTabBubble(true);
       TTVPageTurn.exit(cur).then(() => {
         if (seq !== tabSeq) return;  // 期间又点了别的 Tab,本次切页作废
         document.querySelectorAll('.page').forEach((p) =>
-          p.classList.toggle('active', p === nxt));
+          p.classList.toggle('active', p === nxtPage));
+        if (name === 'data') setDataTabs();
         window.scrollTo(0, 0);  // 切换分页后回到页面顶部
         afterShow();
         TTVPageTurn.enter(nxt);
@@ -4031,7 +4079,7 @@
     }
     window.scrollTo(0, 0);  // 切换分页后回到页面顶部
     document.querySelectorAll('.page').forEach((p) =>
-      p.classList.toggle('active', p === nxt));
+      p.classList.toggle('active', p === nxtPage));
     setTabs();
     placeTabBubble(false);
     afterShow();
@@ -4078,11 +4126,17 @@
     }, true);
     // Tab 栏横向拖动:滑过按钮即逐一切页(不必逐个点按)
     window.TTVPageTurn?.enableTabDrag($('#tabbar'), (p) => switchTab(p));
+    // 数据页二级导航
+    $('#data-tabs').addEventListener('click', (e) => {
+      const b = e.target.closest('.dtab');
+      if (b) switchDataTab(b.dataset.sub);
+    });
     // #control 深链(配置流程返回)只生效一次:清掉 hash,否则之后每次刷新都会被它拉回控制页
     if (location.hash === '#control') {
       switchTab('control');
       history.replaceState(null, '', location.pathname + location.search);
     } else {
+      // 旧版主 Tab 记忆值(充电/行程/活动/车况)由 switchTab 自动迁移到「数据」页对应子页
       switchTab(localStorage.getItem('ttv-tab') || 'overview', false);
     }
 

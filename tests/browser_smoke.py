@@ -123,14 +123,28 @@ def run():
             assert len(opt['visualMap']) == 1 and opt['visualMap'][0]['seriesIndex'] == [2, 3]
             names = [s['name'] for s in opt['series']]
             assert names == ['_band_base', '_band_delta', '车内', '车外']
+            # 占位页:仪表盘/导航各一张 soon-card;数据页默认充电子页
+            page.locator('.tab[data-page="dash"]').click();page.wait_for_timeout(100)
+            assert page.locator('#page-dash .soon-card').count()==1
+            page.locator('.tab[data-page="nav"]').click();page.wait_for_timeout(100)
+            assert page.locator('#page-nav .soon-card').count()==1
+            page.locator('.tab[data-page="data"]').click();page.wait_for_timeout(120)
+            assert page.locator('.dtab[data-sub="charging"].on').count()==1
+            assert page.locator('#page-charging.active').count()==1
             for width in [320,390,1440]:
                 page.set_viewport_size({"width":width,"height":900})
-                for tab in ['overview','charging','activity','vehicle','drives','control']:
+                for tab in ['overview','dash','nav','data','control']:
                     page.locator('.tab[data-page="'+tab+'"]').click();page.wait_for_timeout(80)
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (role,width,tab)
+                    if tab == 'data':
+                        for sub in ['charging','drives','activity','vehicle']:
+                            page.locator('.dtab[data-sub="'+sub+'"]').click();page.wait_for_timeout(60)
+                            assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (role,width,tab,sub)
             page.set_viewport_size({"width":390,"height":844})
             # 行程详情:展开后渲染键值表格 + 海拔高度图,收起后图表销毁
-            page.locator('.tab[data-page="drives"]').click()
+            page.locator('.tab[data-page="data"]').click()
+            page.locator('.dtab[data-sub="drives"]').click()
+            page.wait_for_timeout(100)
             page.locator('.rt-row').first.click()
             page.wait_for_timeout(150)
             assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==9
@@ -155,7 +169,8 @@ def run():
             assert page.locator('.rt-map.maplibregl-map').count()==1
             assert '落差' in page.locator('.rt-elev-title').inner_text()
             # 家充设置卡:总开关 + 地点行;管理员可见添加行与开关,viewer 全部只读
-            page.locator('.tab[data-page="charging"]').click()
+            page.locator('.dtab[data-sub="charging"]').click()
+            page.wait_for_timeout(100)
             page.locator('#hc-head').click()
             page.wait_for_timeout(80)
             assert page.locator('#hc-body .hc-master .tsw').count()==1
@@ -190,7 +205,8 @@ def run():
             page.locator('.cs-curve-toggle').first.click()
             page.wait_for_timeout(80)
             assert page.evaluate("!echarts.getInstanceByDom(document.querySelector('.cs-curve-chart'))")
-            page.locator('.tab[data-page="activity"]').click()
+            page.locator('.dtab[data-sub="activity"]').click()
+            page.wait_for_timeout(100)
             page.locator('#chart-efficiency').scroll_into_view_if_needed()
             page.evaluate("echarts.getInstanceByDom(document.getElementById('chart-efficiency')).dispatchAction({type:'showTip',seriesIndex:0,dataIndex:0})")
             page.wait_for_timeout(100)
@@ -226,6 +242,14 @@ def run():
             assert page.locator('#parked-dialog-title').inner_text() == '哨兵详情'
             page.locator('#parked-dialog-close').click()
             assert not page.evaluate('window.__auditXss===true')
+            # 旧版主 Tab 记忆值迁移:ttv-tab='drives' → 落在「数据」页行程子页
+            page.evaluate("localStorage.setItem('ttv-tab','drives')")
+            page.reload(wait_until='networkidle')
+            page.wait_for_timeout(400)
+            assert page.evaluate("document.querySelector('.tab[data-page=\"data\"]').classList.contains('on')")
+            assert page.locator('.dtab[data-sub="drives"].on').count()==1
+            assert page.locator('#page-drives.active').count()==1
+            page.evaluate("localStorage.setItem('ttv-tab','overview')")
             page.goto('http://teslahome.test/account.html',wait_until='networkidle')
             assert page.locator('#teslamate-link').get_attribute('href')=='http://localhost:4000'
             assert page.locator('#authorization-guide').count()==0
@@ -241,8 +265,14 @@ def run():
             output=os.environ.get('BROWSER_SCREENSHOTS')
             if output and role=='admin':
                 Path(output).mkdir(parents=True,exist_ok=True)
-                page.locator('.tab[data-page="overview"]').click()
+                page.goto('http://teslahome.test/',wait_until='networkidle')  # 从 backup.html 回到主面板
+                page.wait_for_timeout(600)
                 page.screenshot(path=str(Path(output)/'synthetic-overview.png'),full_page=True)
+                # 数据页(二级导航)与占位页截图
+                page.locator('.tab[data-page="data"]').click();page.wait_for_timeout(800)
+                page.screenshot(path=str(Path(output)/'synthetic-data.png'),full_page=True)
+                page.locator('.tab[data-page="dash"]').click();page.wait_for_timeout(600)
+                page.screenshot(path=str(Path(output)/'synthetic-dash.png'),full_page=True)
             ctx.close()
             print(role, 'browser regression passed',flush=True)
         browser.close()

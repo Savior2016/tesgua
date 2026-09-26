@@ -146,35 +146,56 @@
   }
 
   /* ---------- 分页切换:与正式面板同一套 TTVPageTurn 动效 ---------- */
-  const PAGE_IDS = ['overview', 'charging', 'drives', 'activity', 'vehicle', 'control'];
+  const PAGE_IDS = ['overview', 'dash', 'nav', 'data', 'control'];
+  // 「数据」主 Tab 下的二级子页(与正式面板同构,不持久化)
+  const DATA_SUBS = ['charging', 'drives', 'activity', 'vehicle'];
+  let dataSub = 'charging';
   let tabSeq = 0;
 
-  function placeTabBubble(animate) {
-    const btn = $('#tabbar .tab.on');
-    const bubble = $('#tab-bubble');
-    if (!btn || !bubble) return;
-    if (window.TTVPageTurn?.isDragging()) return;  // 拖动中气泡跟随手指,松手时才吸附
-    if (animate && window.TTVPageTurn) TTVPageTurn.slideBubble(bubble, btn);
-    else {
-      bubble.style.left = btn.offsetLeft + 'px';
-      bubble.style.width = btn.offsetWidth + 'px';
-      bubble.classList.remove('no-anim');
-    }
+  function contentSection(name) {
+    return document.getElementById('page-' + (name === 'data' ? dataSub : name));
   }
 
-  function switchTab(name, animate) {
-    if (!PAGE_IDS.includes(name)) name = 'overview';
-    const cur = $('.page.active');
-    const nxt = document.getElementById('page-' + name);
-    const setTabs = () => $$('.tabbar .tab').forEach((t) => {
-      const on = t.dataset.page === name;
+  function setDataTabs() {
+    $$('.data-tabs .dtab').forEach((t) => {
+      const on = t.dataset.sub === dataSub;
       t.classList.toggle('on', on);
       t.setAttribute('aria-selected', on ? 'true' : 'false');
     });
+    DATA_SUBS.forEach((s) => {
+      const sec = document.getElementById('page-' + s);
+      if (sec) sec.classList.toggle('active', s === dataSub);
+    });
+  }
+
+  function switchDataTab(sub) {
+    if (!DATA_SUBS.includes(sub)) sub = 'charging';
+    dataSub = sub;
+    setDataTabs();
+    requestAnimationFrame(() => ensureCharts(sub));
+  }
+
+  function switchTab(name, animate) {
+    if (DATA_SUBS.includes(name)) { dataSub = name; name = 'data'; }
+    if (!PAGE_IDS.includes(name)) name = 'overview';
+    const seq = ++tabSeq;  // 即使目标是当前页也要作废旧离场回调(防晚到切回旧 Tab)
+    const curPage = $('.page.active');
+    const cur = curPage && curPage.id === 'page-data' ? contentSection('data') : curPage;
+    const nxtPage = document.getElementById('page-' + name);
+    const nxt = contentSection(name);
+    const setTabs = () => {
+      $$('.tabbar .tab').forEach((t) => {
+        const on = t.dataset.page === name;
+        t.classList.toggle('on', on);
+        t.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      if (name === 'data') setDataTabs();
+    };
     const show = () => {
-      $$('.page').forEach((p) => p.classList.toggle('active', p === nxt));
+      $$('.page').forEach((p) => p.classList.toggle('active', p === nxtPage));
+      if (name === 'data') setDataTabs();
       window.scrollTo(0, 0);
-      requestAnimationFrame(() => ensureCharts(name));
+      requestAnimationFrame(() => ensureCharts(name === 'data' ? dataSub : name));
     };
     if (animate && cur && nxt && cur !== nxt && window.TTVPageTurn) {
       const seq = ++tabSeq;
@@ -192,6 +213,19 @@
     placeTabBubble(false);
   }
 
+  function placeTabBubble(animate) {
+    const btn = $('#tabbar .tab.on');
+    const bubble = $('#tab-bubble');
+    if (!btn || !bubble) return;
+    if (window.TTVPageTurn?.isDragging()) return;  // 拖动中气泡跟随手指,松手时才吸附
+    if (animate && window.TTVPageTurn) TTVPageTurn.slideBubble(bubble, btn);
+    else {
+      bubble.style.left = btn.offsetLeft + 'px';
+      bubble.style.width = btn.offsetWidth + 'px';
+      bubble.classList.remove('no-anim');
+    }
+  }
+
   /* ---------- 主题切换(与正式面板同一套令牌) ---------- */
   function applyThemeBtn() {
     const dark = document.documentElement.dataset.theme !== 'light';
@@ -202,9 +236,10 @@
     document.documentElement.dataset.theme = next;
     localStorage.setItem('ttv-theme', next);
     applyThemeBtn();
-    // 图表颜色取自 CSS 变量,主题变化后重建
+    // 图表颜色取自 CSS 变量,主题变化后重建(「数据」页取当前子页)
     const active = ($('.page.active') || {}).id || '';
-    const page = active.replace('page-', '');
+    let page = active.replace('page-', '');
+    if (page === 'data') page = dataSub;
     built.delete(page);
     if (chartPages[page]) { built.add(page); chartPages[page](); }
   });
@@ -232,6 +267,10 @@
   $('#tabbar').addEventListener('click', (e) => {
     const b = e.target.closest('.tab');
     if (b) switchTab(b.dataset.page, true);
+  });
+  $('#data-tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('.dtab');
+    if (b) switchDataTab(b.dataset.sub);
   });
   // 卡片解释说明(.card-sub)默认隐藏:点标题 h2 展开/收起(与主面板一致)
   document.addEventListener('click', (e) => {

@@ -195,8 +195,37 @@
   </div>
   </section>
 
-  <!-- ===== 分页 2:充电 ===== -->
-  <section class="page" id="page-charging">
+  <!-- ===== 分页 2:仪表盘(占位) ===== -->
+  <section class="page" id="page-dash">
+  <div class="grid">
+    <div class="card col-12 soon-card">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5A9.5 9.5 0 0 0 2.5 13c0 2.6 1 5 2.7 6.7l1.4-1.4A7.5 7.5 0 1 1 19.5 13c0 2-.8 3.9-2.1 5.3l1.4 1.4a9.5 9.5 0 0 0 2.7-6.7A9.5 9.5 0 0 0 12 3.5z"/><path d="M12 15.2a1.7 1.7 0 0 1-.6-3.3l4.6-3-3 4.6a1.7 1.7 0 0 1-1 1.7z"/></svg>
+      <h2>仪表盘</h2>
+      <p>正在开发中 · 实时速度、功率与多种表盘,行车专属的横屏界面</p>
+    </div>
+  </div>
+  </section>
+
+  <!-- ===== 分页 3:导航(占位) ===== -->
+  <section class="page" id="page-nav">
+  <div class="grid">
+    <div class="card col-12 soon-card">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z"/></svg>
+      <h2>导航</h2>
+      <p>正在开发中 · 途经路规划、沿途服务区与充电站电量规划</p>
+    </div>
+  </div>
+  </section>
+
+  <!-- ===== 分页 4:数据(充电 / 行程 / 活动 / 车况 二级导航) ===== -->
+  <section class="page" id="page-data">
+  <nav class="data-tabs" id="data-tabs" role="tablist" aria-label="数据分类">
+    <button class="dtab" role="tab" data-sub="charging" aria-selected="false">充电</button>
+    <button class="dtab" role="tab" data-sub="drives" aria-selected="false">行程</button>
+    <button class="dtab" role="tab" data-sub="activity" aria-selected="false">活动</button>
+    <button class="dtab" role="tab" data-sub="vehicle" aria-selected="false">车况</button>
+  </nav>
+  <section class="subpage" id="page-charging">
   <div class="grid">
     <div class="card col-12">
       <div class="card-head"><div><h2>充电记录</h2></div></div>
@@ -220,8 +249,8 @@
   </div>
   </section>
 
-  <!-- ===== 分页 3:行程 ===== -->
-  <section class="page" id="page-drives">
+  <!-- ===== 数据子页:行程 ===== -->
+  <section class="subpage" id="page-drives">
   <div class="grid">
     <div class="card col-12">
       <div class="card-head"><div><h2>每日里程</h2></div></div>
@@ -237,8 +266,8 @@
   </div>
   </section>
 
-  <!-- ===== 分页 4:活动 ===== -->
-  <section class="page" id="page-activity">
+  <!-- ===== 数据子页:活动 ===== -->
+  <section class="subpage" id="page-activity">
   <div class="grid">
     <div class="card col-12">
       <div class="card-head"><div><h2>哨兵耗电(每天合计)</h2></div></div>
@@ -254,8 +283,8 @@
   </div>
   </section>
 
-  <!-- ===== 分页 5:车况 ===== -->
-  <section class="page" id="page-vehicle">
+  <!-- ===== 数据子页:车况 ===== -->
+  <section class="subpage" id="page-vehicle">
   <div class="grid">
     <div class="card col-6">
       <div class="card-head"><div><h2>胎压变化</h2></div></div>
@@ -267,8 +296,9 @@
     </div>
   </div>
   </section>
+  </section>
 
-  <!-- ===== 分页 6:控制 ===== -->
+  <!-- ===== 分页 5:控制 ===== -->
   <section class="page" id="page-control">
   <div class="grid">
     <div class="card col-12">
@@ -301,21 +331,17 @@
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 13.2 5 8.9A2.2 2.2 0 0 1 7.1 7.4h9.8a2.2 2.2 0 0 1 2.1 1.5l1.6 4.3c.4.1.8.5.8 1v4.2a.9.9 0 0 1-.9.9h-1.4a.9.9 0 0 1-.9-.9v-1h-12v1a.9.9 0 0 1-.9.9H3.9a.9.9 0 0 1-.9-.9v-4.2c0-.5.3-.9.4-1zM7.2 9 6 12.4h12L16.8 9H7.2z"/><circle cx="7.3" cy="14.9" r="1.5"/><circle cx="16.7" cy="14.9" r="1.5"/></svg>
     <span>总览</span>
   </button>
-  <button class="tab" role="tab" data-page="charging" aria-selected="false">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4.5 14h5.6L9 22l8.5-12h-5.6L13 2z"/></svg>
-    <span>充电</span>
-  </button>
-  <button class="tab" role="tab" data-page="drives" aria-selected="false">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 6.1 12.1 6.4 12.5a.8.8 0 0 0 1.2 0C12.9 21.1 19 14.2 19 9a7 7 0 0 0-7-7zm0 9.6A2.6 2.6 0 1 1 12 6.4a2.6 2.6 0 0 1 0 5.2z"/></svg>
-    <span>行程</span>
-  </button>
-  <button class="tab" role="tab" data-page="activity" aria-selected="false">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12h4l2.5-6.5 4 13 2.5-6.5h6"/></svg>
-    <span>活动</span>
-  </button>
-  <button class="tab" role="tab" data-page="vehicle" aria-selected="false">
+  <button class="tab" role="tab" data-page="dash" aria-selected="false">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5A9.5 9.5 0 0 0 2.5 13c0 2.6 1 5 2.7 6.7l1.4-1.4A7.5 7.5 0 1 1 19.5 13c0 2-.8 3.9-2.1 5.3l1.4 1.4a9.5 9.5 0 0 0 2.7-6.7A9.5 9.5 0 0 0 12 3.5z"/><path d="M12 15.2a1.7 1.7 0 0 1-.6-3.3l4.6-3-3 4.6a1.7 1.7 0 0 1-1 1.7z"/></svg>
-    <span>车况</span>
+    <span>仪表盘</span>
+  </button>
+  <button class="tab" role="tab" data-page="nav" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z"/></svg>
+    <span>导航</span>
+  </button>
+  <button class="tab" role="tab" data-page="data" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 20V10h3.2v10H4zm6.4 0V4h3.2v16h-3.2zM16.8 20v-7H20v7h-3.2z"/></svg>
+    <span>数据</span>
   </button>
   <button class="tab" role="tab" data-page="control" aria-selected="false">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M10.8 2.5a6 6 0 0 0-6 6c0 2.3 1.3 4.3 3.2 5.3L6.6 15v2.2h2v2.1h3.2v-2.1h2V15h-2.1l-.5-.5a6 6 0 1 0-.5-12zm0 3.7a2.3 2.3 0 1 1-2.3 2.3 2.3 2.3 0 0 1 2.3-2.3z"/></svg>

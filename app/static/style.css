@@ -3085,6 +3085,86 @@ footer a { color: var(--text-muted); }
 .page { display: none; }
 .page.active { display: block; }
 
+/* 「数据」主 Tab 的子页:与 .page 同机制,切换为轻量渐显(不走 pageturn) */
+.subpage { display: none; }
+.subpage.active { display: block; animation: subpage-in .24s ease-out; }
+@keyframes subpage-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .subpage.active { animation: none; }
+}
+
+/* 数据页二级导航:吸顶分段条(视觉沿用 .seg 玻璃底+选中 pill,贴顶栏下缘) */
+.data-tabs {
+  position: sticky;
+  top: 8px;
+  z-index: 900;
+  display: flex;
+  gap: 2px;
+  width: fit-content;
+  margin: 0 auto 14px;
+  padding: 3px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-edge);
+  background: color-mix(in srgb, var(--page) 62%, transparent);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.14), 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+.data-tabs .dtab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 18px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.data-tabs .dtab:hover { background: var(--tile-track); color: var(--text-primary); }
+.data-tabs .dtab.on {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--series-1) 88%, #fff),
+    var(--series-1));
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--series-1) 45%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+@media (max-width: 600px) {
+  .data-tabs { width: calc(100% - 8px); }
+  .data-tabs .dtab { flex: 1; padding: 6px 0; text-align: center; }
+}
+
+/* 占位页(仪表盘/导航,阶段三/四填内容):居中大图标 + 呼吸微动效 */
+.soon-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 320px;
+  gap: 10px;
+}
+.soon-card svg {
+  width: 64px;
+  height: 64px;
+  color: var(--series-1);
+  opacity: 0.55;
+  animation: soon-breathe 3.6s ease-in-out infinite;
+}
+.soon-card h2 { margin: 0; }
+.soon-card p { margin: 0; color: var(--text-muted); font-size: 13px; }
+@keyframes soon-breathe {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .soon-card svg { animation: none; }
+}
+
 /* 底部居中浮动 Tab 栏(iOS 27 液态玻璃):
    高通透 + 强模糊/饱和度/亮度提升 + 顶部更亮的镜面高光 + 暗化底缘(可读性)+ 斜向扫光 + 选中气泡滑动回弹 */
 .tabbar {
