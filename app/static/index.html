@@ -7,9 +7,9 @@
   <title>TESLA Home</title>
   <link rel="stylesheet" href="/maplibre-gl.css">
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/control.css?v=12">
-  <link rel="stylesheet" href="/dash.css?v=1">
-  <link rel="stylesheet" href="/nav.css?v=1">
+  <link rel="stylesheet" href="/control.css?v=13">
+  <link rel="stylesheet" href="/dash.css?v=2">
+  <link rel="stylesheet" href="/nav.css?v=2">
 </head>
 <body>
 <!-- 过冲(overscroll)露出的顶部背景中央:小圆圈 + 星舰徽标,平时被顶栏遮住 -->
@@ -215,67 +215,38 @@
   </div>
   </section>
 
-  <!-- ===== 分页 2:仪表盘(实时速度/功率/导航,多表盘横屏全屏) ===== -->
+  <!-- ===== 分页 2:仪表盘(双开口表盘 + 中央导航地图;点击舞台切全屏) ===== -->
   <section class="page" id="page-dash">
   <div class="dash-stage" id="dash-stage">
 
-    <!-- 皮肤切换圆点 + 全屏钮(全屏 3s 无操作自动隐藏,点边缘唤出) -->
-    <div class="dash-chrome" id="dash-chrome">
-      <div class="dash-dots" id="dash-dots" role="tablist" aria-label="表盘样式">
-        <button class="dash-dot" data-skin="minimal" role="tab" title="极简数字"><span>数字</span></button>
-        <button class="dash-dot" data-skin="gauges" role="tab" title="双圆机械表"><span>圆表</span></button>
-        <button class="dash-dot" data-skin="map" role="tab" title="导航地图"><span>地图</span></button>
-        <button class="dash-dot" data-skin="aviator" role="tab" title="航空速带"><span>速带</span></button>
-        <button class="dash-dot" data-skin="spacex" role="tab" title="遥测网格"><span>遥测</span></button>
+    <!-- 左表盘:速度(开口朝右,渐隐入地图) -->
+    <div class="dg-gauge dg-left">
+      <svg id="dg-l-svg" viewBox="0 0 320 320" aria-hidden="true"></svg>
+      <div class="dg-center dg-center-l">
+        <div class="dg-speed"><b id="dg-speed">0</b><span>km/h</span></div>
+        <div class="dg-shift" id="dg-shift">P</div>
       </div>
-      <button class="dash-fs" id="dash-fs" title="全屏" aria-label="全屏">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
-      </button>
     </div>
 
-    <!-- 皮肤 1:极简数字 -->
-    <div class="dash-skin ds-minimal" data-skin="minimal">
-      <div class="dsm-corner dsm-tl"><b id="ds-m-soc">—</b><span>电量</span></div>
-      <div class="dsm-corner dsm-tr"><b id="ds-m-range">—</b><span>续航</span></div>
-      <div class="dsm-speed"><b id="ds-m-speed">0</b><span class="dsm-unit">km/h</span><i id="ds-m-shift" class="dsm-shift">P</i></div>
-      <div class="dsm-power">
-        <div class="dsm-powerbar"><i id="ds-m-powerfill"></i></div>
-        <span id="ds-m-powerval">0 kW</span>
-      </div>
-      <canvas class="dsm-trace" id="ds-m-trace" height="36"></canvas>
-      <div class="dsm-corner dsm-bl"><b id="ds-m-intemp">—</b><span>车内</span></div>
-      <div class="dsm-corner dsm-br"><b id="ds-m-clock">—</b><span id="ds-m-outtemp">车外 —</span></div>
-    </div>
-
-    <!-- 皮肤 2:双圆机械表 -->
-    <div class="dash-skin ds-gauges" data-skin="gauges">
-      <svg id="ds-g-svg" viewBox="0 0 760 360" preserveAspectRatio="xMidYMid meet" aria-hidden="true"></svg>
-      <div class="dsg-center"><b id="ds-g-soc">—</b><span id="ds-g-shift">P</span></div>
-    </div>
-
-    <!-- 皮肤 3:导航优先地图 -->
-    <div class="dash-skin ds-map" data-skin="map">
+    <!-- 中央:导航地图(行车时跟随车头转向) -->
+    <div class="dg-map-wrap">
       <div class="dash-map" id="dash-map"></div>
-      <div class="dsmap-speed"><b id="ds-map-speed">0</b><span>km/h</span></div>
-      <div class="dsmap-power"><i id="ds-map-powerfill"></i><span id="ds-map-powerval">0 kW</span></div>
       <div class="dsmap-dest" id="ds-map-dest" hidden></div>
-      <div class="dsmap-trip" id="ds-map-trip">本次 — km · — kWh · — Wh/km</div>
+      <div class="dsmap-trip" id="ds-map-trip">本次行程待开始</div>
     </div>
 
-    <!-- 皮肤 4:航空速带 -->
-    <div class="dash-skin ds-aviator" data-skin="aviator">
-      <canvas id="ds-a-canvas"></canvas>
+    <!-- 右表盘:功率(开口朝左;回收绿色/输出琥珀) -->
+    <div class="dg-gauge dg-right">
+      <svg id="dg-r-svg" viewBox="0 0 320 320" aria-hidden="true"></svg>
+      <div class="dg-center dg-center-r">
+        <div class="dg-power"><b id="dg-power">0</b><span>kW</span></div>
+        <div class="dg-batt"><b id="dg-soc">—</b><i>·</i><span id="dg-range">—</span></div>
+      </div>
     </div>
 
-    <!-- 皮肤 5:SpaceX 遥测网格 -->
-    <div class="dash-skin ds-spacex" data-skin="spacex">
-      <div class="dsx-grid" id="dsx-grid"></div>
-    </div>
-
-    <!-- 驻车/离线/充电状态条(悬浮在皮肤上方,不遮挡表盘预览) -->
+    <!-- 驻车/离线/充电状态条(悬浮,不遮挡表盘) -->
     <div class="dash-parked" id="dash-parked" hidden>
       <b id="ds-p-soc">—</b><span class="dsp-range" id="ds-p-range"></span>
-      <span class="dsp-chips" id="ds-p-chips"></span>
       <span class="dsp-eta" id="ds-p-eta" hidden></span>
       <span class="dsp-clock" id="ds-p-clock">—</span>
     </div>
@@ -287,16 +258,24 @@
   <div class="nav-layout">
     <div class="nav-side">
       <div class="card nav-card">
-        <h3 class="nav-h">目的地</h3>
-        <div class="nav-search">
-          <input id="nav-dest-inp" type="search" placeholder="搜索目的地(名称 / 地址)" autocomplete="off">
-          <div class="nav-tips" id="nav-tips" hidden></div>
+        <h3 class="nav-h">路线</h3>
+        <div class="nav-search nav-pt">
+          <span class="nav-pt-ico">🚗</span>
+          <input id="nav-origin-inp" type="search" placeholder="起点(默认车辆当前位置,可手动输入)" autocomplete="off">
+          <div class="nav-tips" id="nav-origin-tips" hidden></div>
         </div>
         <div class="nav-origin" id="nav-origin">起点:读取车辆位置中…</div>
         <div class="nav-waypts" id="nav-waypts"></div>
-        <div class="nav-row">
-          <input id="nav-via-inp" type="search" placeholder="想途经的路 / 地点(可选)" autocomplete="off">
+        <div class="nav-search nav-pt">
+          <span class="nav-pt-ico">➕</span>
+          <input id="nav-via-inp" type="search" placeholder="添加途经点(道路 / 地点,可多个)" autocomplete="off">
+          <label class="nav-chg-only" title="只搜索充电站"><input type="checkbox" id="nav-via-chg">充电站</label>
           <div class="nav-tips" id="nav-via-tips" hidden></div>
+        </div>
+        <div class="nav-search nav-pt">
+          <span class="nav-pt-ico">🏁</span>
+          <input id="nav-dest-inp" type="search" placeholder="终点(名称 / 地址)" autocomplete="off">
+          <div class="nav-tips" id="nav-tips" hidden></div>
         </div>
         <div id="nav-msg" class="nav-msg"></div>
       </div>
@@ -690,11 +669,26 @@
               <g class="ctl-zone" data-zone="climate" role="button" tabindex="0" style="--zc:var(--series-1)">
                 <title>空调:点击切换 开/关</title>
                 <path class="zone-shape" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z"/>
-                <path class="zone-ico zone-ico-stroke" transform="translate(157 262) scale(1.1)" d="M12 2v20M3.3 7l17.4 10M20.7 7 3.3 17M9 4.5 12 7l3-2.5M9 19.5 12 17l3 2.5"/>
+                <path class="zone-ico zone-ico-stroke" transform="translate(160 256) scale(0.9)" d="M12 2v20M3.3 7l17.4 10M20.7 7 3.3 17M9 4.5 12 7l3-2.5M9 19.5 12 17l3 2.5"/>
                 <text class="zone-lab" id="ctlz-climate-lab" x="170" y="308">空调</text>
               </g>
-              <text id="ctl-model-temp" x="170" y="235" text-anchor="middle" pointer-events="none">—</text>
-              <text id="ctl-model-inside" x="170" y="337" text-anchor="middle" pointer-events="none">车内 —</text>
+              <text id="ctl-model-temp" x="170" y="242" text-anchor="middle" pointer-events="none">—</text>
+              <text id="ctl-model-inside" x="170" y="296" text-anchor="middle" pointer-events="none">车内 —</text>
+              <!-- 座位模型(Model Y L 六座 2+2+2,仅展示,点击仍落在空调区):
+                   驾驶位有人=is_user_present;其余座位无占用数据源,常显未知 -->
+              <g id="ctl-seats" pointer-events="none">
+                <g class="ctl-seat" id="ctl-seat-fl"><rect x="110" y="186" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="121" y="179" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="128" cy="202" r="6"/></g>
+                <g class="ctl-seat" id="ctl-seat-fr"><rect x="194" y="186" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="205" y="179" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="212" cy="202" r="6"/></g>
+                <g class="ctl-seat" id="ctl-seat-rl"><rect x="110" y="248" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="121" y="241" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="128" cy="264" r="6"/></g>
+                <g class="ctl-seat" id="ctl-seat-rr"><rect x="194" y="248" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="205" y="241" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="212" cy="264" r="6"/></g>
+                <g class="ctl-seat" id="ctl-seat-tl"><rect x="110" y="308" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="121" y="301" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="128" cy="324" r="6"/></g>
+                <g class="ctl-seat" id="ctl-seat-tr"><rect x="194" y="308" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="205" y="301" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="212" cy="324" r="6"/></g>
+              </g>
+              <!-- 方向盘(驾驶位前):加热中发橙光 -->
+              <g id="ctl-wheel" pointer-events="none">
+                <circle class="ctl-wheel-rim" cx="128" cy="172" r="9"/>
+                <path class="ctl-wheel-spoke" d="M128 172 L128 164 M128 172 L121 177 M128 172 L135 177"/>
+              </g>
               <!-- 充电口(左后翼子板,真实车充电口位置) -->
               <g class="ctl-zone" data-zone="chargeport" role="button" tabindex="0" style="--zc:var(--cat-charge)">
                 <title>充电口:点击 开/关</title>
@@ -717,7 +711,7 @@
               <path class="car-body-line" d="M170 52 C196 52 218 62 232 84 C243 100 251 118 256 142 C261 168 263 190 261 210 C260 228 259 244 259 258 C259 288 261 316 261 334 C260 356 255 378 245 392 C233 408 205 418 170 418 C135 418 107 408 95 392 C85 378 80 356 79 334 C79 316 81 288 81 258 C81 244 80 228 79 210 C77 190 79 168 84 142 C89 118 97 100 108 84 C122 62 144 52 170 52 Z" pointer-events="none"/>
             </svg>
             <div class="ctl-chips" id="ctl-chips"></div>
-            <p class="ctl-legend-hint">点按车身部位操作 · 部位发绿光 = 开启/已锁</p>
+            <p class="ctl-legend-hint">点按车身部位操作 · 部位发绿光 = 开启/已锁 · 玻璃顶内为六座状态:蓝座 = 驾驶位有人,橙光 = 座椅/方向盘加热(其余座位无占用传感器)</p>
 
             <!-- 上滑展开控制模块:面板覆盖在车模同一区域,下滑/点握把返回 -->
             <button class="ctl-sheet-peek" id="ctl-sheet-peek" type="button" aria-label="展开控制模块">
@@ -890,9 +884,9 @@
 <script src="/echarts.min.js"></script>
 <script src="/maplibre-gl-csp.js"></script>
 <script src="/pmtiles.js"></script>
-<script src="/control.js?v=12"></script>
-<script src="/dash.js?v=1"></script>
-<script src="/nav.js?v=1"></script>
+<script src="/control.js?v=13"></script>
+<script src="/dash.js?v=2"></script>
+<script src="/nav.js?v=2"></script>
 <script src="/pageturn.js"></script>
 <script src="/app.js"></script>
 </body>

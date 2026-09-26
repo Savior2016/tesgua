@@ -124,25 +124,28 @@ def run():
             assert len(opt['visualMap']) == 1 and opt['visualMap'][0]['seriesIndex'] == [2, 3]
             names = [s['name'] for s in opt['series']]
             assert names == ['_band_base', '_band_delta', '车内', '车外']
-            # 仪表盘:5 套皮肤容器 + 圆点切换;离线 mock 下 WS/快照失败须静默容忍,驻车覆盖层照常渲染
+            # 仪表盘:双开口表盘(左速度/右功率)+ 中央地图;离线 mock 下 WS/快照失败须静默容忍,驻车覆盖层照常渲染
             page.locator('.tab[data-page="dash"]').click()
-            page.wait_for_selector('.dash-skin[data-skin="minimal"].on', timeout=4000)  # 默认极简数字(进场动画完成后挂载)
-            assert page.locator('#page-dash .dash-skin').count()==5
-            assert page.locator('#dash-dots .dash-dot').count()==5
-            assert page.locator('#page-dash #ds-m-speed').count()==1
-            assert page.locator('#page-dash #ds-m-powerfill').count()==1
+            page.wait_for_selector('#dash-stage', timeout=4000)
+            assert page.locator('#page-dash .dg-gauge').count()==2
+            assert page.locator('#page-dash #dg-l-svg').count()==1
+            assert page.locator('#page-dash #dg-r-svg').count()==1
+            assert page.locator('#page-dash #dash-map').count()==1
+            assert page.locator('#page-dash #dg-speed').count()==1
+            assert page.locator('#page-dash #dg-power').count()==1
+            assert page.locator('#page-dash #dg-shift').count()==1
             assert page.locator('#dash-parked:not([hidden])').count()==1  # 非行车态驻车布局
-            for skin in ['gauges','map','aviator','spacex','minimal']:
-                page.locator('.dash-dot[data-skin="'+skin+'"]').click();page.wait_for_timeout(80)
-                assert page.locator('.dash-skin[data-skin="'+skin+'"].on').count()==1, skin
-                assert page.locator('.dash-dot[data-skin="'+skin+'"].on').count()==1, skin
+            assert page.locator('#dg-l-svg .dg-track').count()==1  # 表盘轨道已构建
+            assert page.locator('#dg-r-svg .dg-fill').count()==2   # 功率正向 + 回收两条填充弧
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
             page.evaluate('if(document.fullscreenElement) document.exitFullscreen()')  # 窄屏自动全屏会罩住 Dock,先退出
             page.wait_for_timeout(150)
             page.locator('.tab[data-page="nav"]').click();page.wait_for_timeout(400)
-            # 导航页:搜索框/途经点输入/地图容器;离线 mock 下(nav/config 无 key)提示去个人中心
+            # 导航页:起点/终点/途经点三输入框 + 充电站筛选 + 地图容器;离线 mock 下(nav/config 无 key)提示去个人中心
+            assert page.locator('#nav-origin-inp').count()==1
             assert page.locator('#nav-dest-inp').count()==1
             assert page.locator('#nav-via-inp').count()==1
+            assert page.locator('#nav-via-chg').count()==1
             assert page.locator('#nav-map').count()==1
             assert '个人中心' in page.locator('#nav-msg').inner_text()
             page.locator('.tab[data-page="data"]').click();page.wait_for_timeout(120)
@@ -163,6 +166,9 @@ def run():
             page.locator('.tab[data-page="data"]').click()
             page.locator('.dtab[data-sub="drives"]').click()
             page.wait_for_timeout(100)
+            # 凌晨跨天时 mock 行程落在昨天,日分组默认收起,先展开再点行
+            if not page.locator('.rt-row').first.is_visible():
+                page.locator('#routes-list .day-head').first.click();page.wait_for_timeout(100)
             page.locator('.rt-row').first.click()
             page.wait_for_timeout(150)
             assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==9

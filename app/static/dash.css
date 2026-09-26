@@ -1,307 +1,186 @@
-/* ===== 仪表盘(行车实时表盘,多皮肤横屏全屏) =====
-   深底为主:行车场景夜间不刺眼;令牌跟随主题,浅色主题同样可用。 */
+/* ===== 仪表盘:双开口表盘 + 中央导航地图(单皮肤,点击舞台切全屏) =====
+   风格:深色玻璃拟态 + 弧光填充(无指针),内缘渐隐融入中央地图。 */
 
 .dash-stage {
   position: relative;
   height: calc(100dvh - 170px);   /* 扣除顶栏与 Dock */
   min-height: 420px;
-  border-radius: 18px;
+  border-radius: 22px;
   overflow: hidden;
-  background: #0a0d12;
+  background:
+    radial-gradient(90% 60% at 50% -10%, rgba(59, 130, 246, 0.12), transparent 60%),
+    radial-gradient(120% 90% at 50% 110%, rgba(20, 30, 44, 0.9), transparent 70%),
+    #07090d;
   color: #e8eef5;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   user-select: none;
   -webkit-user-select: none;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "left map right";
+  cursor: pointer;
 }
-/* 全屏时铺满 */
-.dash-stage:fullscreen { border-radius: 0; border: 0; height: 100dvh; }
+.dash-stage:fullscreen,
+.dash-stage.fs-fallback { border-radius: 0; border: 0; height: 100dvh; }
+.dash-stage:fullscreen .dash-parked, .dash-stage.fs-fallback .dash-parked { bottom: 22px; }
+.dash-stage:fullscreen .dsmap-trip, .dash-stage.fs-fallback .dsmap-trip { bottom: 16px; }
+.dash-stage.fs-fallback { position: fixed; inset: 0; z-index: 3000; }
 
-/* ---- 皮肤切换圆点 + 全屏钮 ---- */
-.dash-chrome {
-  position: absolute;
-  top: 10px; left: 50%;
-  transform: translateX(-50%);
-  z-index: 30;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  transition: opacity .4s;
-}
-.dash-stage.chrome-hidden .dash-chrome { opacity: 0; pointer-events: none; }
-.dash-dots {
-  display: flex;
-  gap: 6px;
-  padding: 5px 8px;
-  border-radius: 999px;
-  background: rgba(20, 26, 34, 0.72);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.dash-dot {
-  appearance: none;
-  border: 0;
-  cursor: pointer;
-  background: rgba(255, 255, 255, 0.14);
-  color: rgba(232, 238, 245, 0.75);
-  font-size: 11px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  transition: background .2s, color .2s;
-}
-.dash-dot.on { background: #3b82f6; color: #fff; }
-.dash-fs {
-  appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(20, 26, 34, 0.72);
-  backdrop-filter: blur(12px);
-  color: rgba(232, 238, 245, 0.8);
-  width: 30px; height: 30px;
-  border-radius: 50%;
-  cursor: pointer;
+/* ---- 表盘 ---- */
+.dg-gauge {
+  position: relative;
+  width: clamp(230px, 27vw, 360px);
+  align-self: stretch;
   display: grid;
   place-items: center;
 }
-.dash-fs svg { width: 15px; height: 15px; }
+.dg-left  { grid-area: left;  mask-image: linear-gradient(to right, #000 60%, rgba(0,0,0,.6) 86%, transparent 100%); -webkit-mask-image: linear-gradient(to right, #000 60%, rgba(0,0,0,.6) 86%, transparent 100%); }
+.dg-right { grid-area: right; mask-image: linear-gradient(to left,  #000 60%, rgba(0,0,0,.6) 86%, transparent 100%); -webkit-mask-image: linear-gradient(to left,  #000 60%, rgba(0,0,0,.6) 86%, transparent 100%); }
+.dg-gauge svg { width: 100%; height: auto; max-height: 92%; overflow: visible; }
 
-/* ---- 皮肤通用 ---- */
-.dash-skin { position: absolute; inset: 0; display: none; }
-.dash-skin.on { display: block; }
+/* 弧轨道/刻度 */
+.dg-track { fill: none; stroke: rgba(232, 238, 245, 0.09); stroke-width: 14; stroke-linecap: round; }
+.dg-fill  { fill: none; stroke-width: 14; stroke-linecap: round;
+            transition: opacity .3s; }
+.dg-fill.speed { stroke: url(#dg-grad-speed); filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.55)); }
+.dg-fill.power { stroke: url(#dg-grad-power); filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.5)); }
+.dg-fill.regen { stroke: #34d399; filter: drop-shadow(0 0 10px rgba(52, 211, 153, 0.55)); }
+.dg-tick { stroke: rgba(232, 238, 245, 0.28); stroke-width: 2; }
+.dg-tick.major { stroke: rgba(232, 238, 245, 0.5); stroke-width: 2.5; }
+.dg-tick.zero  { stroke: rgba(52, 211, 153, 0.8); }
+.dg-lab { fill: rgba(232, 238, 245, 0.42); font-size: 12px; font-weight: 500;
+          text-anchor: middle; dominant-baseline: middle; }
+.dg-lab.zero { fill: rgba(52, 211, 153, 0.9); }
 
-/* ---- 皮肤 1:极简数字 ---- */
-.ds-minimal { font-variant-numeric: tabular-nums; }
-.dsm-corner {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  color: rgba(232, 238, 245, 0.9);
-}
-.dsm-corner b { font-size: 22px; font-weight: 650; }
-.dsm-corner span { font-size: 11px; color: rgba(232, 238, 245, 0.45); }
-.dsm-tl { top: 18px; left: 22px; }
-.dsm-tr { top: 18px; right: 22px; text-align: right; }
-.dsm-bl { bottom: 16px; left: 22px; }
-.dsm-br { bottom: 16px; right: 22px; text-align: right; }
-.dsm-speed {
+/* 表盘中心读数(玻璃片) */
+.dg-center {
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  pointer-events: none;
-}
-.dsm-speed b {
-  font-size: clamp(120px, 26vw, 240px);
-  font-weight: 200;
-  letter-spacing: -0.04em;
-  line-height: 1;
-  transition: color .3s;
-}
-.dsm-unit { font-size: 18px; color: rgba(232, 238, 245, 0.45); align-self: flex-end; margin-bottom: 12%; }
-.dsm-shift {
-  font-style: normal;
-  font-size: 15px;
-  border: 1px solid rgba(232, 238, 245, 0.35);
-  border-radius: 6px;
-  padding: 2px 8px;
-  align-self: flex-start;
-  margin-top: 18%;
-  color: rgba(232, 238, 245, 0.75);
-}
-.dsm-power {
-  position: absolute;
-  left: 50%;
-  bottom: 76px;
-  transform: translateX(-50%);
-  width: min(58%, 560px);
-  text-align: center;
-}
-.dsm-powerbar {
-  height: 6px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.09);
-  overflow: hidden;
-}
-.dsm-powerbar i {
-  display: block;
-  height: 100%;
-  width: 0;
-  border-radius: 3px;
-  background: #f59e0b;
-  transition: width .18s linear, background-color .3s, margin-left .18s linear;
-}
-.dsm-power span { font-size: 13px; color: rgba(232, 238, 245, 0.6); margin-top: 6px; display: block; }
-.dsm-trace {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  width: 100%;
-  height: 36px;
-  opacity: 0.85;
-}
-
-/* ---- 皮肤 2:双圆机械表 ---- */
-.ds-gauges { display: none; place-items: center; }
-.ds-gauges.on { display: grid; }
-#ds-g-svg { width: min(96%, 900px); height: auto; max-height: 88%; }
-.dsg-center {
-  position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  text-align: center;
-  pointer-events: none;
-}
-.dsg-center b { display: block; font-size: 40px; font-weight: 300; }
-.dsg-center span { font-size: 14px; color: rgba(232, 238, 245, 0.55); border: 1px solid rgba(232,238,245,.3); border-radius: 6px; padding: 1px 8px; }
-
-/* ---- 皮肤 3:导航优先地图 ---- */
-.dash-map { position: absolute; inset: 0; }
-.dsmap-speed {
-  position: absolute;
-  top: 16px; left: 16px;
-  z-index: 5;
-  background: rgba(20, 26, 34, 0.78);
-  backdrop-filter: blur(10px);
-  border-radius: 14px;
-  padding: 8px 16px;
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.dsmap-speed b { font-size: 34px; font-weight: 300; font-variant-numeric: tabular-nums; }
-.dsmap-speed span { font-size: 12px; color: rgba(232, 238, 245, 0.55); }
-.dsmap-power {
-  position: absolute;
-  top: 16px; right: 16px;
-  z-index: 5;
-  background: rgba(20, 26, 34, 0.78);
-  backdrop-filter: blur(10px);
-  border-radius: 999px;
-  padding: 8px 14px;
-  display: flex;
-  align-items: center;
   gap: 8px;
+  pointer-events: none;
+  text-align: center;
+}
+.dg-speed b, .dg-power b {
+  font-size: clamp(56px, 7.5vw, 96px);
+  font-weight: 200;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 24px rgba(56, 189, 248, 0.25);
+}
+.dg-power b { text-shadow: 0 2px 24px rgba(245, 158, 11, 0.25); }
+.dg-power.regen b { text-shadow: 0 2px 24px rgba(52, 211, 153, 0.35); }
+.dg-speed span, .dg-power span {
+  display: block; margin-top: 2px;
+  font-size: 13px; color: rgba(232, 238, 245, 0.45); letter-spacing: 0.08em;
+}
+.dg-shift {
+  font-size: 15px; font-weight: 650; line-height: 1;
+  padding: 6px 14px; border-radius: 10px;
+  color: #93c5fd;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  backdrop-filter: blur(6px);
+}
+.dg-batt {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 6px 14px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 13px;
+  backdrop-filter: blur(6px);
   font-variant-numeric: tabular-nums;
 }
-.dsmap-power i { display: block; width: 46px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.12); position: relative; overflow: hidden; }
-.dsmap-power i::after { content: ""; position: absolute; inset: 0; width: var(--pw, 0%); background: var(--pc, #f59e0b); border-radius: 3px; }
+.dg-batt b { font-size: 20px; font-weight: 600; }
+.dg-batt i { font-style: normal; color: rgba(232, 238, 245, 0.3); }
+.dg-batt span { font-size: 13px; color: rgba(232, 238, 245, 0.6); }
+
+/* ---- 中央地图 ---- */
+.dg-map-wrap {
+  grid-area: map;
+  position: relative;
+  min-width: 0;
+  margin: 14px 0;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  /* 两侧渐隐,与表盘内缘融合 */
+  mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 9%, #000 91%, transparent);
+}
+.dash-map { position: absolute; inset: 0; }
 .dsmap-dest {
   position: absolute;
-  top: 56px; left: 50%;   /* 避开顶部皮肤切换条 */
+  top: 12px; left: 50%;
   transform: translateX(-50%);
   z-index: 5;
-  background: rgba(59, 130, 246, 0.85);
+  background: rgba(37, 99, 235, 0.85);
+  backdrop-filter: blur(10px);
   border-radius: 999px;
   padding: 7px 16px;
   font-size: 13px;
-  max-width: 60%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 70%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.35);
 }
 .dsmap-trip {
   position: absolute;
-  bottom: 14px; left: 50%;
+  bottom: 76px; left: 50%;   /* 非全屏时避开悬浮 Dock;全屏时收回 */
   transform: translateX(-50%);
   z-index: 5;
-  background: rgba(20, 26, 34, 0.78);
+  background: rgba(15, 20, 27, 0.72);
   backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 999px;
-  padding: 8px 18px;
-  font-size: 13px;
+  padding: 7px 16px;
+  font-size: 12.5px;
   font-variant-numeric: tabular-nums;
   color: rgba(232, 238, 245, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1);
   white-space: nowrap;
 }
 
-/* ---- 皮肤 4:航空速带 ---- */
-.ds-aviator { background: #05080c; }
-#ds-a-canvas { width: 100%; height: 100%; display: block; }
-
-/* ---- 皮肤 5:SpaceX 遥测网格 ---- */
-.ds-spacex { background: #0b0b0d; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
-.dsx-grid {
-  position: absolute;
-  inset: 14px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 1fr;
-  gap: 1px;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-}
-.dsx-cell {
-  background: #0b0b0d;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 8px 14px;
-  gap: 4px;
-}
-.dsx-cell .dsx-k { font-size: 10px; letter-spacing: 0.18em; color: rgba(232, 238, 245, 0.42); }
-.dsx-cell .dsx-v { font-size: clamp(20px, 4.2vw, 42px); font-weight: 300; font-variant-numeric: tabular-nums; }
-.dsx-cell .dsx-u { font-size: 10px; color: rgba(232, 238, 245, 0.42); }
-.dsx-cell.hero { grid-column: span 2; grid-row: span 2; align-items: center; }
-.dsx-cell.hero .dsx-v { font-size: clamp(64px, 13vw, 130px); font-weight: 200; }
-.dsx-dots { display: flex; gap: 3px; }
-.dsx-filler { align-items: center; justify-content: center; }
-.dsx-dots i { width: 4px; height: 4px; border-radius: 50%; background: rgba(232, 238, 245, 0.25); }
-.dsx-dots i.on { background: #4ade80; }
-
-/* ---- 驻车/离线/充电状态条(底部悬浮,不遮挡表盘) ---- */
+/* ---- 驻车/离线/充电状态条 ---- */
 .dash-parked[hidden] { display: none; }
 .dash-parked {
   position: absolute;
-  left: 50%; bottom: 56px;   /* 避开极简皮肤底部功率曲线与地图皮肤行程条 */
+  left: 50%; bottom: 82px;   /* 非全屏时避开悬浮 Dock */
   transform: translateX(-50%);
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
+  gap: 14px;
   max-width: calc(100% - 32px);
-  padding: 10px 18px;
+  padding: 10px 20px;
   border-radius: 999px;
-  background: rgba(20, 26, 34, 0.8);
-  backdrop-filter: blur(12px);
+  background: rgba(15, 20, 27, 0.78);
+  backdrop-filter: blur(14px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
 }
 .dash-parked b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.dsp-range { font-size: 13px; color: rgba(232, 238, 245, 0.65); }
-.dsp-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.dsp-chips .dsp-chip {
-  font-size: 11px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  color: rgba(232, 238, 245, 0.6);
-}
-.dsp-chips .dsp-chip.on { border-color: rgba(74, 222, 128, 0.5); color: #4ade80; }
-.dsp-eta { font-size: 14px; color: #4ade80; font-variant-numeric: tabular-nums; }
+.dsp-range { font-size: 13px; color: rgba(232, 238, 245, 0.6); }
+.dsp-eta { font-size: 14px; color: #34d399; font-variant-numeric: tabular-nums; }
 .dsp-clock { font-size: 13px; color: rgba(232, 238, 245, 0.4); font-variant-numeric: tabular-nums; }
 
-/* 伪全屏回退(iPhone Safari 无 Fullscreen API:舞台固定铺满视口) */
-.dash-stage.fs-fallback {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  border-radius: 0;
-  border: 0;
-  height: 100dvh;
-}
-
-/* 竖屏(未全屏手机)收窄适配 */
-@media (max-width: 600px) {
-  .dash-stage { height: calc(100dvh - 210px); min-height: 380px; }
-  .dash-stage.fs-fallback { height: 100dvh; min-height: 0; }
-  .dsm-corner b { font-size: 18px; }
-  .dsm-tl, .dsm-tr { top: 52px; }  /* 让出顶部皮肤切换条 */
-  .dsx-grid { grid-template-columns: repeat(2, 1fr); }
-  .dsx-cell.hero { grid-column: span 2; }
+/* 竖屏:地图上置,双表盘并排收窄 */
+@media (max-width: 700px) and (orientation: portrait) {
+  .dash-stage {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: "map map" "left right";
+    height: calc(100dvh - 210px);
+    min-height: 380px;
+  }
+  .dash-stage.fs-fallback, .dash-stage:fullscreen { height: 100dvh; min-height: 0; }
+  .dg-gauge { width: 100%; }
+  .dg-map-wrap { margin: 10px 10px 0; }
+  .dg-left  { mask-image: linear-gradient(to bottom, #000 78%, transparent); -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent); }
+  .dg-right { mask-image: linear-gradient(to bottom, #000 78%, transparent); -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent); }
+  .dg-speed b, .dg-power b { font-size: clamp(40px, 11vw, 56px); }
+  .dg-shift { font-size: 13px; padding: 4px 10px; }
 }

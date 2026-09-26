@@ -89,8 +89,26 @@ def _call(path: str, params: dict) -> dict:
 # ---------- 输入提示 ----------
 
 @router.get("/tips")
-def tips(keywords: str = Query(min_length=1, max_length=50)):
-    """目的地/途经路输入提示;只回前端需要的字段。"""
+def tips(keywords: str = Query(min_length=1, max_length=50),
+         charger: bool = Query(default=False)):
+    """目的地/途经点输入提示;charger=true 时只搜充电站(place/text,073000)。"""
+    if charger:
+        data = _call("/v3/place/text", {
+            "keywords": keywords, "types": "073000",
+            "citylimit": "false", "offset": 10, "extensions": "base"})
+        out = []
+        for p in data.get("pois") or []:
+            loc = p.get("location")
+            if not loc or not isinstance(loc, str) or "," not in loc:
+                continue
+            addr = p.get("address")
+            out.append({
+                "name": str(p.get("name") or ""),
+                "district": "",
+                "address": str(addr) if isinstance(addr, str) else "",
+                "location": loc,
+            })
+        return {"tips": out[:10]}
     data = _call("/v3/assistant/inputtips", {
         "keywords": keywords, "datatype": "all", "citylimit": "false"})
     out = []

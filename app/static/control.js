@@ -203,6 +203,21 @@
       tileSlides[name]?.set(on===true);
     });
   }
+  // 座位模型:六座 2+2+2,SVG 组 id → Tesla 座椅加热编号(无 3=后排中,六座无此位)
+  const SEAT_SVG={fl:'0',fr:'1',rl:'2',rr:'5',tl:'6',tr:'7'};
+  function renderSeats(s){
+    const seats=s.seats||{};
+    Object.entries(SEAT_SVG).forEach(([pos,h])=>{
+      const g=$('ctl-seat-'+pos);if(!g)return;
+      const lv=seats[h];
+      g.classList.remove('heat1','heat2','heat3');
+      if(lv>0)g.classList.add('heat'+lv);
+      // 占用:仅驾驶位有数据源(is_user_present),其余座位无传感器数据,不显占用
+      g.classList.toggle('occ',pos==='fl'&&s.user_present===true);
+    });
+    const wheel=$('ctl-wheel');
+    if(wheel)wheel.classList.toggle('on',s.wheel_heater===true);
+  }
   function render(){
     const s=model.states||{};
     $('ctl-main').hidden=false;
@@ -231,6 +246,7 @@
     renderVehicleConfig();
     renderZones();
     renderSwitches();
+    renderSeats(s);
     $('ctl-model-temp').textContent=num(s.climate_temp);
     $('ctl-model-inside').textContent='车内 '+num(s.inside_temp);
     $('ctl-module-climate').textContent=tri(s.climate_on)+' · 设定 '+num(s.climate_temp);

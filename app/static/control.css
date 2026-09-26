@@ -141,3 +141,16 @@
 /* 滑层内底部按钮:与模块网格同宽,贴在网格下方 */
 .ctl-sheet-home .ctl-foot-actions{margin-top:14px;padding-bottom:4px}
 @media(max-width:600px){#page-control .ctl-modules{gap:10px}#page-control .ctl-module{padding:14px}}
+/* 座位模型(车顶玻璃内,仅展示)+ 方向盘状态 */
+#page-control .ctl-seat rect{fill:rgba(128,128,128,.16);stroke:rgba(128,128,128,.4);stroke-width:1}
+#page-control .ctl-seat .ctl-seat-head{fill:rgba(128,128,128,.22);stroke:none}
+#page-control .ctl-seat .ctl-seat-man{fill:transparent;transition:fill .25s ease}
+#page-control .ctl-seat.occ rect{fill:color-mix(in srgb,var(--seq-blue-300,#60a5fa) 30%,transparent);stroke:var(--seq-blue-300,#60a5fa)}
+#page-control .ctl-seat.occ .ctl-seat-man{fill:var(--seq-blue-300,#60a5fa)}
+#page-control .ctl-seat.heat1 rect{stroke:#fbbf24}
+#page-control .ctl-seat.heat2 rect{stroke:#f59e0b;filter:drop-shadow(0 0 3px rgba(245,158,11,.5))}
+#page-control .ctl-seat.heat3 rect{stroke:#ef4444;filter:drop-shadow(0 0 5px rgba(239,68,68,.6))}
+#page-control .ctl-wheel-rim{fill:none;stroke:var(--text-secondary);stroke-width:2.4;transition:stroke .25s ease,filter .25s ease}
+#page-control .ctl-wheel-spoke{fill:none;stroke:var(--text-secondary);stroke-width:1.6;stroke-linecap:round;transition:stroke .25s ease}
+#page-control #ctl-wheel.on .ctl-wheel-rim{stroke:#f59e0b;filter:drop-shadow(0 0 5px rgba(245,158,11,.7))}
+#page-control #ctl-wheel.on .ctl-wheel-spoke{stroke:#f59e0b}

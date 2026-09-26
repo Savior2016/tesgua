@@ -220,6 +220,7 @@ _TEL_MAP = {
     "frunk_open": ("frunk_open", lambda v: v == "true"),
     "charge_port_door_open": ("charge_port", lambda v: v == "true"),
     "climate_keeper_mode": ("camp_mode", lambda v: v.lower() == "camp"),
+    "is_user_present": ("user_present", lambda v: v == "true"),
 }
 
 
@@ -243,7 +244,7 @@ def _telemetry_states() -> dict:
 
 CURRENT_FIELDS = ("locked", "sentry", "windows_open", "charge_port", "frunk_open", "trunk_open", "climate_on", "climate_temp", "inside_temp", "charging", "cable", "charge_limit", "camp_mode",
                   "ota_status", "ota_version", "ota_perc", "charge_amps", "charge_power", "charge_eta",
-                  "wheel_heater", "defrost", "bioweapon", "seats", "charge_schedules", "precondition_schedules")
+                  "wheel_heater", "defrost", "bioweapon", "seats", "user_present", "charge_schedules", "precondition_schedules")
 
 # 座椅加热:climate_state 字段名 → Tesla 指令的 heater 编号(与 remote_seat_heater_request 一致,无 3)
 _SEAT_FIELDS = {"seat_heater_left": 0, "seat_heater_right": 1, "seat_heater_rear_left": 2, "seat_heater_rear_center": 4,

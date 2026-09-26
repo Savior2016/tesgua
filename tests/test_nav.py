@@ -72,6 +72,27 @@ def test_tips_filters_and_shapes(client, nav_env, monkeypatch):  # noqa: F811
     assert d["tips"][0]["location"] == "116.5,39.8"
 
 
+def test_tips_charger_uses_place_text(client, nav_env, monkeypatch):  # noqa: F811
+    """charger=true 走 place/text(types=073000),只搜充电站。"""
+    login(client)
+    nav_env["amap"] = {"web_key": "k" * 32}
+    seen = {}
+
+    def fake(path, params):
+        seen["path"], seen["params"] = path, params
+        return {"status": "1", "pois": [
+            {"name": "特斯拉超充(亦庄)", "address": "亦庄路 1 号", "location": "116.5,39.8"},
+            {"name": "坏点", "address": [], "location": ""},
+        ]}
+
+    monkeypatch.setattr(amap, "_call", fake)
+    d = client.get("/api/nav/tips?keywords=特斯拉&charger=true").json()
+    assert seen["path"] == "/v3/place/text"
+    assert seen["params"]["types"] == "073000"
+    assert len(d["tips"]) == 1
+    assert d["tips"][0]["name"].startswith("特斯拉")
+
+
 def test_tips_503_without_key(client, nav_env):  # noqa: F811
     login(client)
     r = client.get("/api/nav/tips?keywords=x")
