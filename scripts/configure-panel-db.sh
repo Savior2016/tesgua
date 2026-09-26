@@ -17,11 +17,23 @@ CREATE TABLE IF NOT EXISTS public.panel_manual (
  kind text NOT NULL, key text NOT NULL, payload jsonb NOT NULL,
  updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY(kind,key)
 );
+-- 车辆状态遥测(MQTT 旁听 TeslaMate 广播,只记变化):真实哨兵/小憩/午休判定用
+CREATE TABLE IF NOT EXISTS public.car_telemetry (
+ id bigserial PRIMARY KEY,
+ car_id smallint NOT NULL,
+ ts timestamp without time zone NOT NULL,
+ key text NOT NULL,
+ value text NOT NULL
+);
+CREATE INDEX IF NOT EXISTS car_telemetry_key_ts_idx ON public.car_telemetry (car_id, key, ts DESC);
+CREATE INDEX IF NOT EXISTS car_telemetry_ts_idx ON public.car_telemetry (car_id, ts);
 GRANT CONNECT ON DATABASE teslamate TO teslahome_panel;
 GRANT USAGE ON SCHEMA public, private TO teslahome_panel;
 GRANT SELECT ON ALL TABLES IN SCHEMA public, private TO teslahome_panel;
 GRANT SELECT ON ALL SEQUENCES IN SCHEMA public, private TO teslahome_panel;
 GRANT INSERT, UPDATE, DELETE ON public.panel_manual TO teslahome_panel;
+GRANT INSERT, DELETE ON public.car_telemetry TO teslahome_panel;
+GRANT USAGE ON SEQUENCE public.car_telemetry_id_seq TO teslahome_panel;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public, private GRANT SELECT ON TABLES TO teslahome_panel;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public, private GRANT SELECT ON SEQUENCES TO teslahome_panel;
 SQL

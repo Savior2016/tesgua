@@ -319,6 +319,35 @@
     <div class="card col-12">
       <div class="card-head">
         <div>
+          <h2>哨兵耗电</h2>
+          <div class="card-sub">每次驻车开启哨兵一个点,纵轴=每小时耗电(随电量%/度数切换),虚线=按时长加权的平均;点击点查看本次详情。哨兵状态为 MQTT 实报,自采集启用起记录</div>
+        </div>
+        <div class="card-head-right">
+          <div class="mini-stats" id="sentry-stats"></div>
+        </div>
+      </div>
+      <div class="chart" id="chart-sentry-drain"></div>
+      <div class="events-empty" id="sentry-empty" hidden>暂无真实哨兵记录,开启哨兵后自动出现在这里</div>
+    </div>
+
+    <div class="card col-12">
+      <div class="card-head">
+        <div>
+          <h2>小憩</h2>
+          <div class="card-sub">车内有人(is_user_present)的驻车消耗,满 15 分钟计一次,点击行查看详情;下方「午休」为露营模式(climate_keeper)时段,是小憩的一种</div>
+        </div>
+        <div class="card-head-right">
+          <div class="mini-stats" id="rest-stats"></div>
+        </div>
+      </div>
+      <div id="rest-list"></div>
+      <div class="cg-divider" id="nap-div">午休<span>露营模式时段的消耗</span></div>
+      <div id="nap-list"></div>
+    </div>
+
+    <div class="card col-12">
+      <div class="card-head">
+        <div>
           <h2>活动事件</h2>
           <div class="card-sub">按时间顺序展示行程 / 充电 / 哨兵 / 驻车耗电,电量 · 度数 · 里程 · 电费独立成列,点击日期可折叠</div>
         </div>
@@ -654,6 +683,15 @@
         <button type="button" id="ctl-confirm-yes">确认</button>
       </div>
     </div>
+  </dialog>
+
+  <!-- 驻车会话详情(哨兵耗电曲线点 / 小憩·午休列表行共用) -->
+  <dialog id="parked-dialog" class="pkd-dialog" aria-labelledby="parked-dialog-title">
+    <div class="pkd-head">
+      <h2 id="parked-dialog-title">驻车详情</h2>
+      <button id="parked-dialog-close" class="ctl-dialog-close" type="button" aria-label="关闭详情"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.3 5.7 16.9 4.3 12 9.2 7.1 4.3 5.7 5.7 10.6 12l-4.9 4.9 1.4 1.4 4.9-4.9 4.9 4.9 1.4-1.4-4.9-4.9z"/></svg></button>
+    </div>
+    <div id="parked-dialog-body" class="pkd-body"></div>
   </dialog>
 
   <footer>

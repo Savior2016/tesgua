@@ -97,6 +97,9 @@ services:
       - MAINTENANCE_DB_USER=${MAINTENANCE_DB_USER:-teslamate}
       - MAINTENANCE_DB_PASSWORD=${POSTGRES_PASSWORD:-}
       - DISPLAY_TZ=${TZ:-Asia/Shanghai}
+      # 车辆状态遥测:旁听 TeslaMate 的 MQTT 广播(不直连 Tesla 云端,不唤醒车辆)
+      - MQTT_HOST=${MQTT_HOST:-mosquitto}
+      - MQTT_PORT=${MQTT_PORT:-1883}
       # 首次启动时播种面板账号(写入 data/users.json 后不再读取;
       # 之后请到面板右上角「个人中心」修改密码或新增账号)
       - VISUALIZER_USERS=${PANEL_USERS:-}

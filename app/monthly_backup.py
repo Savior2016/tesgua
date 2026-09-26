@@ -41,13 +41,14 @@ MONTHLY_TABLES = [
     ("charges", "date"),
     ("states", "start_date"),
     ("updates", "start_date"),
+    ("car_telemetry", "ts"),
 ]
 # 全量附带的参考表
 REF_TABLES = ["cars", "addresses", "geofences", "car_settings", "settings", "panel_manual"]
 # 恢复顺序(满足外键依赖)
 RESTORE_ORDER = ["cars", "addresses", "geofences", "car_settings", "settings",
                  "panel_manual", "positions", "drives", "charging_processes",
-                 "charges", "states", "updates"]
+                 "charges", "states", "updates", "car_telemetry"]
 
 _lock = threading.Lock()
 _stop = threading.Event()

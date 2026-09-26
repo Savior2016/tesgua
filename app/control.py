@@ -210,6 +210,37 @@ _snapshot = {}
 _snapshot_vin = ""
 _snapshot_checked = 0.0
 _snapshot_error = ""
+
+# MQTT 遥测(car_telemetry)键 → 控制页状态字段;事件驱动,比 positions 轮询新鲜
+_TEL_MAP = {
+    "locked": ("locked", lambda v: v == "true"),
+    "sentry_mode": ("sentry", lambda v: v == "true"),
+    "windows_open": ("windows_open", lambda v: v == "true"),
+    "trunk_open": ("trunk_open", lambda v: v == "true"),
+    "frunk_open": ("frunk_open", lambda v: v == "true"),
+    "charge_port_door_open": ("charge_port", lambda v: v == "true"),
+    "climate_keeper_mode": ("camp_mode", lambda v: v.lower() == "camp"),
+}
+
+
+def _telemetry_states() -> dict:
+    """MQTT 遥测实报:各键取最新值,15 分钟内新鲜才采用(车离线后旧值不顶包)。"""
+    m = _m()
+    out: dict = {}
+    cid = m.get_car_id(None)
+    rows = m.q(
+        "SELECT DISTINCT ON (key) key, value, "
+        "EXTRACT(EPOCH FROM ts) * 1000 AS ts FROM car_telemetry "
+        "WHERE car_id = %s AND key = ANY(%s) ORDER BY key, ts DESC",
+        (cid, list(_TEL_MAP)),
+    )
+    now = time.time() * 1000
+    for r in rows:
+        field, conv = _TEL_MAP[r["key"]]
+        if now - float(r["ts"]) <= 15 * 60 * 1000:
+            out[field] = conv(r["value"])
+    return out
+
 CURRENT_FIELDS = ("locked", "sentry", "windows_open", "charge_port", "frunk_open", "trunk_open", "climate_on", "climate_temp", "inside_temp", "charging", "cable", "charge_limit", "camp_mode",
                   "ota_status", "ota_version", "ota_perc", "charge_amps", "charge_power", "charge_eta",
                   "wheel_heater", "defrost", "bioweapon", "seats", "charge_schedules", "precondition_schedules")
@@ -351,6 +382,14 @@ def _states():
         # Only recent TeslaMate climate/charge fields can supplement unknown Fleet data.
         if live.get("reported_at") and time.time() * 1000 - live["reported_at"] <= 120000:
             out.update({k: v for k, v in live.items() if v is not None})
+            out["source"] = "teslamate"
+    except Exception:
+        pass
+    try:
+        # MQTT 遥测实报(事件驱动,比 positions 新鲜):覆盖乐观推测与轮询实报
+        tel = _telemetry_states()
+        if tel:
+            out.update(tel)
             out["source"] = "teslamate"
     except Exception:
         pass

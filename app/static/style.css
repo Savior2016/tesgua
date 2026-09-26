@@ -31,11 +31,13 @@
   --car-body: #e9e9e8;
   --car-tire: #cccbc1;
   /* 活动分类色(参考调色板,黄/品红/绿/紫四色全配对校验通过):行驶=黄 充电=青 哨兵=品红 驻车空调=绿 驻车耗电=紫 */
+  /* 小憩=天蓝(#0284c7,validate_palette 明主题全配对通过;CVD 临界对为既有 哨兵↔充电,chip 自带文字兜底) */
   --cat-drive: #eda100;
   --cat-charge: #1baf7a;
   --cat-sentry: #e87ba4;
   --cat-climate: #008300;
   --cat-idle: #4a3aa7;
+  --cat-nap: #0284c7;
   --success: #006300;
   /* ===== iOS 27 液态玻璃材质令牌 =====
      玻璃卡片 = 半透底 + 背景模糊/饱和 + 发丝描边 + 顶部镜面高光 + 暗化底缘(可读性) */
@@ -82,6 +84,7 @@
   --cat-sentry: #d55181;
   --cat-climate: #008300;
   --cat-idle: #9085e9;
+  --cat-nap: #22d3ee;
   --success: #0ca30c;
   /* 暗色玻璃:更通透、高光更克制、底缘更暗(iOS 27 暗化边缘提可读性) */
   --glass-card: color-mix(in srgb, var(--surface-1) 46%, transparent);
@@ -125,6 +128,7 @@
     --cat-sentry: #d55181;
     --cat-climate: #008300;
     --cat-idle: #9085e9;
+    --cat-nap: #22d3ee;
     --success: #0ca30c;
     /* 暗色玻璃令牌(同 :root[data-theme="dark"]) */
     --glass-card: color-mix(in srgb, var(--surface-1) 46%, transparent);
@@ -1611,6 +1615,7 @@ button { touch-action: manipulation; }
 .chip.cat-charge::before, .ev-chip.cat-charge::before { background: var(--cat-charge); }
 .chip.cat-sentry::before, .ev-chip.cat-sentry::before { background: var(--cat-sentry); }
 .chip.cat-idle::before, .ev-chip.cat-idle::before { background: var(--cat-idle); }
+.chip.cat-nap::before, .ev-chip.cat-nap::before { background: var(--cat-nap); }
 
 .chip-legend {
   display: flex;
@@ -1715,6 +1720,8 @@ button { touch-action: manipulation; }
 .day-donut .seg-climate { stroke: var(--cat-climate); }
 
 .day-donut .seg-idle { stroke: var(--cat-idle); }
+
+.day-donut .seg-occupied { stroke: var(--cat-nap); }
 
 .day-group.open .day-donut { display: none; }
 
@@ -2215,6 +2222,29 @@ button { touch-action: manipulation; }
   color: var(--text-muted);
   font-size: 13px;
 }
+
+/* ===== 小憩/午休列表(复用 ev-row 栅格,整行可点)+ 驻车详情弹窗 ===== */
+.pkd-row { cursor: pointer; border-radius: 8px; transition: background .15s ease; }
+.pkd-row:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
+
+.pkd-dialog {
+  box-sizing: border-box;
+  width: calc(100% - 32px);
+  max-width: 430px;
+  max-height: 85dvh;
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  backdrop-filter: blur(24px) saturate(1.7);
+  -webkit-backdrop-filter: blur(24px) saturate(1.7);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, .45), inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-edge-dark);
+  color: var(--text-primary);
+}
+.pkd-dialog::backdrop { background: rgba(0, 0, 0, .6); }
+.pkd-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.pkd-head h2 { margin: 0; font-size: 19px; }
 
 /* ===== 充电费用表 ===== */
 .cost-input {

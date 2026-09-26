@@ -136,12 +136,13 @@
     return `${d.getMonth() + 1}月${d.getDate()}日 · 周${wd}`;
   };
 
-  // 活动分类:行驶 / 充电 / 哨兵 / 驻车耗电
+  // 活动分类:行驶 / 充电 / 哨兵 / 驻车耗电 / 小憩(车内有人驻车,真实遥测)
   const CAT = {
     drive: { label: '行驶', cls: 'cat-drive', colorVar: '--cat-drive' },
     charge: { label: '充电', cls: 'cat-charge', colorVar: '--cat-charge' },
     sentry: { label: '哨兵', cls: 'cat-sentry', colorVar: '--cat-sentry' },
     idle: { label: '驻车耗电', cls: 'cat-idle', colorVar: '--cat-idle' },
+    occupied: { label: '小憩', cls: 'cat-nap', colorVar: '--cat-nap' },
   };
 
   const STATE_LABEL = {
@@ -173,6 +174,7 @@
       b.classList.toggle('on', b.dataset.mode === mode));
     // 仅重绘顶栏胶囊(时间线/哨兵图已移除;避免地图 fitBounds 被重置)
     renderHeader();
+    renderSentryDrain();  // 哨兵耗电曲线纵轴跟随电量%/度数切换
   }
 
   function chartTheme() {
@@ -419,7 +421,10 @@
       e: c.end_date_ts === null ? Date.now() : Number(c.end_date_ts), meta: c,
     }));
     a.sentry.forEach((p) => evs.push({ kind: 'sentry', s: p.s, e: p.e, meta: p }));
-    a.idle.forEach((p) => evs.push({ kind: 'idle', s: p.s, e: p.e, meta: p }));
+    // idle 里 kind='occupied' 的是小憩(真实遥测重算),其余为驻车耗电(休眠/空调/清醒)
+    a.idle.forEach((p) => evs.push({
+      kind: p.kind === 'occupied' ? 'occupied' : 'idle', s: p.s, e: p.e, meta: p,
+    }));
     evs.sort((x, y) => y.s - x.s);
 
     const groups = new Map();
@@ -457,10 +462,13 @@
         (m.rate_yuan_kwh !== null && m.rate_yuan_kwh !== undefined
           ? ` · ¥${fmtNum(m.rate_yuan_kwh, 2)}/kWh` : '');
     }
-    const tag = m.kind === 'climate' ? '(空调)' : ev.kind === 'sentry' ? '' : '(休眠)';
+    const tag = ev.kind === 'occupied' ? (m.has_climate ? '(空调)' : '')
+      : m.kind === 'climate' ? '(空调)'
+      : ev.kind === 'sentry' ? (m.real ? '(实报)' : '')
+      : m.kind === 'awake' ? '(清醒)' : '(休眠)';
     return `${fmtNum(m.dur_min, 0)} 分钟${tag}` +
       (ev.kind === 'sentry' && m.rate_pct_h !== null
-        ? ` · 约 ${fmtNum(m.rate_pct_h, 2)} %/h` : '');
+        ? ` · 约 ${fmtNum(Math.abs(m.rate_pct_h), 2)} %/h` : '');
   }
 
   // 事件数值列:电量% / 度数kWh / 里程km / 电费¥(充电为增加量与已付费用,其余为消耗)
@@ -511,16 +519,17 @@
     return S.overview ? (S.overview.kwhPerIdealKm || 0) : 0;
   }
 
-  /* 折叠日组右侧的小型环状耗电图:按 行驶/哨兵/驻车耗电 的 kWh 占比分段
+  /* 折叠日组右侧的小型环状耗电图:按 行驶/哨兵/小憩/驻车耗电 的 kWh 占比分段
      (驻车空调已与休眠掉电合并为「驻车耗电」,与总览口径一致) */
   const SVG_NS = 'http://www.w3.org/2000/svg';
   const DRAIN_SEGS = [
-    ['drive', '行驶'], ['sentry', '哨兵'], ['idle', '驻车耗电'],
+    ['drive', '行驶'], ['sentry', '哨兵'], ['occupied', '小憩'], ['idle', '驻车耗电'],
   ];
 
   function eventDrainKwh(ev) {
     const m = ev.meta;
-    if (ev.kind !== 'drive' && ev.kind !== 'sentry' && ev.kind !== 'idle') return null;
+    if (ev.kind !== 'drive' && ev.kind !== 'sentry' && ev.kind !== 'idle'
+        && ev.kind !== 'occupied') return null;
     if (m.energy_kwh !== null && m.energy_kwh !== undefined) return Math.max(0, Number(m.energy_kwh));
     // 缺少能耗字段时按电量%降幅折算(与列表数值列同口径)
     const drop = ev.kind === 'drive'
@@ -533,7 +542,7 @@
   }
 
   function dayDrainDonut(evs) {
-    const drain = { drive: 0, sentry: 0, idle: 0 };
+    const drain = { drive: 0, sentry: 0, occupied: 0, idle: 0 };
     evs.forEach((ev) => {
       const kwh = eventDrainKwh(ev);
       if (kwh === null || kwh <= 0) return;
@@ -605,7 +614,7 @@
       head.type = 'button';
       head.appendChild(el('span', 'date', dayLabel(evs[0].s)));
       const summary = el('span', 'summary');
-      ['drive', 'charge', 'sentry', 'idle'].forEach((k) => {
+      ['drive', 'charge', 'sentry', 'occupied', 'idle'].forEach((k) => {
         const n = evs.filter((ev) => ev.kind === k).length;
         if (n) summary.appendChild(el('span', 'chip ' + CAT[k].cls,
           `${CAT[k].label} ${n}`));
@@ -727,7 +736,194 @@
     }), { notMerge: true });
   }
 
-  /* ---------- 渲染:温度与能耗 · 近一年(月均温度线 × 月能耗柱) ---------- */
+  /* ---------- 渲染:哨兵耗电曲线 + 小憩/午休(真实遥测) ---------- */
+
+  // 纵轴单位跟随全局电量三态:%/h ⇄ kWh/h;里程档对「每小时速率」无意义,回退 kWh/h
+  function sentryRateVal(st) {
+    return S.battMode === 'pct' ? st.rate_pct_h : st.rate_kwh_h;
+  }
+
+  function renderSentryDrain() {
+    const chart = charts.sentryDrain;
+    if (!chart) return;
+    const p = S.parked;
+    const list = ((p && p.sentry) || []).slice().sort((a, b) => a.s - b.s);
+    const box = $('#chart-sentry-drain');
+    const emptyEl = $('#sentry-empty');
+    const stats = $('#sentry-stats');
+    if (stats) {
+      stats.textContent = '';
+      if (list.length) {
+        const totE = list.reduce((s, x) => s + (x.energy_kwh || 0), 0);
+        const t = el('span', 'mini-stat');
+        t.appendChild(el('span', '', '次数 '));
+        t.appendChild(el('b', '', String(list.length)));
+        stats.appendChild(t);
+        const t2 = el('span', 'mini-stat');
+        t2.appendChild(el('span', '', '共耗电 '));
+        t2.appendChild(el('b', '', fmtNum(totE, 1)));
+        t2.appendChild(el('span', '', ' kWh'));
+        stats.appendChild(t2);
+      }
+    }
+    if (!list.length) {
+      chart.clear();
+      if (box) box.style.display = 'none';
+      if (emptyEl) emptyEl.hidden = false;
+      return;
+    }
+    if (box) box.style.display = '';
+    if (emptyEl) emptyEl.hidden = true;
+
+    const isPct = S.battMode === 'pct';
+    const unit = isPct ? '%/h' : 'kWh/h';
+    const totE = list.reduce((s, x) => s + (x.energy_kwh || 0), 0);
+    const totH = list.reduce((s, x) => s + (x.e - x.s) / 3600000, 0);
+    const avgKwhH = totH > 0 ? totE / totH : null;
+    const kpp = Number((p && p.kwh_per_pct) || 0.847);
+    const avg = avgKwhH === null ? null : (isPct ? avgKwhH / kpp : avgKwhH);
+
+    const color = cssVar('--cat-sentry');
+    chart.setOption(Object.assign({}, chartTheme(), {
+      tooltip: {
+        trigger: 'item',
+        backgroundColor: cssVar('--surface-1'),
+        borderColor: cssVar('--border'),
+        textStyle: { color: cssVar('--text-primary'), fontSize: 12 },
+        formatter: (params) => {
+          const st = list[params.dataIndex];
+          if (!st) return '';
+          return `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-bottom:4px">` +
+                 `${eventTime(st.s, st.e)} · ${fmtDur(st.dur_min)}</div>` +
+                 `<div style="line-height:1.7"><b>${fmtNum(sentryRateVal(st), 2)} ${unit}</b>` +
+                 `<span style="color:${cssVar('--text-muted')};font-size:11px"> · 掉电 ${st.drop_pct}% · ${fmtNum(st.energy_kwh, 2)} kWh</span></div>` +
+                 (st.cost_yuan !== null && st.cost_yuan !== undefined
+                   ? `<div style="color:${cssVar('--text-muted')}">约 ¥${fmtNum(st.cost_yuan, 2)}</div>` : '') +
+                 `<div style="color:${cssVar('--text-muted')};font-size:11px;margin-top:2px">点击查看详情</div>`;
+        },
+      },
+      grid: trendGrid(8),
+      xAxis: timeAxis(S.days),
+      yAxis: Object.assign(axisCommon(), { type: 'value', min: 0,
+        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value}' },
+        name: unit, nameTextStyle: { color: cssVar('--text-muted'), fontSize: 11 } }),
+      series: [{
+        name: '哨兵耗电', type: 'line',
+        data: list.map((st) => [st.s, sentryRateVal(st)]),
+        symbol: 'circle', symbolSize: isNarrow() ? 8 : 10,
+        itemStyle: { color, borderColor: cssVar('--surface-1'), borderWidth: 2 },
+        lineStyle: { color, width: 1.5, opacity: 0.45 },
+        markLine: avg === null ? undefined : {
+          silent: true, symbol: 'none',
+          data: [{ yAxis: Number(avg.toFixed(3)) }],
+          lineStyle: { color: cssVar('--text-muted'), type: 'dashed', width: 1 },
+          label: { position: 'insideEndTop',
+            formatter: `平均 ${fmtNum(avg, 2)} ${unit}`,
+            color: cssVar('--text-muted'), fontSize: 10 },
+        },
+      }],
+    }), { notMerge: true });
+  }
+
+  function restRow(kind, st) {
+    const row = el('div', 'ev-row pkd-row');
+    row.appendChild(el('span', 'ev-time', eventTime(st.s, st.e)));
+    row.appendChild(el('span', 'ev-chip cat-nap', kind));
+    row.appendChild(el('span', 'ev-desc', `${fmtNum(st.dur_min, 0)} 分钟` +
+      (st.has_climate ? '(空调)' : '')));
+    const drop = Math.max(0, Number(st.drop_pct) || 0);
+    const km = kmAtPct(drop);
+    [['电量', drop <= 0 ? '0%' : `-${fmtNum(drop, 0)}%`],
+     ['度数', st.energy_kwh === null || st.energy_kwh === undefined ? '—'
+       : st.energy_kwh <= 0 ? '0.0' : `-${fmtNum(st.energy_kwh, 1)}`],
+     ['里程', km === null ? '—' : km <= 0 ? '0' : `-${fmtNum(km, 0)}`],
+     ['电费', st.cost_yuan === null || st.cost_yuan === undefined ? '—'
+       : `¥${fmtNum(st.cost_yuan, 2)}`]].forEach(([lab, text]) => {
+      const cell = el('span', 'ev-num', text);
+      cell.dataset.lab = lab;
+      row.appendChild(cell);
+    });
+    row.addEventListener('click', () => openParkedDialog(kind, st));
+    return row;
+  }
+
+  function renderRestLists() {
+    const p = S.parked;
+    if (!p) return;
+    const restBox = $('#rest-list');
+    const napBox = $('#nap-list');
+    const napDiv = $('#nap-div');
+    if (!restBox || !napBox) return;
+    restBox.textContent = '';
+    napBox.textContent = '';
+    const rest = p.rest || [];
+    const nap = p.nap || [];
+    const stats = $('#rest-stats');
+    if (stats) {
+      stats.textContent = '';
+      if (rest.length) {
+        const totE = rest.reduce((s, x) => s + (x.energy_kwh || 0), 0);
+        const t = el('span', 'mini-stat');
+        t.appendChild(el('span', '', '小憩 '));
+        t.appendChild(el('b', '', `${rest.length} 次`));
+        t.appendChild(el('span', '', ` · 共 ${fmtNum(totE, 1)} kWh`));
+        stats.appendChild(t);
+      }
+    }
+    if (!rest.length) {
+      restBox.appendChild(el('div', 'events-empty',
+        '所选时间范围内没有小憩记录(车内有人且满 15 分钟)'));
+    } else {
+      rest.forEach((st) => restBox.appendChild(restRow('小憩', st)));
+    }
+    if (napDiv) {
+      const totE = nap.reduce((s, x) => s + (x.energy_kwh || 0), 0);
+      napDiv.textContent = '';
+      napDiv.appendChild(document.createTextNode('午休'));
+      napDiv.appendChild(el('span', '', nap.length
+        ? `${nap.length} 次 · 共 ${fmtNum(totE, 1)} kWh(露营模式)` : '露营模式时段的消耗'));
+    }
+    if (!nap.length) {
+      napBox.appendChild(el('div', 'events-empty', '所选时间范围内没有午休记录'));
+    } else {
+      nap.forEach((st) => napBox.appendChild(restRow('午休', st)));
+    }
+  }
+
+  function renderParked() {
+    renderSentryDrain();
+    renderRestLists();
+  }
+
+  // 哨兵点 / 小憩·午休行共用的详情弹窗
+  function openParkedDialog(kind, st) {
+    const dlg = $('#parked-dialog');
+    if (!dlg) return;
+    $('#parked-dialog-title').textContent = `${kind}详情`;
+    const body = $('#parked-dialog-body');
+    body.textContent = '';
+    const grid = el('div', 'rt-kv');
+    const item = (lab, val) => {
+      const it = el('div', 'rt-kv-item');
+      it.appendChild(el('span', 'rt-kv-lab', lab));
+      it.appendChild(el('span', 'rt-kv-val', val));
+      grid.appendChild(it);
+    };
+    const drop = Math.max(0, Number(st.drop_pct) || 0);
+    item('开始', fmtTime(st.s));
+    item('结束', fmtTime(st.e));
+    item('时长', fmtDur(st.dur_min));
+    item('起止电量', `${st.s_lvl}% → ${st.e_lvl}%`);
+    item('掉电', `${drop}% · ${fmtNum(st.energy_kwh, 2)} kWh`);
+    item('每小时', `${fmtNum(st.rate_pct_h, 2)} %/h · ${fmtNum(st.rate_kwh_h, 2)} kWh/h`);
+    item('估算电费', st.cost_yuan === null || st.cost_yuan === undefined
+      ? '—' : `¥${fmtNum(st.cost_yuan, 2)}`);
+    item('空调', st.has_climate ? '开过' : '未开');
+    body.appendChild(grid);
+    if (typeof dlg.showModal === 'function') dlg.showModal();
+  }
+
+
 
   function renderMonthly() {
     const d = S.monthly;
@@ -1153,9 +1349,11 @@
       kpis.appendChild(d);
     });
 
-    /* 环心:当前电量 + 折算续航 */
+    /* 环心:当前电量 + 折算续航;充电中改显预测剩余时间 */
     $('#cd-batt').textContent = usable === null ? '—' : `${fmtNum(usable, 0)}%`;
-    $('#cd-range').textContent = battKm === null ? '' : `${fmtNum(battKm, 0)} km`;
+    const cdEta = o.state === 'charging' && o.charge_eta ? o.charge_eta : null;
+    $('#cd-range').textContent = cdEta ? `约剩 ${cdEta.minutes} 分`
+      : (battKm === null ? '' : `${fmtNum(battKm, 0)} km`);
 
     /* 能量分布环图:与车模玻璃顶能量环同口径(未充/驻车耗电/哨兵/行驶/剩余),
        充入区各段按估算值归一化填满 level_after */
@@ -1490,9 +1688,12 @@
       wr.closest('svg').classList.toggle('charging', o.state === 'charging');
     }
     $('#car-batt-val').textContent = usable === null ? '—' : `${fmtNum(usable, 0)}%`;
-    // 电量下方小字:按额定续航折算的剩余里程(不带约等号;无法折算时留空)
+    // 电量下方小字:充电中显示预测剩余时间(按该地点历史充电曲线积分),
+    // 其余时候按额定续航折算剩余里程(不带约等号;无法折算时留空)
+    const eta = o.state === 'charging' && o.charge_eta ? o.charge_eta : null;
     const battKm = usable === null ? null : kmAtPct(usable);
-    $('#car-batt-range').textContent = battKm === null ? '' : `${fmtNum(battKm, 0)} km`;
+    $('#car-batt-range').textContent = eta ? `约剩 ${eta.minutes} 分`
+      : (battKm === null ? '' : `${fmtNum(battKm, 0)} km`);
     // 玻璃顶中央固定 Tesla 图形车标(见 index.html #car-logo),不再随车型切换徽章
     const inT = lat && lat.inside_temp != null ? Number(lat.inside_temp) : null;
     const outT = lat && lat.outside_temp != null ? Number(lat.outside_temp) : null;
@@ -3672,7 +3873,7 @@
     try {
       const o = await api('overview');
       if (S.carId === null) S.carId = o.car_id;
-      const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm, hm, life, monthly, tpmsWk] = await Promise.all([
+      const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm, hm, life, monthly, tpmsWk, parked] = await Promise.all([
         api(`drives/daily?days=${S.days}`),
         api('charging/summary?limit=12'),
         api(`routes?days=${S.days}`),
@@ -3692,6 +3893,7 @@
         api('vehicle/lifetime'),
         api('energy/monthly'),
         api('tpms/weekly'),
+        api(`parked/overview?days=${S.days}`),
       ]);
       S.overview = {
         ...o,
@@ -3715,6 +3917,7 @@
       S.lifetime = life;
       S.monthly = monthly;
       S.tpmsWeekly = tpmsWk;
+      S.parked = parked;
       $('#state-badge').dataset.state = 'unknown';
       renderSys(sys);
       renderHeader();
@@ -3732,6 +3935,7 @@
       renderRoutesList();
       renderEvents();
       renderEfficiency();
+      renderParked();
       renderMonthly();
       renderLifetime();
       renderTraffic();
@@ -3750,7 +3954,7 @@
     renderDaily();
     renderRoutes(); renderRoutesList();
     renderEvents();
-    renderEfficiency(); renderMonthly(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime(); renderTraffic();
+    renderEfficiency(); renderParked(); renderMonthly(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime(); renderTraffic();
   }
 
   /* ---------- 功能分页(底部液态玻璃 Tab 栏) ---------- */
@@ -3842,8 +4046,22 @@
     applyTheme();
     charts.daily = echarts.init($('#chart-daily'));
     charts.efficiency = echarts.init($('#chart-efficiency'));
+    charts.sentryDrain = echarts.init($('#chart-sentry-drain'));
     charts.temp = echarts.init($('#chart-temp'));
     charts.monthly = echarts.init($('#chart-monthly'));
+
+    // 哨兵耗电曲线:点选查看本次哨兵详情
+    charts.sentryDrain.on('click', (params) => {
+      const list = ((S.parked && S.parked.sentry) || []);
+      const st = list.find((x) => Number(x.s) === Number(params.value && params.value[0]));
+      if (st) openParkedDialog('哨兵', st);
+    });
+    // 驻车详情弹窗:关闭按钮 + 点击遮罩
+    const pkd = $('#parked-dialog');
+    if (pkd) {
+      $('#parked-dialog-close').addEventListener('click', () => pkd.close());
+      pkd.addEventListener('click', (e) => { if (e.target === pkd) pkd.close(); });
+    }
 
     // 功能分页:底部 Tab 栏点击切换,记忆上次所在页
     $('#tabbar').addEventListener('click', (e) => {

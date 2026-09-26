@@ -26,7 +26,16 @@ BASE = {
    "points":[[NOW-7200000+i*60000, 10 if i%2 else 11, 228, 16, 1 if 10<=i<=20 else 0] for i in range(60)],
    "heater_spans":[[NOW-7200000+600000, NOW-7200000+1260000]]},
  "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"speed_max":80,"start_ideal_range_km":400,"end_ideal_range_km":388,"start_name":XSS,"end_name":"合成终点","points":[[0,0,50,0],[0.005,0.005,65,35],[0.01,0.01,80,125]]}]},
- "activity":{"days":7,"battery":[[NOW-3600000,80],[NOW,75]],"drives":[],"charges":[],"sentry":[],"idle":[],"kwh_per_pct":0.75},
+ "activity":{"days":7,"battery":[[NOW-3600000,80],[NOW,75]],"drives":[],"charges":[],
+   "sentry":[{"s":NOW-6*3600000,"e":NOW-5*3600000,"s_lvl":76,"e_lvl":75,"delta":-1,"dur_min":60,"kind":"sentry","real":True,"rate_pct_h":-1.0,"energy_kwh":0.75,"cost_yuan":0.38}],
+   "idle":[{"s":NOW-4*3600000,"e":NOW-3*3600000,"s_lvl":74,"e_lvl":73,"delta":-1,"dur_min":60,"kind":"occupied","has_climate":True,"energy_kwh":0.75,"cost_yuan":0.38}],
+   "kwh_per_pct":0.75},
+ # 真实遥测驻车会话(哨兵耗电曲线点 + 小憩/午休列表行,均可点击弹详情)
+ "parked/overview":{"days":7,"kwh_per_pct":0.75,"coverage_start":NOW-86400000,
+   "collector":{"connected":True,"last_ts":None},
+   "sentry":[{"s":NOW-6*3600000,"e":NOW-5*3600000,"s_full":NOW-6*3600000,"dur_min":60,"s_lvl":76,"e_lvl":75,"drop_pct":1,"energy_kwh":0.75,"rate_pct_h":1.0,"rate_kwh_h":0.75,"cost_yuan":0.38,"has_climate":False}],
+   "rest":[{"s":NOW-4*3600000,"e":NOW-3*3600000,"s_full":NOW-4*3600000,"dur_min":60,"s_lvl":74,"e_lvl":72,"drop_pct":2,"energy_kwh":1.5,"rate_pct_h":2.0,"rate_kwh_h":1.5,"cost_yuan":0.75,"has_climate":True}],
+   "nap":[{"s":NOW-2*3600000,"e":NOW-3600000,"s_full":NOW-2*3600000,"dur_min":60,"s_lvl":72,"e_lvl":70,"drop_pct":2,"energy_kwh":1.5,"rate_pct_h":2.0,"rate_kwh_h":1.5,"cost_yuan":0.75,"has_climate":False}]},
  "efficiency/trend":{"points":[{"start_ts":NOW-3600000,"eff_wh_km":145,"distance":10,"duration_min":30,"start_name":XSS,"end_name":"合成终点"}]},
  "tpms/trend":{"wheels":{w:[[NOW-3600000,2.9],[NOW,2.9]] for w in ['fl','fr','rl','rr']}},
  "tpms/weekly":{"weeks":[{"week":"2026-W37","start":"09-08","fl":2.88,"fr":2.92,"rl":2.9,"rr":2.85},
@@ -96,6 +105,19 @@ def run():
             assert page.locator('#life-kwh').inner_text() == '340'
             assert '未计价' in page.locator('#life-cost-sub').inner_text()
             assert page.locator('#life-cycles').inner_text() == '4.8'
+            # 充电中:overview.charge_eta → 风挡电量下方显示「约剩 N 分」+ .charging 扫光
+            BASE['overview']['state'] = 'charging'
+            BASE['overview']['charge_eta'] = {"minutes": 23, "target_pct": 80}
+            page.locator('#car-name').click()
+            page.wait_for_timeout(400)
+            assert page.locator('#car-batt-range').text_content() == '约剩 23 分'
+            assert page.locator('.car-svg.charging').count() == 1
+            # 还原为非充电态:恢复剩余里程小字
+            BASE['overview']['state'] = 'offline'
+            BASE['overview'].pop('charge_eta')
+            page.locator('#car-name').click()
+            page.wait_for_timeout(400)
+            assert page.locator('#car-batt-range').text_content() == '400 km'
             # 温度卡片:渐变温度线(visualMap 按值着色)+ 温差带(_ 前缀内部系列不进图例/tooltip)
             opt = page.evaluate("echarts.getInstanceByDom(document.querySelector('#chart-temp')).getOption()")
             assert len(opt['visualMap']) == 1 and opt['visualMap'][0]['seriesIndex'] == [2, 3]
@@ -174,6 +196,36 @@ def run():
             page.wait_for_timeout(100)
             assert not page.evaluate('window.__auditXss===true')
             assert page.locator('[onerror]').count()==0
+            # 哨兵耗电卡:1 个点 + 加权平均虚线;小憩/午休各一行;活动事件含小憩 chip
+            opt = page.evaluate("echarts.getInstanceByDom(document.querySelector('#chart-sentry-drain')).getOption()")
+            assert len(opt['series'][0]['data']) == 1
+            assert opt['series'][0]['markLine']
+            assert page.locator('#rest-list .pkd-row').count() == 1
+            assert page.locator('#nap-list .pkd-row').count() == 1
+            assert page.locator('#events-list .ev-chip.cat-nap').count() == 1
+            assert '(实报)' in page.locator('#events-list .ev-row:has(.ev-chip.cat-sentry) .ev-desc').first.inner_text()
+            # 小憩行点击 → 详情弹窗;关闭后点击哨兵曲线点 → 哨兵详情
+            page.locator('#rest-list .pkd-row').first.click()
+            page.wait_for_timeout(80)
+            assert page.evaluate("document.getElementById('parked-dialog').open")
+            assert page.locator('#parked-dialog-title').inner_text() == '小憩详情'
+            assert page.locator('#parked-dialog-body .rt-kv-item').count() == 8
+            page.locator('#parked-dialog-close').click()
+            assert not page.evaluate("document.getElementById('parked-dialog').open")
+            page.locator('#chart-sentry-drain').scroll_into_view_if_needed()
+            page.evaluate('scrollBy(0, -140)')  # 图表下移,让数据点避开 sticky 顶栏遮挡区
+            pt = page.evaluate("""() => {
+              const c = echarts.getInstanceByDom(document.getElementById('chart-sentry-drain'));
+              const d = c.getOption().series[0].data[0];
+              return c.convertToPixel({seriesIndex: 0}, Array.isArray(d) ? d : d.value);
+            }""")
+            bb = page.locator('#chart-sentry-drain').bounding_box()
+            page.mouse.click(bb['x'] + pt[0], bb['y'] + pt[1])
+            page.wait_for_timeout(80)
+            assert page.evaluate("document.getElementById('parked-dialog').open")
+            assert page.locator('#parked-dialog-title').inner_text() == '哨兵详情'
+            page.locator('#parked-dialog-close').click()
+            assert not page.evaluate('window.__auditXss===true')
             page.goto('http://teslahome.test/account.html',wait_until='networkidle')
             assert page.locator('#teslamate-link').get_attribute('href')=='http://localhost:4000'
             assert page.locator('#authorization-guide').count()==0

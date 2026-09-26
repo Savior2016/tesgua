@@ -275,16 +275,18 @@ async def lifespan(_: FastAPI):
         conn.execute("SELECT 1 FROM panel_manual LIMIT 1")
         _migrate_manual_files(conn)
         conn.commit()
-    from . import nap, sentry_sched, monthly_backup
+    from . import nap, sentry_sched, monthly_backup, telemetry
     nap.start_worker()
     sentry_sched.start_worker()
     monthly_backup.start_worker()
+    telemetry.start_worker()
     try:
         yield
     finally:
         nap.stop_worker()
         sentry_sched.stop_worker()
         monthly_backup.stop_worker()
+        telemetry.stop_worker()
         pool.close()
 
 
@@ -788,6 +790,15 @@ def overview(request: Request, car_id: int | None = Query(default=None)):
         (cid,),
     )[0]
 
+    # 充电中:按历史充电曲线预测剩余时间(失败/不充电为 None,前端不显示)
+    eta = None
+    if charging:
+        from . import charge_eta
+        try:
+            eta = charge_eta.estimate(cid)
+        except Exception:
+            eta = None
+
     return {
         "cars": [
             {
@@ -821,6 +832,7 @@ def overview(request: Request, car_id: int | None = Query(default=None)):
             "cost": float(chg["cost"] or 0),
             "duration_min": int(chg["duration_min"] or 0),
         },
+        "charge_eta": eta,
     }
 
 
@@ -1443,6 +1455,22 @@ def _cut_interval(seg: tuple[int, int], intervals: list[tuple[int, int]]) -> lis
     return out
 
 
+def _merge_pieces(pieces: list[dict]) -> list[dict]:
+    """合并间隔 <30 分钟的相邻片段(调用方保证同 kind;kind 以先者为准)。"""
+    pieces.sort(key=lambda p: p["s"])
+    out = []
+    for p in pieces:
+        if out and p["s"] - out[-1]["e"] < 30 * 60 * 1000:
+            last = out[-1]
+            last["e"] = p["e"]
+            last["e_lvl"] = p["e_lvl"]
+            last["delta"] = last["e_lvl"] - last["s_lvl"]
+            last["dur_min"] = round((last["e"] - last["s"]) / 60000, 0)
+        else:
+            out.append(dict(p))
+    return out
+
+
 def _split_segments(samples: list[tuple[int, int, bool]],
                     intervals: list[tuple[int, int]]) -> dict:
     """由电量采样序列切出哨兵与驻车耗电时段。
@@ -1451,8 +1479,9 @@ def _split_segments(samples: list[tuple[int, int, bool]],
     intervals: 行驶/充电区间(与采样同一时间基准),用于挖除。
     哨兵判定:驻车清醒 ≥ 30 分钟且非空调预热(特斯拉驻车长时间清醒≈哨兵开启;
     接电时哨兵掉电可能为 0)。驻车耗电:休眠间隙中的电量下降。
+    返回另含 "awake":全部驻车清醒原始片段(含 <30 分钟的),供真实遥测重算用。
     """
-    sentry, idle = [], []
+    sentry, idle, awake = [], [], []
 
     # 1) 清醒连续段(相邻采样间隔 ≤ AWAKE_GAP_MS)
     runs = []
@@ -1479,8 +1508,6 @@ def _split_segments(samples: list[tuple[int, int, bool]],
     # 2) 清醒段挖去行驶/充电后,剩余驻车清醒片段
     for rs, re, _, _ in runs:
         for ps, pe in _cut_interval((rs, re), intervals):
-            if pe - ps < SENTRY_MIN_DURATION_MS:
-                continue
             lr = level_range(ps, pe)
             if not lr:
                 continue
@@ -1492,6 +1519,9 @@ def _split_segments(samples: list[tuple[int, int, bool]],
                 "s": ps, "e": pe, "s_lvl": l0, "e_lvl": l1,
                 "delta": l1 - l0, "dur_min": round((pe - ps) / 60000, 0),
             }
+            awake.append(piece)
+            if pe - ps < SENTRY_MIN_DURATION_MS:
+                continue
             if climate:
                 if piece["delta"] <= -1:  # 空调预热耗电归入「非行驶耗电」
                     piece["kind"] = "climate"
@@ -1514,20 +1544,9 @@ def _split_segments(samples: list[tuple[int, int, bool]],
             })
 
     def merge(pieces: list[dict]) -> list[dict]:
-        pieces.sort(key=lambda p: p["s"])
-        out = []
-        for p in pieces:
-            if out and p["s"] - out[-1]["e"] < 30 * 60 * 1000:
-                last = out[-1]
-                last["e"] = p["e"]
-                last["e_lvl"] = p["e_lvl"]
-                last["delta"] = last["e_lvl"] - last["s_lvl"]
-                last["dur_min"] = round((last["e"] - last["s"]) / 60000, 0)
-            else:
-                out.append(dict(p))
-        return out
+        return _merge_pieces(pieces)
 
-    return {"sentry": merge(sentry), "idle": merge(idle)}
+    return {"sentry": merge(sentry), "idle": merge(idle), "awake": awake}
 
 
 @app.get("/api/activity")
@@ -1584,6 +1603,19 @@ def activity(car_id: int | None = Query(default=None),
     ]
 
     seg = _split_segments(samples, intervals)
+
+    # 真实遥测重算(MQTT 采集,见 telemetry.py):覆盖起点之后哨兵改实报、
+    # 小憩(is_user_present 驻车)单列;覆盖起点之前维持推断口径
+    from . import telemetry
+    cov = telemetry.coverage_start(cid)
+    if cov is not None:
+        now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+        ev_buf = (since - timedelta(days=3)).replace(tzinfo=None)
+        ev = telemetry.events_since(cid, ev_buf)
+        sentry_spans = telemetry.build_spans(ev, "sentry_mode", telemetry.ON,
+                                             close_on_offline=False)
+        occ_spans = telemetry.build_spans(ev, "is_user_present", telemetry.ON)
+        seg = telemetry.overlay_real(seg, samples, sentry_spans, occ_spans, cov, now_ms)
 
     def with_rate(pieces):
         for p in pieces:
@@ -2393,6 +2425,8 @@ from .reminder import router as reminder_router
 app.include_router(reminder_router)
 from .monthly_backup import router as monthly_backup_router
 app.include_router(monthly_backup_router)
+from .telemetry import router as telemetry_router
+app.include_router(telemetry_router)  # 须在 app.mount("/") 之前注册
 
 app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static"),
                            html=True), name="static")
