@@ -272,13 +272,12 @@
       <div class="dsx-grid" id="dsx-grid"></div>
     </div>
 
-    <!-- 驻车/充电覆盖层(state 非行车时罩在所有皮肤上) -->
+    <!-- 驻车/离线/充电状态条(悬浮在皮肤上方,不遮挡表盘预览) -->
     <div class="dash-parked" id="dash-parked" hidden>
-      <div class="dsp-soc"><b id="ds-p-soc">—</b><span>电量</span></div>
-      <div class="dsp-range" id="ds-p-range">—</div>
-      <div class="dsp-chips" id="ds-p-chips"></div>
-      <div class="dsp-eta" id="ds-p-eta" hidden></div>
-      <div class="dsp-clock" id="ds-p-clock">—</div>
+      <b id="ds-p-soc">—</b><span class="dsp-range" id="ds-p-range"></span>
+      <span class="dsp-chips" id="ds-p-chips"></span>
+      <span class="dsp-eta" id="ds-p-eta" hidden></span>
+      <span class="dsp-clock" id="ds-p-clock">—</span>
     </div>
   </div>
   </section>

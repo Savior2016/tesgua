@@ -92,7 +92,7 @@ def run():
                     route.fulfill(status=404);return
                 route.fulfill(body=source.read_bytes(),content_type=mimetypes.guess_type(str(source))[0] or 'application/octet-stream',headers={"Content-Security-Policy":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'"})
             ctx.route("**/*",route_handler)
-            ctx.add_init_script("HTMLElement.prototype.requestFullscreen=function(){return Promise.reject(new Error('smoke: fullscreen disabled'))}")
+            ctx.add_init_script("window.__ttvNoAutoFs=true")  # 禁用仪表盘自动全屏(含伪全屏),否则罩住 Dock 拦截后续点击
             page=ctx.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
             page.goto('http://teslahome.test/',wait_until='networkidle')
             assert page.locator('#car-name').inner_text() == '合成测试车辆'

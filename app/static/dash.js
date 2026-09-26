@@ -108,21 +108,40 @@
 
   /* ---------- 全屏 / 横屏 / 防息屏 ---------- */
   let wakeLock = null;
+  let fsFallback = false;  // iPhone Safari 无 Fullscreen API:用 fixed 铺满眼见为全屏
+
+  const isFullscreen = () => !!document.fullscreenElement || fsFallback;
 
   async function requestImmersive(force = false) {
     const stage = $('dash-stage');
     // 桌面宽屏不自动全屏(全屏钮仍可手动触发);触屏/窄屏自动进沉浸态
     const auto = window.matchMedia('(pointer: coarse)').matches || innerWidth < 1024;
-    if ((!auto && !force) || !stage || document.fullscreenElement) return;
-    try {
-      await stage.requestFullscreen({ navigationUI: 'hide' });
-      try { await screen.orientation.lock('landscape'); } catch (e) { }
-      try { wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) { }
-    } catch (e) { /* iPhone 等不支持:保持嵌入布局 */ }
+    if ((!auto && !force) || !stage || isFullscreen()) return;
+    let realFs = false;
+    if (stage.requestFullscreen) {
+      try {
+        await stage.requestFullscreen({ navigationUI: 'hide' });
+        realFs = true;
+        try { await screen.orientation.lock('landscape'); } catch (e) { }
+      } catch (e) { /* 被拒绝:走伪全屏 */ }
+    }
+    if (!realFs) {
+      fsFallback = true;
+      stage.classList.add('fs-fallback');
+      document.body.style.overflow = 'hidden';  // 锁底层页面滚动
+      window.scrollTo(0, 0);
+    }
+    try { wakeLock = await navigator.wakeLock?.request('screen'); } catch (e) { }
+    pokeChrome();
   }
 
   async function exitImmersive() {
     try { if (document.fullscreenElement) await document.exitFullscreen(); } catch (e) { }
+    if (fsFallback) {
+      fsFallback = false;
+      $('dash-stage')?.classList.remove('fs-fallback');
+      document.body.style.overflow = '';
+    }
     try { wakeLock && wakeLock.release(); } catch (e) { }
     wakeLock = null;
   }
@@ -135,7 +154,7 @@
     stage.classList.remove('chrome-hidden');
     if (chromeTimer) clearTimeout(chromeTimer);
     chromeTimer = setTimeout(() => {
-      if (document.fullscreenElement) stage.classList.add('chrome-hidden');
+      if (isFullscreen()) stage.classList.add('chrome-hidden');
     }, 3000);
   }
 
@@ -506,11 +525,11 @@
     setText('dsx-odo', DS.odometer === null ? '—' : fmt(DS.odometer, 0));
   }
 
-  /* ---------- 驻车/充电覆盖层 ---------- */
+  /* ---------- 驻车/离线/充电状态条 ---------- */
   function renderParked() {
-    const ov = $('dash-parked');
+    const bar = $('dash-parked');
     const parked = !isDriving();
-    if (ov) ov.hidden = !parked;
+    if (bar) bar.hidden = !parked;
     if (!parked) return;
     setText('ds-p-soc', DS.soc === null ? '—' : `${Math.round(DS.soc)}%`);
     setText('ds-p-range', DS.rangeKm === null ? '' : `续航 ${Math.round(DS.rangeKm)} km`);
@@ -528,7 +547,7 @@
     const eta = $('ds-p-eta');
     if (eta) {
       eta.hidden = !DS.eta;
-      if (DS.eta) eta.textContent = `充电中 · 约剩 ${DS.eta.minutes} 分(至 ${DS.eta.target_pct}%)`;
+      if (DS.eta) eta.textContent = `⚡约剩 ${DS.eta.minutes} 分(至 ${DS.eta.target_pct}%)`;
     }
   }
 
@@ -570,7 +589,7 @@
     });
     $('dash-fs').addEventListener('click', async (e) => {
       e.stopPropagation();
-      if (document.fullscreenElement) await exitImmersive();
+      if (isFullscreen()) await exitImmersive();
       else await requestImmersive(true);
       pokeChrome();
     });
@@ -590,8 +609,8 @@
     await loadSnapshot();
     connectWs();
     if (!raf) raf = requestAnimationFrame(tick);
-    // 触屏/窄屏自动全屏+横屏(Tab 点击的短暂激活窗口内)
-    await requestImmersive();
+    // 触屏/窄屏自动全屏+横屏(Tab 点击的短暂激活窗口内);__ttvNoAutoFs 供测试禁用
+    if (!window.__ttvNoAutoFs) await requestImmersive();
   }
 
   function leave() {

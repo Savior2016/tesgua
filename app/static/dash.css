@@ -252,38 +252,56 @@
 .dsx-dots i { width: 4px; height: 4px; border-radius: 50%; background: rgba(232, 238, 245, 0.25); }
 .dsx-dots i.on { background: #4ade80; }
 
-/* ---- 驻车/充电覆盖层 ---- */
+/* ---- 驻车/离线/充电状态条(底部悬浮,不遮挡表盘) ---- */
+.dash-parked[hidden] { display: none; }
 .dash-parked {
   position: absolute;
-  inset: 0;
+  left: 50%; bottom: 56px;   /* 避开极简皮肤底部功率曲线与地图皮肤行程条 */
+  transform: translateX(-50%);
   z-index: 20;
-  background: radial-gradient(120% 100% at 50% 0%, #10151d 0%, #0a0d12 70%);
   display: flex;
-  flex-direction: column;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
+  max-width: calc(100% - 32px);
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(20, 26, 34, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 }
-.dash-parked[hidden] { display: none; }  /* display:flex 会盖住 hidden 的 UA 样式,须显式声明 */
-.dsp-soc b { font-size: clamp(80px, 16vw, 150px); font-weight: 200; font-variant-numeric: tabular-nums; }
-.dsp-soc span { font-size: 14px; color: rgba(232, 238, 245, 0.5); margin-left: 10px; }
-.dsp-range { font-size: 16px; color: rgba(232, 238, 245, 0.65); }
-.dsp-chips { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; justify-content: center; }
+.dash-parked b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.dsp-range { font-size: 13px; color: rgba(232, 238, 245, 0.65); }
+.dsp-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .dsp-chips .dsp-chip {
-  font-size: 12px;
-  padding: 4px 12px;
+  font-size: 11px;
+  padding: 3px 10px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   color: rgba(232, 238, 245, 0.6);
 }
 .dsp-chips .dsp-chip.on { border-color: rgba(74, 222, 128, 0.5); color: #4ade80; }
-.dsp-eta { font-size: 20px; color: #4ade80; font-variant-numeric: tabular-nums; }
-.dsp-clock { position: absolute; bottom: 22px; font-size: 15px; color: rgba(232, 238, 245, 0.4); font-variant-numeric: tabular-nums; }
+.dsp-eta { font-size: 14px; color: #4ade80; font-variant-numeric: tabular-nums; }
+.dsp-clock { font-size: 13px; color: rgba(232, 238, 245, 0.4); font-variant-numeric: tabular-nums; }
+
+/* 伪全屏回退(iPhone Safari 无 Fullscreen API:舞台固定铺满视口) */
+.dash-stage.fs-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  border-radius: 0;
+  border: 0;
+  height: 100dvh;
+}
 
 /* 竖屏(未全屏手机)收窄适配 */
 @media (max-width: 600px) {
   .dash-stage { height: calc(100dvh - 210px); min-height: 380px; }
+  .dash-stage.fs-fallback { height: 100dvh; min-height: 0; }
   .dsm-corner b { font-size: 18px; }
+  .dsm-tl, .dsm-tr { top: 52px; }  /* 让出顶部皮肤切换条 */
   .dsx-grid { grid-template-columns: repeat(2, 1fr); }
   .dsx-cell.hero { grid-column: span 2; }
 }
