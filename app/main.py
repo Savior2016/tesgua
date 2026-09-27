@@ -333,8 +333,15 @@ async def auth_and_headers(request: Request, call_next):
                     (urlsplit(origin).netloc != request.url.netloc or
                      urlsplit(origin).scheme != ("https" if _https(request) else "http"))):
                 return JSONResponse({"detail": "不允许跨站操作"}, status_code=403)
-            # 月度备份导入是大文件上传,单独放宽到 512MB;其余请求仍限 64KB
-            max_body = 512 * 1024 * 1024 if path == "/api/backup/monthly/import" else 65536
+            # 月度备份导入是大文件上传,单独放宽到 512MB;
+            # 导航电量规划要带整条路线折线(长途可达数百 KB),放宽到 4MB;
+            # 其余请求仍限 64KB
+            if path == "/api/backup/monthly/import":
+                max_body = 512 * 1024 * 1024
+            elif path == "/api/nav/plan":
+                max_body = 4 * 1024 * 1024
+            else:
+                max_body = 65536
             length = request.headers.get("content-length", "0")
             if not length.isdigit() or int(length) > max_body:
                 return JSONResponse({"detail": "请求内容过大"}, status_code=413)

@@ -92,7 +92,7 @@ def run():
                     route.fulfill(status=404);return
                 route.fulfill(body=source.read_bytes(),content_type=mimetypes.guess_type(str(source))[0] or 'application/octet-stream',headers={"Content-Security-Policy":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'"})
             ctx.route("**/*",route_handler)
-            ctx.add_init_script("window.__ttvNoAutoFs=true")  # 禁用仪表盘自动全屏(含伪全屏),否则罩住 Dock 拦截后续点击
+            ctx.add_init_script("window.__ttvNoAutoFs=true")  # 历史遗留开关(仪表盘已移除,无害保留)
             page=ctx.new_page();page.on('pageerror',lambda e:errors.append(str(e)))
             page.goto('http://teslahome.test/',wait_until='networkidle')
             assert page.locator('#car-name').inner_text() == '合成测试车辆'
@@ -124,23 +124,17 @@ def run():
             assert len(opt['visualMap']) == 1 and opt['visualMap'][0]['seriesIndex'] == [2, 3]
             names = [s['name'] for s in opt['series']]
             assert names == ['_band_base', '_band_delta', '车内', '车外']
-            # 仪表盘:双开口表盘(左速度/右功率)+ 中央地图;离线 mock 下 WS/快照失败须静默容忍,驻车覆盖层照常渲染
-            page.locator('.tab[data-page="dash"]').click()
-            page.wait_for_selector('#dash-stage', timeout=4000)
-            assert page.locator('#page-dash .dg-gauge').count()==2
-            assert page.locator('#page-dash #dg-l-svg').count()==1
-            assert page.locator('#page-dash #dg-r-svg').count()==1
-            assert page.locator('#page-dash #dash-map').count()==1
-            assert page.locator('#page-dash #dg-speed').count()==1
-            assert page.locator('#page-dash #dg-power').count()==1
-            assert page.locator('#page-dash #dg-shift').count()==1
-            assert page.locator('#dash-parked:not([hidden])').count()==1  # 非行车态驻车布局
-            assert page.locator('#dg-l-svg .dg-track').count()==1  # 表盘轨道已构建
-            assert page.locator('#dg-r-svg .dg-fill').count()==2   # 功率正向 + 回收两条填充弧
+            # 车况页(原「数据」二级子页,已提为顶级分页):生涯总览/通勤分析/胎压/温度能耗
+            page.locator('.tab[data-page="vehicle"]').click()
+            page.wait_for_selector('#page-vehicle .life-card', timeout=4000)
+            assert page.locator('#page-vehicle .life-card').count()==1
+            assert page.locator('#page-vehicle #tpms-wheels').count()==1
+            assert page.locator('#page-vehicle #chart-temp').count()==1
+            assert page.locator('#page-vehicle #chart-monthly').count()==1
+            assert page.locator('.dtab[data-sub="vehicle"]').count()==0  # 数据页二级导航已无车况
+            assert page.locator('.tab[data-page="dash"]').count()==0      # 仪表盘分页已移除
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-            page.evaluate('if(document.fullscreenElement) document.exitFullscreen()')  # 窄屏自动全屏会罩住 Dock,先退出
-            page.wait_for_timeout(150)
-            page.locator('.tab[data-page="nav"]').click();page.wait_for_timeout(400)
+            page.locator('.tab[data-page="nav"]').click();page.wait_for_timeout(800)
             # 导航页:起点/终点/途经点三输入框 + 充电站筛选 + 地图容器;离线 mock 下(nav/config 无 key)提示去个人中心
             assert page.locator('#nav-origin-inp').count()==1
             assert page.locator('#nav-dest-inp').count()==1
@@ -153,12 +147,11 @@ def run():
             assert page.locator('#page-charging.active').count()==1
             for width in [320,390,1440]:
                 page.set_viewport_size({"width":width,"height":900})
-                for tab in ['overview','dash','nav','data','control']:
-                    page.evaluate('if(document.fullscreenElement) document.exitFullscreen()')  # dash 窄屏自动全屏先退出
+                for tab in ['overview','vehicle','nav','data','control']:
                     page.locator('.tab[data-page="'+tab+'"]').click();page.wait_for_timeout(80)
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (role,width,tab)
                     if tab == 'data':
-                        for sub in ['charging','drives','activity','vehicle']:
+                        for sub in ['charging','drives','activity']:
                             page.locator('.dtab[data-sub="'+sub+'"]').click();page.wait_for_timeout(60)
                             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (role,width,tab,sub)
             page.set_viewport_size({"width":390,"height":844})
@@ -295,8 +288,8 @@ def run():
                 # 数据页(二级导航)与占位页截图
                 page.locator('.tab[data-page="data"]').click();page.wait_for_timeout(800)
                 page.screenshot(path=str(Path(output)/'synthetic-data.png'),full_page=True)
-                page.locator('.tab[data-page="dash"]').click();page.wait_for_timeout(600)
-                page.screenshot(path=str(Path(output)/'synthetic-dash.png'),full_page=True)
+                page.locator('.tab[data-page="vehicle"]').click();page.wait_for_timeout(600)
+                page.screenshot(path=str(Path(output)/'synthetic-vehicle.png'),full_page=True)
             ctx.close()
             print(role, 'browser regression passed',flush=True)
         browser.close()

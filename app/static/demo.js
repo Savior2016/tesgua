@@ -146,9 +146,9 @@
   }
 
   /* ---------- 分页切换:与正式面板同一套 TTVPageTurn 动效 ---------- */
-  const PAGE_IDS = ['overview', 'dash', 'nav', 'data', 'control'];
+  const PAGE_IDS = ['overview', 'vehicle', 'nav', 'data', 'control'];
   // 「数据」主 Tab 下的二级子页(与正式面板同构,不持久化)
-  const DATA_SUBS = ['charging', 'drives', 'activity', 'vehicle'];
+  const DATA_SUBS = ['charging', 'drives', 'activity'];
   let dataSub = 'charging';
   let tabSeq = 0;
 

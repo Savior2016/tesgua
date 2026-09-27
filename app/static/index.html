@@ -7,9 +7,8 @@
   <title>TESLA Home</title>
   <link rel="stylesheet" href="/maplibre-gl.css">
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/control.css?v=13">
-  <link rel="stylesheet" href="/dash.css?v=2">
-  <link rel="stylesheet" href="/nav.css?v=2">
+  <link rel="stylesheet" href="/control.css?v=14">
+  <link rel="stylesheet" href="/nav.css?v=4">
 </head>
 <body>
 <!-- 过冲(overscroll)露出的顶部背景中央:小圆圈 + 星舰徽标,平时被顶栏遮住 -->
@@ -215,40 +214,87 @@
   </div>
   </section>
 
-  <!-- ===== 分页 2:仪表盘(双开口表盘 + 中央导航地图;点击舞台切全屏) ===== -->
-  <section class="page" id="page-dash">
-  <div class="dash-stage" id="dash-stage">
-
-    <!-- 左表盘:速度(开口朝右,渐隐入地图) -->
-    <div class="dg-gauge dg-left">
-      <svg id="dg-l-svg" viewBox="0 0 320 320" aria-hidden="true"></svg>
-      <div class="dg-center dg-center-l">
-        <div class="dg-speed"><b id="dg-speed">0</b><span>km/h</span></div>
-        <div class="dg-shift" id="dg-shift">P</div>
+  <!-- ===== 分页 2:车况(生涯总览 / 通勤分析 / 胎压 / 温度能耗) ===== -->
+  <section class="page" id="page-vehicle">
+  <div class="grid">
+    <div class="card col-12 life-card">
+      <img class="life-bh" src="/blackhole.webp" alt="" aria-hidden="true">
+      <h2>生涯总览</h2>
+      <div class="card-sub" id="life-sub">能耗与费用自开始统计起累计</div>
+      <div class="life-stats">
+        <div class="life-item">
+          <div class="life-val"><b id="life-km">—</b><span>km</span></div>
+          <div class="life-lab">总里程<i id="life-km-sub"></i></div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><b id="life-kwh">—</b><span>kWh</span></div>
+          <div class="life-lab">总耗电量<i id="life-kwh-sub"></i></div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><span>¥</span><b id="life-cost">—</b></div>
+          <div class="life-lab">充电总费用<i id="life-cost-sub"></i></div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><b id="life-cycles">—</b><span>次</span></div>
+          <div class="life-lab">电池循环<i id="life-cycles-sub"></i></div>
+        </div>
       </div>
     </div>
 
-    <!-- 中央:导航地图(行车时跟随车头转向) -->
-    <div class="dg-map-wrap">
-      <div class="dash-map" id="dash-map"></div>
-      <div class="dsmap-dest" id="ds-map-dest" hidden></div>
-      <div class="dsmap-trip" id="ds-map-trip">本次行程待开始</div>
-    </div>
-
-    <!-- 右表盘:功率(开口朝左;回收绿色/输出琥珀) -->
-    <div class="dg-gauge dg-right">
-      <svg id="dg-r-svg" viewBox="0 0 320 320" aria-hidden="true"></svg>
-      <div class="dg-center dg-center-r">
-        <div class="dg-power"><b id="dg-power">0</b><span>kW</span></div>
-        <div class="dg-batt"><b id="dg-soc">—</b><i>·</i><span id="dg-range">—</span></div>
+    <div class="card col-12">
+      <h2>通勤分析</h2>
+      <div class="card-sub">车辆生涯累计,按停车时长与车速自动判定:低于 30 km/h 即算堵车(偶尔提速不超过 20 秒不中断),通畅车流中停车 5–120 秒记为红绿灯等待</div>
+      <div class="life-stats">
+        <div class="life-item">
+          <div class="life-val"><b id="tf-total">—</b></div>
+          <div class="life-lab">通勤总时间</div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><b id="tf-jam">—</b></div>
+          <div class="life-lab">堵车时间</div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><b id="tf-jam-km">—</b><span>km</span></div>
+          <div class="life-lab">堵车路程</div>
+        </div>
+        <div class="life-item">
+          <div class="life-val"><b id="tf-light">—</b></div>
+          <div class="life-lab">红绿灯等待<i id="tf-light-sub"></i></div>
+        </div>
       </div>
     </div>
 
-    <!-- 驻车/离线/充电状态条(悬浮,不遮挡表盘) -->
-    <div class="dash-parked" id="dash-parked" hidden>
-      <b id="ds-p-soc">—</b><span class="dsp-range" id="ds-p-range"></span>
-      <span class="dsp-eta" id="ds-p-eta" hidden></span>
-      <span class="dsp-clock" id="ds-p-clock">—</span>
+    <div class="card col-6">
+      <div class="card-head">
+        <div>
+          <h2>胎压</h2>
+          <div class="card-sub">四轮胎压(bar),仅车辆清醒时段上报;刻度条覆盖所选范围的最低–最高,竖线为标准胎压 2.9 bar,读数按偏差着色(≤0.15 绿 / ≤0.3 黄 / 再高红)</div>
+        </div>
+      </div>
+      <div class="tpms-grid" id="tpms-wheels"></div>
+    </div>
+
+    <div class="card col-6">
+      <div class="card-head">
+        <div>
+          <h2>车内 / 车外温度</h2>
+          <div class="card-sub">曲线颜色随温度由蓝到红;两线之间为内外温差,浅绿带为舒适区 20–26°C</div>
+        </div>
+        <div class="card-head-right">
+          <div class="temp-now" id="temp-now"></div>
+        </div>
+      </div>
+      <div class="chart" id="chart-temp"></div>
+    </div>
+
+    <div class="card col-12">
+      <div class="card-head">
+        <div>
+          <h2>温度与能耗 · 近一年</h2>
+          <div class="card-sub">按自然月统计:柱=当月平均能耗(Wh/km,只计超过 2 km 的行程,柱色=与官方能耗对比),线=月均车外温度;低温月份能耗通常走高</div>
+        </div>
+      </div>
+      <div class="chart" id="chart-monthly"></div>
     </div>
   </div>
   </section>
@@ -260,23 +306,24 @@
       <div class="card nav-card">
         <h3 class="nav-h">路线</h3>
         <div class="nav-search nav-pt">
-          <span class="nav-pt-ico">🚗</span>
+          <span class="nav-pt-ico"><i class="nav-dot nav-dot-start"></i></span>
           <input id="nav-origin-inp" type="search" placeholder="起点(默认车辆当前位置,可手动输入)" autocomplete="off">
           <div class="nav-tips" id="nav-origin-tips" hidden></div>
         </div>
         <div class="nav-origin" id="nav-origin">起点:读取车辆位置中…</div>
         <div class="nav-waypts" id="nav-waypts"></div>
         <div class="nav-search nav-pt">
-          <span class="nav-pt-ico">➕</span>
+          <span class="nav-pt-ico"><i class="nav-dot nav-dot-via"></i></span>
           <input id="nav-via-inp" type="search" placeholder="添加途经点(道路 / 地点,可多个)" autocomplete="off">
           <label class="nav-chg-only" title="只搜索充电站"><input type="checkbox" id="nav-via-chg">充电站</label>
           <div class="nav-tips" id="nav-via-tips" hidden></div>
         </div>
         <div class="nav-search nav-pt">
-          <span class="nav-pt-ico">🏁</span>
+          <span class="nav-pt-ico"><i class="nav-dot nav-dot-dest"></i></span>
           <input id="nav-dest-inp" type="search" placeholder="终点(名称 / 地址)" autocomplete="off">
           <div class="nav-tips" id="nav-tips" hidden></div>
         </div>
+        <button class="nav-go" id="nav-go">开始规划</button>
         <div id="nav-msg" class="nav-msg"></div>
       </div>
 
@@ -293,6 +340,8 @@
           <label>出发电量 <b id="nav-start-soc">—</b>%</label>
           <label>到达至少剩 <input type="number" id="nav-arr-soc" value="20" min="0" max="90"> %</label>
           <label>每站充到 <input type="number" id="nav-dep-soc" value="80" min="20" max="100"> %</label>
+          <label class="nav-chg-only nav-bands-lab" title="在地图路径上按每 10% 电量分段着色">
+            <input type="checkbox" id="nav-bands-tgl" checked>地图电量色带(每 10%)</label>
         </div>
         <div id="nav-plan-summary" class="nav-msg"></div>
         <div id="nav-stops"></div>
@@ -312,13 +361,12 @@
   </div>
   </section>
 
-  <!-- ===== 分页 4:数据(充电 / 行程 / 活动 / 车况 二级导航) ===== -->
+  <!-- ===== 分页 4:数据(充电 / 行程 / 活动 二级导航) ===== -->
   <section class="page" id="page-data">
   <nav class="data-tabs" id="data-tabs" role="tablist" aria-label="数据分类">
     <button class="dtab" role="tab" data-sub="charging" aria-selected="false">充电</button>
     <button class="dtab" role="tab" data-sub="drives" aria-selected="false">行程</button>
     <button class="dtab" role="tab" data-sub="activity" aria-selected="false">活动</button>
-    <button class="dtab" role="tab" data-sub="vehicle" aria-selected="false">车况</button>
   </nav>
   <section class="subpage" id="page-charging">
   <div class="grid">
@@ -463,91 +511,6 @@
   </div>
   </section>
 
-  <!-- ===== 数据子页:车况 ===== -->
-  <section class="subpage" id="page-vehicle">
-  <div class="grid">
-    <div class="card col-12 life-card">
-      <img class="life-bh" src="/blackhole.webp" alt="" aria-hidden="true">
-      <h2>生涯总览</h2>
-      <div class="card-sub" id="life-sub">能耗与费用自开始统计起累计</div>
-      <div class="life-stats">
-        <div class="life-item">
-          <div class="life-val"><b id="life-km">—</b><span>km</span></div>
-          <div class="life-lab">总里程<i id="life-km-sub"></i></div>
-        </div>
-        <div class="life-item">
-          <div class="life-val"><b id="life-kwh">—</b><span>kWh</span></div>
-          <div class="life-lab">总耗电量<i id="life-kwh-sub"></i></div>
-        </div>
-        <div class="life-item">
-          <div class="life-val"><span>¥</span><b id="life-cost">—</b></div>
-          <div class="life-lab">充电总费用<i id="life-cost-sub"></i></div>
-        </div>
-        <div class="life-item">
-          <div class="life-val"><b id="life-cycles">—</b><span>次</span></div>
-          <div class="life-lab">电池循环<i id="life-cycles-sub"></i></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card col-12">
-      <h2>通勤分析</h2>
-      <div class="card-sub">车辆生涯累计,按停车时长与车速自动判定:低于 30 km/h 即算堵车(偶尔提速不超过 20 秒不中断),通畅车流中停车 5–120 秒记为红绿灯等待</div>
-      <div class="life-stats">
-        <div class="life-item">
-          <div class="life-val"><b id="tf-total">—</b></div>
-          <div class="life-lab">通勤总时间</div>
-        </div>
-        <div class="life-item">
-          <div class="life-val"><b id="tf-jam">—</b></div>
-          <div class="life-lab">堵车时间</div>
-        </div>
-        <div class="life-item">
-          <div class="life-val"><b id="tf-jam-km">—</b><span>km</span></div>
-          <div class="life-lab">堵车路程</div>
-        </div>
-        <div class="life-item">
-          <div class="life-val"><b id="tf-light">—</b></div>
-          <div class="life-lab">红绿灯等待<i id="tf-light-sub"></i></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card col-6">
-      <div class="card-head">
-        <div>
-          <h2>胎压</h2>
-          <div class="card-sub">四轮胎压(bar),仅车辆清醒时段上报;刻度条覆盖所选范围的最低–最高,竖线为标准胎压 2.9 bar,读数按偏差着色(≤0.15 绿 / ≤0.3 黄 / 再高红)</div>
-        </div>
-      </div>
-      <div class="tpms-grid" id="tpms-wheels"></div>
-    </div>
-
-    <div class="card col-6">
-      <div class="card-head">
-        <div>
-          <h2>车内 / 车外温度</h2>
-          <div class="card-sub">曲线颜色随温度由蓝到红;两线之间为内外温差,浅绿带为舒适区 20–26°C</div>
-        </div>
-        <div class="card-head-right">
-          <div class="temp-now" id="temp-now"></div>
-        </div>
-      </div>
-      <div class="chart" id="chart-temp"></div>
-    </div>
-
-    <div class="card col-12">
-      <div class="card-head">
-        <div>
-          <h2>温度与能耗 · 近一年</h2>
-          <div class="card-sub">按自然月统计:柱=当月平均能耗(Wh/km,只计超过 2 km 的行程,柱色=与官方能耗对比),线=月均车外温度;低温月份能耗通常走高</div>
-        </div>
-      </div>
-      <div class="chart" id="chart-monthly"></div>
-    </div>
-  </div>
-  </section>
-
   <!-- ===== 数据子页:行程 ===== -->
   <section class="subpage" id="page-drives">
   <div class="grid">
@@ -669,26 +632,11 @@
               <g class="ctl-zone" data-zone="climate" role="button" tabindex="0" style="--zc:var(--series-1)">
                 <title>空调:点击切换 开/关</title>
                 <path class="zone-shape" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z"/>
-                <path class="zone-ico zone-ico-stroke" transform="translate(160 256) scale(0.9)" d="M12 2v20M3.3 7l17.4 10M20.7 7 3.3 17M9 4.5 12 7l3-2.5M9 19.5 12 17l3 2.5"/>
+                <path class="zone-ico zone-ico-stroke" transform="translate(157 262) scale(1.1)" d="M12 2v20M3.3 7l17.4 10M20.7 7 3.3 17M9 4.5 12 7l3-2.5M9 19.5 12 17l3 2.5"/>
                 <text class="zone-lab" id="ctlz-climate-lab" x="170" y="308">空调</text>
               </g>
-              <text id="ctl-model-temp" x="170" y="242" text-anchor="middle" pointer-events="none">—</text>
-              <text id="ctl-model-inside" x="170" y="296" text-anchor="middle" pointer-events="none">车内 —</text>
-              <!-- 座位模型(Model Y L 六座 2+2+2,仅展示,点击仍落在空调区):
-                   驾驶位有人=is_user_present;其余座位无占用数据源,常显未知 -->
-              <g id="ctl-seats" pointer-events="none">
-                <g class="ctl-seat" id="ctl-seat-fl"><rect x="110" y="186" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="121" y="179" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="128" cy="202" r="6"/></g>
-                <g class="ctl-seat" id="ctl-seat-fr"><rect x="194" y="186" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="205" y="179" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="212" cy="202" r="6"/></g>
-                <g class="ctl-seat" id="ctl-seat-rl"><rect x="110" y="248" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="121" y="241" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="128" cy="264" r="6"/></g>
-                <g class="ctl-seat" id="ctl-seat-rr"><rect x="194" y="248" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="205" y="241" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="212" cy="264" r="6"/></g>
-                <g class="ctl-seat" id="ctl-seat-tl"><rect x="110" y="308" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="121" y="301" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="128" cy="324" r="6"/></g>
-                <g class="ctl-seat" id="ctl-seat-tr"><rect x="194" y="308" width="36" height="32" rx="9"/><rect class="ctl-seat-head" x="205" y="301" width="14" height="8" rx="3.5"/><circle class="ctl-seat-man" cx="212" cy="324" r="6"/></g>
-              </g>
-              <!-- 方向盘(驾驶位前):加热中发橙光 -->
-              <g id="ctl-wheel" pointer-events="none">
-                <circle class="ctl-wheel-rim" cx="128" cy="172" r="9"/>
-                <path class="ctl-wheel-spoke" d="M128 172 L128 164 M128 172 L121 177 M128 172 L135 177"/>
-              </g>
+              <text id="ctl-model-temp" x="170" y="235" text-anchor="middle" pointer-events="none">—</text>
+              <text id="ctl-model-inside" x="170" y="337" text-anchor="middle" pointer-events="none">车内 —</text>
               <!-- 充电口(左后翼子板,真实车充电口位置) -->
               <g class="ctl-zone" data-zone="chargeport" role="button" tabindex="0" style="--zc:var(--cat-charge)">
                 <title>充电口:点击 开/关</title>
@@ -711,7 +659,7 @@
               <path class="car-body-line" d="M170 52 C196 52 218 62 232 84 C243 100 251 118 256 142 C261 168 263 190 261 210 C260 228 259 244 259 258 C259 288 261 316 261 334 C260 356 255 378 245 392 C233 408 205 418 170 418 C135 418 107 408 95 392 C85 378 80 356 79 334 C79 316 81 288 81 258 C81 244 80 228 79 210 C77 190 79 168 84 142 C89 118 97 100 108 84 C122 62 144 52 170 52 Z" pointer-events="none"/>
             </svg>
             <div class="ctl-chips" id="ctl-chips"></div>
-            <p class="ctl-legend-hint">点按车身部位操作 · 部位发绿光 = 开启/已锁 · 玻璃顶内为六座状态:蓝座 = 驾驶位有人,橙光 = 座椅/方向盘加热(其余座位无占用传感器)</p>
+            <p class="ctl-legend-hint">点按车身部位操作 · 部位发绿光 = 开启/已锁</p>
 
             <!-- 上滑展开控制模块:面板覆盖在车模同一区域,下滑/点握把返回 -->
             <button class="ctl-sheet-peek" id="ctl-sheet-peek" type="button" aria-label="展开控制模块">
@@ -844,20 +792,20 @@
   </footer>
 </div>
 
-<!-- 底部分页导航:液态玻璃浮动栏(总览 / 仪表盘 / 导航 / 数据 / 控制) -->
+<!-- 底部分页导航:液态玻璃浮动栏(车况 / 导航 / 总览·主页居中 / 数据 / 控制) -->
 <nav class="tabbar" id="tabbar" role="tablist" aria-label="功能分页">
   <i class="tab-bubble no-anim" id="tab-bubble" aria-hidden="true"></i>
-  <button class="tab" role="tab" data-page="overview" aria-selected="false">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 13.2 5 8.9A2.2 2.2 0 0 1 7.1 7.4h9.8a2.2 2.2 0 0 1 2.1 1.5l1.6 4.3c.4.1.8.5.8 1v4.2a.9.9 0 0 1-.9.9h-1.4a.9.9 0 0 1-.9-.9v-1h-12v1a.9.9 0 0 1-.9.9H3.9a.9.9 0 0 1-.9-.9v-4.2c0-.5.3-.9.4-1zM7.2 9 6 12.4h12L16.8 9H7.2z"/><circle cx="7.3" cy="14.9" r="1.5"/><circle cx="16.7" cy="14.9" r="1.5"/></svg>
-    <span>总览</span>
-  </button>
-  <button class="tab" role="tab" data-page="dash" aria-selected="false">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5A9.5 9.5 0 0 0 2.5 13c0 2.6 1 5 2.7 6.7l1.4-1.4A7.5 7.5 0 1 1 19.5 13c0 2-.8 3.9-2.1 5.3l1.4 1.4a9.5 9.5 0 0 0 2.7-6.7A9.5 9.5 0 0 0 12 3.5z"/><path d="M12 15.2a1.7 1.7 0 0 1-.6-3.3l4.6-3-3 4.6a1.7 1.7 0 0 1-1 1.7z"/></svg>
-    <span>仪表盘</span>
+  <button class="tab" role="tab" data-page="vehicle" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    <span>车况</span>
   </button>
   <button class="tab" role="tab" data-page="nav" aria-selected="false">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z"/></svg>
     <span>导航</span>
+  </button>
+  <button class="tab tab-home" role="tab" data-page="overview" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362l-.004.002H12v-.002zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.349c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46v.003z"/></svg>
+    <span>总览</span>
   </button>
   <button class="tab" role="tab" data-page="data" aria-selected="false">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 20V10h3.2v10H4zm6.4 0V4h3.2v16h-3.2zM16.8 20v-7H20v7h-3.2z"/></svg>
@@ -884,9 +832,8 @@
 <script src="/echarts.min.js"></script>
 <script src="/maplibre-gl-csp.js"></script>
 <script src="/pmtiles.js"></script>
-<script src="/control.js?v=13"></script>
-<script src="/dash.js?v=2"></script>
-<script src="/nav.js?v=2"></script>
+<script src="/control.js?v=14"></script>
+<script src="/nav.js?v=4"></script>
 <script src="/pageturn.js"></script>
 <script src="/app.js"></script>
 </body>

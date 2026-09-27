@@ -128,7 +128,7 @@ def test_snapshot_trip_baseline(client, monkeypatch):  # noqa: F811
     from datetime import datetime
     login(client)
     rows = [{"start_date": datetime(2026, 9, 26, 8, 0, 0),
-             "start_odometer": 10000.5, "start_battery_level": 80,
+             "start_km": 10000.5, "start_battery_level": 80,
              "start_ideal_range_km": 400.0}]
     _fake_q(monkeypatch, main, drives_rows=rows)
     monkeypatch.setattr(telemetry, "live_snapshot",

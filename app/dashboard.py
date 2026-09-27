@@ -28,17 +28,18 @@ def snapshot(car_id: int | None = Query(default=None)):
 
     trip = None
     rows = main.q(
-        "SELECT start_date, start_odometer, start_battery_level, "
-        "start_ideal_range_km FROM drives "
-        "WHERE car_id = %s AND end_date IS NULL "
-        "ORDER BY start_date DESC LIMIT 1",
+        "SELECT d.start_date, d.start_km, p.battery_level AS start_battery_level, "
+        "d.start_ideal_range_km FROM drives d "
+        "LEFT JOIN positions p ON p.id = d.start_position_id "
+        "WHERE d.car_id = %s AND d.end_date IS NULL "
+        "ORDER BY d.start_date DESC LIMIT 1",
         (cid,),
     )
     if rows:
         r = rows[0]
         trip = {
             "start_ts": telemetry._utc_ms(r["start_date"]),
-            "start_odometer": float(r["start_odometer"]) if r["start_odometer"] else None,
+            "start_odometer": float(r["start_km"]) if r["start_km"] else None,
             "start_battery_level": r["start_battery_level"],
             "start_ideal_range_km": float(r["start_ideal_range_km"])
             if r["start_ideal_range_km"] else None,

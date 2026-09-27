@@ -17,6 +17,8 @@
     plan: null,
     markers: [],
     carSoc: null,
+    dirty: true,           // 起终点/途经点已变化,需重新点「开始规划」
+    showBands: true,       // 地图路径按每 10% 电量分段着色
   };
   // 实际起点:手动优先,其次车辆位置;返回值 "lng,lat" 或 null
   const originLoc = () =>
@@ -64,26 +66,36 @@
   function redrawMarkers() {
     NS.markers.forEach((m) => m.remove());
     NS.markers = [];
-    const add = (lngLat, html, cls) => {
+    // 起/途经/终点 = 黄/绿/红发光圆点(纯 CSS,不用 emoji);充电 = 青
+    const add = (lngLat, cls) => {
       const el = document.createElement('div');
-      el.className = cls; el.innerHTML = html;
+      el.className = cls;
       const mk = new maplibregl.Marker({ element: el }).setLngLat(lngLat).addTo(NS.map);
       NS.markers.push(mk);
     };
     const o = originLoc();
-    if (o) { const [lng, lat] = o.split(',').map(Number); add([lng, lat], '🚗', 'nav-mk'); }
+    if (o) { const [lng, lat] = o.split(',').map(Number); add([lng, lat], 'nav-mk nav-mk-start'); }
     NS.waypoints.forEach((w) => {
       const [lng, lat] = w.location.split(',').map(Number);
-      add([lng, lat], w.kind === 'service' ? '⛽' : w.kind === 'charger' ? '⚡' : '🛣️', 'nav-mk');
+      add([lng, lat], 'nav-mk nav-mk-via');
     });
     if (NS.dest) {
       const [lng, lat] = NS.dest.location.split(',').map(Number);
-      add([lng, lat], '🏁', 'nav-mk nav-mk-dest');
+      add([lng, lat], 'nav-mk nav-mk-dest');
     }
-    if (NS.plan) NS.plan.stops.forEach((s) => {
-      const [lng, lat] = s.location.split(',').map(Number);
-      add([lng, lat], '⚡', 'nav-mk nav-mk-chg');
-    });
+    if (NS.plan) {
+      // 电量不足以直达时:沿途全部充电站作为推荐标在地图上(小点),
+      // 入选的规划停靠站画大点
+      const needCharge = !NS.plan.reachable || (NS.plan.stops || []).length > 0;
+      if (needCharge) (NS.plan.chargers || []).forEach((c) => {
+        const [lng, lat] = c.location.split(',').map(Number);
+        add([lng, lat], 'nav-mk nav-mk-chgall');
+      });
+      (NS.plan.stops || []).forEach((s) => {
+        const [lng, lat] = s.location.split(',').map(Number);
+        add([lng, lat], 'nav-mk nav-mk-chg');
+      });
+    }
   }
 
   function drawPath(path) {
@@ -112,6 +124,26 @@
     }
   }
 
+  /* 按开关应用电量色带(每 10% 一段) */
+  const applyBands = () =>
+    drawBands(NS.showBands && NS.plan ? NS.plan.bands : []);
+
+  /* 「开始规划」按钮状态:有变化时提示重新规划 */
+  function updateGo() {
+    const btn = $('nav-go');
+    if (!btn) return;
+    btn.textContent = NS.paths.length ? '重新规划' : '开始规划';
+    btn.classList.toggle('dirty', NS.dirty);
+  }
+  /* 起终点/途经点变化:只标脏,不自动规划(等用户点「开始规划」) */
+  function markDirty() {
+    NS.dirty = true;
+    NS.plan = null;
+    applyBands();   // 旧色带/充电推荐一并清掉,避免误导
+    updateGo();
+    if (NS.paths.length) msg('路线条件已变化,点击「重新规划」');
+  }
+
   /* ---------- 车辆位置 / 起点 ---------- */
   function renderOriginLine() {
     const el = $('nav-origin');
@@ -122,7 +154,7 @@
         $('nav-origin-inp').value = '';
         renderOriginLine();
         if (NS.map && NS.map.loaded()) redrawMarkers();
-        doRoute();
+        markDirty();
       };
     } else if (NS.carPos) {
       el.textContent =
@@ -165,7 +197,12 @@
           d.tips.forEach((t) => {
             const b = document.createElement('button');
             b.innerHTML = `${esc(t.name)}<small>${esc(t.district)} ${esc(t.address)}</small>`;
-            b.onclick = () => { box.hidden = true; inp.value = ''; onPick(t); };
+            b.onclick = () => {
+            box.hidden = true;
+            // 起终点选中后名字留在输入框里(途经点可连续添加,仍清空)
+            inp.value = opts.keep ? t.name : '';
+            onPick(t);
+          };
             box.appendChild(b);
           });
           box.hidden = !d.tips.length;
@@ -182,23 +219,21 @@
     NS.waypoints.forEach((w, i) => {
       const c = document.createElement('span');
       c.className = 'nav-chip';
-      c.innerHTML = `${w.kind === 'service' ? '⛽' : w.kind === 'charger' ? '⚡' : '🛣️'} <b>${esc(w.name)}</b>`;
+      c.innerHTML = `<i class="nav-dot nav-dot-via nav-dot-s"></i><b>${esc(w.name)}</b>`;
       const x = document.createElement('button');
       x.textContent = '✕';
-      x.onclick = () => { NS.waypoints.splice(i, 1); NS.plan = null; renderWaypoints(); doRoute(); };
+      x.onclick = () => { NS.waypoints.splice(i, 1); renderWaypoints(); markDirty(); };
       c.appendChild(x);
       box.appendChild(c);
     });
     if (NS.map && NS.map.loaded()) redrawMarkers();
   }
 
-  /* ---------- 路线规划 ---------- */
+  /* ---------- 路线规划(点击「开始规划」触发) ---------- */
   async function doRoute() {
     const o = originLoc();
-    if (!o || !NS.dest) {
-      if (NS.dest && !o) msg('请先选择起点(车辆离线时手动输入)', 'err');
-      return;
-    }
+    if (!NS.dest) { msg('请先选择终点', 'err'); return; }
+    if (!o) { msg('请先选择起点(车辆离线时手动输入)', 'err'); return; }
     msg('规划路线中…');
     try {
       const d = await api('nav/route', {
@@ -213,16 +248,19 @@
       NS.paths = d.paths;
       NS.selPath = 0;
       NS.plan = null;
+      NS.dirty = false;
       renderPaths();
       drawPath(NS.paths[0]);
       drawBands([]);
       msg('');
+      updateGo();
       $('nav-routes-card').hidden = false;
       $('nav-plan-card').hidden = false;
       $('nav-push-card').hidden = false;
       $('nav-svcs').hidden = true;
       $('nav-plan-summary').textContent = '';
       $('nav-stops').innerHTML = '';
+      doPlan();   // 路线选定后自动生成电量规划(含 10% 色带与充电推荐)
     } catch (e) {
       msg(e.message || '路线规划失败', 'err');
     }
@@ -242,6 +280,7 @@
         NS.selPath = i; NS.plan = null;
         renderPaths(); drawPath(p); drawBands([]);
         $('nav-stops').innerHTML = ''; $('nav-plan-summary').textContent = '';
+        doPlan();   // 切换路线方案后直接重算电量规划
       };
       box.appendChild(b);
     });
@@ -270,8 +309,7 @@
           } else {
             NS.waypoints = NS.waypoints.filter((w) => w.id !== poi.id);
           }
-          NS.plan = null;
-          renderWaypoints(); doRoute();
+          renderWaypoints(); markDirty();
         };
         lab.appendChild(cb);
         const t = document.createElement('span');
@@ -315,7 +353,7 @@
         }),
       });
       NS.plan = d;
-      drawBands(d.bands);
+      applyBands();
       redrawMarkers();
       renderPlan();
     } catch (e) {
@@ -326,14 +364,18 @@
   function renderPlan() {
     const d = NS.plan;
     const sum = $('nav-plan-summary');
+    const nChg = (d.chargers || []).length;
     if (!d.reachable) {
-      sum.textContent = `⚠️ 沿途超充不足,按当前电量无法到达(直达预计剩 ${d.arrival_soc_direct}%)`;
+      sum.textContent = nChg
+        ? `⚠️ 按当前电量无法到达(直达预计剩 ${d.arrival_soc_direct}%);沿途 ${nChg} 座充电站已标在地图上`
+        : `⚠️ 沿途超充不足,按当前电量无法到达(直达预计剩 ${d.arrival_soc_direct}%)`;
       sum.className = 'nav-msg err';
     } else if (!d.stops.length) {
       sum.textContent = `✓ 可直达,预计到达剩 ${d.arrival_soc}%(总能耗约 ${d.kwh_per_km * d.total_km | 0} kWh)`;
       sum.className = 'nav-msg ok';
     } else {
-      sum.textContent = `需充 ${d.stops.length} 次,预计到达剩 ${d.arrival_soc}%`;
+      sum.textContent = `需充 ${d.stops.length} 次,预计到达剩 ${d.arrival_soc}%` +
+        (nChg ? `;沿途 ${nChg} 座充电站已标在地图上` : '');
       sum.className = 'nav-msg';
     }
     const box = $('nav-stops');
@@ -341,7 +383,7 @@
     d.stops.forEach((s) => {
       const div = document.createElement('div');
       div.className = 'nav-stop';
-      div.innerHTML = `<div class="ns-name">⚡ ${esc(s.name)}</div>
+      div.innerHTML = `<div class="ns-name"><i class="nav-dot nav-dot-chg nav-dot-s"></i>${esc(s.name)}</div>
         <div class="ns-soc">距起点 ${s.at_km} km · 到达剩 <b>${s.arrive_soc}%</b> · 充到 <b class="ns-dep">${s.depart_soc}%</b></div>`;
       const range = document.createElement('input');
       range.type = 'range'; range.min = 30; range.max = 100; range.step = 5;
@@ -405,36 +447,34 @@
       bound = true;
       bindTips('nav-dest-inp', 'nav-tips', (t) => {
         NS.dest = { name: t.name, location: t.location, address: t.address };
-        NS.plan = null;
         if (NS.map && NS.map.loaded()) redrawMarkers();
-        doRoute();
-      });
+        markDirty();
+        if (!NS.paths.length) msg('已选择终点,点击「开始规划」');
+      }, { keep: true });
       bindTips('nav-origin-inp', 'nav-origin-tips', (t) => {
         NS.originManual = { name: t.name, location: t.location };
         renderOriginLine();
-        NS.plan = null;
         if (NS.map && NS.map.loaded()) redrawMarkers();
-        doRoute();
-      });
+        markDirty();
+      }, { keep: true });
       bindTips('nav-via-inp', 'nav-via-tips', (t) => {
         NS.waypoints.push({
           name: t.name, location: t.location,
           kind: $('nav-via-chg').checked ? 'charger' : 'road',
         });
-        NS.plan = null;
         renderWaypoints();
-        doRoute();
+        markDirty();
       }, { charger: () => $('nav-via-chg').checked });
+      $('nav-go').onclick = doRoute;
       $('nav-svc-btn').onclick = findServices;
+      $('nav-bands-tgl').onchange = () => {
+        NS.showBands = $('nav-bands-tgl').checked;
+        applyBands();
+      };
       $('nav-arr-soc').onchange = () => schedulePlan();
       $('nav-dep-soc').onchange = () => schedulePlan();
       $('nav-push-car').onclick = pushToCar;
       $('nav-push-amap').onclick = openAmap;
-      // 路线选定后自动生成电量规划
-      const obs = new MutationObserver(() => {
-        if (!$('nav-plan-card').hidden && NS.paths.length && !NS.plan) schedulePlan();
-      });
-      obs.observe($('nav-plan-card'), { attributes: true, attributeFilter: ['hidden'] });
     }
     try {
       const c = await api('nav/config');

@@ -3872,7 +3872,7 @@
     const q = S.carId === null ? '' : (path.includes('?') ? '&' : '?') + 'car_id=' + S.carId;
     return fetchJSON('/api/' + path + q, opts);
   }
-  // 桥给独立模块(dash.js 行车仪表盘)复用,避免重复实现
+  // 桥给独立模块(nav.js 导航页)复用,避免重复实现
   window.__ttvApi = api;
   window.__ttvLoadMapStyle = loadMapStyle;
 
@@ -3964,11 +3964,11 @@
     renderEfficiency(); renderParked(); renderMonthly(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime(); renderTraffic();
   }
 
-  /* ---------- 功能分页(底部液态玻璃 Tab 栏:总览/仪表盘/导航/数据/控制) ---------- */
+  /* ---------- 功能分页(底部液态玻璃 Tab 栏:总览/车况/导航/数据/控制) ---------- */
 
-  const PAGE_IDS = ['overview', 'dash', 'nav', 'data', 'control'];
+  const PAGE_IDS = ['overview', 'vehicle', 'nav', 'data', 'control'];
   // 「数据」主 Tab 下的二级子页(保留原 section id,图表 resize/地图逻辑沿用)
-  const DATA_SUBS = ['charging', 'drives', 'activity', 'vehicle'];
+  const DATA_SUBS = ['charging', 'drives', 'activity'];
   let dataSub = localStorage.getItem('ttv-data-tab') || 'charging';
   let mapShown = false;  // 行程子页首次显示时需 resize + 重新 fitBounds
 
@@ -4067,11 +4067,8 @@
     const afterShow = () => requestAnimationFrame(() => {
       resizeSection(contentSection(name));
       if (name === 'overview') renderCar();  // 俯视图标注随舞台尺寸定位,重算一次
-      if (name === 'dash') window.TTVDash?.enter();  // 行车仪表盘:进页连 WS+自动全屏
       if (name === 'nav') window.TTNav?.enter();     // 导航页:惰性建图 + 读车辆位置
     });
-    // 离开仪表盘页:断开实时通道并退出全屏(动画与直切两条路径都要覆盖)
-    if (curPage && curPage.id === 'page-dash' && name !== 'dash') window.TTVDash?.leave();
     // 动画路径:Tab 态与气泡滑动先行(手感即时),旧页模块从四周退出,再切页、新页模块从四周进入
     // 「数据」页的动画目标委托给当前激活子页(pageturn 只认 :scope > .grid > .card)
     if (cur && nxt && cur !== nxt && window.TTVPageTurn) {

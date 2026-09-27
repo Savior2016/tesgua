@@ -31,11 +31,13 @@
   --car-body: #e9e9e8;
   --car-tire: #cccbc1;
   /* 活动分类色(参考调色板,黄/品红/绿/紫四色全配对校验通过):行驶=黄 充电=青 哨兵=品红 驻车空调=绿 驻车耗电=紫 */
+  /* 小憩=天蓝(#0284c7,validate_palette 明主题全配对通过;CVD 临界对为既有 哨兵↔充电,chip 自带文字兜底) */
   --cat-drive: #eda100;
   --cat-charge: #1baf7a;
   --cat-sentry: #e87ba4;
   --cat-climate: #008300;
   --cat-idle: #4a3aa7;
+  --cat-nap: #0284c7;
   --success: #006300;
   /* ===== iOS 27 液态玻璃材质令牌 =====
      玻璃卡片 = 半透底 + 背景模糊/饱和 + 发丝描边 + 顶部镜面高光 + 暗化底缘(可读性) */
@@ -82,6 +84,7 @@
   --cat-sentry: #d55181;
   --cat-climate: #008300;
   --cat-idle: #9085e9;
+  --cat-nap: #22d3ee;
   --success: #0ca30c;
   /* 暗色玻璃:更通透、高光更克制、底缘更暗(iOS 27 暗化边缘提可读性) */
   --glass-card: color-mix(in srgb, var(--surface-1) 46%, transparent);
@@ -125,6 +128,7 @@
     --cat-sentry: #d55181;
     --cat-climate: #008300;
     --cat-idle: #9085e9;
+    --cat-nap: #22d3ee;
     --success: #0ca30c;
     /* 暗色玻璃令牌(同 :root[data-theme="dark"]) */
     --glass-card: color-mix(in srgb, var(--surface-1) 46%, transparent);
@@ -1062,6 +1066,172 @@ button { touch-action: manipulation; }
   margin-top: 1px;
 }
 
+/* ===== 总览·数据模式(个人中心「显示偏好 → 总览样式」切换)=====
+   顶部 KPI 大数字横排 + 左能量分布环图 + 右次要指标列;
+   均耗条(.car-eff)与充电周期条(.cycle-strip)两种模式共用 */
+.car-data[hidden] { display: none; }
+
+.carview.mode-data { display: block; padding-bottom: 42px; }
+.carview.mode-data .car-side,
+.carview.mode-data .car-mid { display: none; }
+/* 三态切换在数据模式下常驻(盖住 sides-stowed 的隐藏规则,须放在其后) */
+.carview.mode-data #car-mode-seg {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* 顶部 KPI 横排 */
+.cd-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.cd-kpi {
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  border: 1px solid var(--glass-edge);
+  border-radius: 12px;
+  padding: 12px 14px 11px;
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+  min-width: 0;
+}
+.cd-kpi-name {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.cd-kpi-val {
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cd-kpi-val b {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--series-1);
+  font-variant-numeric: tabular-nums;
+}
+.cd-kpi-unit { font-size: 13px; color: var(--text-secondary); }
+.cd-kpi-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 下方双列:左环图,右指标列 */
+.cd-body {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+  align-items: stretch;
+}
+
+.cd-donut-wrap {
+  position: relative;
+  border: 1px solid var(--glass-edge);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+  padding: 10px 10px 12px;
+}
+.cd-donut { height: 300px; }
+.cd-donut-center {
+  position: absolute;
+  /* 环体纵向中心 ≈ (padding-top 10 + 环高 300/2) */
+  top: calc(10px + 150px);
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+}
+.cd-donut-center b {
+  display: block;
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.cd-donut-center span {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.cd-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+.cd-legend .cl-item {
+  flex: 1 1 30%;
+  min-width: 96px;
+  padding: 6px 9px;
+  gap: 6px;
+}
+.cd-legend .cl-val { font-size: 14px; }
+
+/* 右侧指标列 */
+.cd-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cd-tile {
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  border: 1px solid var(--glass-edge);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: var(--ctl-shadow),
+              inset 0 1px 0 var(--glass-hi),
+              inset 0 -1px 0 var(--glass-edge-dark);
+}
+.cd-tile-name {
+  display: block;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.cd-tile-val {
+  display: block;
+  margin-top: 3px;
+  font-size: 19px;
+  font-weight: 650;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.cd-tile-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.cd-tpms { flex: 1; }
+.cd-tpms-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+  margin-top: 8px;
+}
+.cd-tpms-cell {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.cd-tpms-pos { font-size: 11.5px; color: var(--text-muted); }
+.cd-tpms-cell b { font-size: 16px; font-weight: 650; }
+
 /* 充电周期横条:横向滑动点选每次充电 */
 /* 充电周期横滑选择条(卡片底部) */
 .cycle-strip {
@@ -1445,6 +1615,7 @@ button { touch-action: manipulation; }
 .chip.cat-charge::before, .ev-chip.cat-charge::before { background: var(--cat-charge); }
 .chip.cat-sentry::before, .ev-chip.cat-sentry::before { background: var(--cat-sentry); }
 .chip.cat-idle::before, .ev-chip.cat-idle::before { background: var(--cat-idle); }
+.chip.cat-nap::before, .ev-chip.cat-nap::before { background: var(--cat-nap); }
 
 .chip-legend {
   display: flex;
@@ -1549,6 +1720,8 @@ button { touch-action: manipulation; }
 .day-donut .seg-climate { stroke: var(--cat-climate); }
 
 .day-donut .seg-idle { stroke: var(--cat-idle); }
+
+.day-donut .seg-occupied { stroke: var(--cat-nap); }
 
 .day-group.open .day-donut { display: none; }
 
@@ -2049,6 +2222,29 @@ button { touch-action: manipulation; }
   color: var(--text-muted);
   font-size: 13px;
 }
+
+/* ===== 小憩/午休列表(复用 ev-row 栅格,整行可点)+ 驻车详情弹窗 ===== */
+.pkd-row { cursor: pointer; border-radius: 8px; transition: background .15s ease; }
+.pkd-row:hover { background: color-mix(in srgb, var(--text-primary) 5%, transparent); }
+
+.pkd-dialog {
+  box-sizing: border-box;
+  width: calc(100% - 32px);
+  max-width: 430px;
+  max-height: 85dvh;
+  overflow: auto;
+  padding: 22px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  backdrop-filter: blur(24px) saturate(1.7);
+  -webkit-backdrop-filter: blur(24px) saturate(1.7);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, .45), inset 0 1px 0 var(--glass-hi), inset 0 -1px 0 var(--glass-edge-dark);
+  color: var(--text-primary);
+}
+.pkd-dialog::backdrop { background: rgba(0, 0, 0, .6); }
+.pkd-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.pkd-head h2 { margin: 0; font-size: 19px; }
 
 /* ===== 充电费用表 ===== */
 .cost-input {
@@ -2889,6 +3085,86 @@ footer a { color: var(--text-muted); }
 .page { display: none; }
 .page.active { display: block; }
 
+/* 「数据」主 Tab 的子页:与 .page 同机制,切换为轻量渐显(不走 pageturn) */
+.subpage { display: none; }
+.subpage.active { display: block; animation: subpage-in .24s ease-out; }
+@keyframes subpage-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .subpage.active { animation: none; }
+}
+
+/* 数据页二级导航:吸顶分段条(视觉沿用 .seg 玻璃底+选中 pill,贴顶栏下缘) */
+.data-tabs {
+  position: sticky;
+  top: 8px;
+  z-index: 900;
+  display: flex;
+  gap: 2px;
+  width: fit-content;
+  margin: 0 auto 14px;
+  padding: 3px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-edge);
+  background: color-mix(in srgb, var(--page) 62%, transparent);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.14), 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+.data-tabs .dtab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 18px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+.data-tabs .dtab:hover { background: var(--tile-track); color: var(--text-primary); }
+.data-tabs .dtab.on {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--series-1) 88%, #fff),
+    var(--series-1));
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--series-1) 45%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+@media (max-width: 600px) {
+  .data-tabs { width: calc(100% - 8px); }
+  .data-tabs .dtab { flex: 1; padding: 6px 0; text-align: center; }
+}
+
+/* 占位页(仪表盘/导航,阶段三/四填内容):居中大图标 + 呼吸微动效 */
+.soon-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 320px;
+  gap: 10px;
+}
+.soon-card svg {
+  width: 64px;
+  height: 64px;
+  color: var(--series-1);
+  opacity: 0.55;
+  animation: soon-breathe 3.6s ease-in-out infinite;
+}
+.soon-card h2 { margin: 0; }
+.soon-card p { margin: 0; color: var(--text-muted); font-size: 13px; }
+@keyframes soon-breathe {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .soon-card svg { animation: none; }
+}
+
 /* 底部居中浮动 Tab 栏(iOS 27 液态玻璃):
    高通透 + 强模糊/饱和度/亮度提升 + 顶部更亮的镜面高光 + 暗化底缘(可读性)+ 斜向扫光 + 选中气泡滑动回弹 */
 .tabbar {
@@ -2969,6 +3245,22 @@ footer a { color: var(--text-muted); }
   transition: color 0.18s ease, transform 0.12s ease;
 }
 .tabbar .tab svg { width: 21px; height: 21px; display: block; }
+/* 主页(总览)居中特殊标识:两侧分隔细线 + 特斯拉 T 徽标略放大 */
+.tabbar .tab-home::before,
+.tabbar .tab-home::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 30px;
+  background: linear-gradient(transparent, var(--border), transparent);
+  z-index: 0;
+}
+.tabbar .tab-home::before { left: -5px; }
+.tabbar .tab-home::after { right: -5px; }
+.tabbar .tab-home svg { width: 23px; height: 23px; }
+.tabbar .tab-home span { letter-spacing: 0.06em; }
 .tabbar .tab:hover { color: var(--text-primary); }
 .tabbar .tab:active { transform: scale(0.92); }
 .tabbar .tab.on { color: var(--text-primary); font-weight: 600; }
@@ -3338,6 +3630,11 @@ footer a { color: var(--text-muted); }
   /* 行程详情:窄屏键值网格改 2 列 */
   .rt-kv { grid-template-columns: repeat(2, 1fr); }
   .rt-map { height: 170px; }
+
+  /* 总览·数据模式:环图与指标列改单列(环图在上) */
+  .cd-body { grid-template-columns: 1fr; }
+  .cd-donut { height: 260px; }
+  .cd-donut-center { top: calc(10px + 130px); }
 }
 
 /* ===== 响应式:手机 ===== */
@@ -3399,6 +3696,16 @@ footer a { color: var(--text-muted); }
   }
   .cl-item { padding: 7px 6px; gap: 5px; }
   .cl-val { font-size: 15px; }
+
+  /* 总览·数据模式:KPI 改 2×2,数值与环图收窄 */
+  .cd-kpis { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .cd-kpi { padding: 10px 11px 9px; }
+  .cd-kpi-val b { font-size: 19px; }
+  .cd-donut { height: 220px; }
+  .cd-donut-center { top: calc(10px + 110px); }
+  .cd-donut-center b { font-size: 26px; }
+  .cd-legend .cl-item { min-width: 86px; }
+  .cd-tile-val { font-size: 17px; }
 
   /* 事件列表:日期行允许换行,摘要芯片独占一行防溢出 */
   .day-head { flex-wrap: wrap; padding: 9px 10px; }

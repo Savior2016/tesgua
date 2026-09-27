@@ -242,4 +242,8 @@ def plan(payload: PlanIn):
         "stops": stops,
         "bands": bands,
         "chargers_found": len(on_route),
+        # 全部沿途充电站(不止入选停靠):电量不足时前端推荐展示在地图上
+        "chargers": [{"id": str(c.get("id")), "name": c.get("name"),
+                      "location": c.get("location"), "at_km": c["at_km"]}
+                     for c in on_route],
     }

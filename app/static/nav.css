@@ -40,8 +40,42 @@
 /* 三框(起点/途经/终点)竖排:图标 + 输入 */
 .nav-pt { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .nav-card .nav-pt:first-of-type { margin-top: 0; }
-.nav-pt-ico { flex: 0 0 auto; width: 22px; text-align: center; font-size: 15px; }
+.nav-pt-ico { flex: 0 0 auto; width: 22px; display: flex; align-items: center; justify-content: center; }
 .nav-pt input { flex: 1; min-width: 0; }
+
+/* 开始规划主按钮:未脏=常规强调色;条件已变(dirty)=呼吸高亮提示重规划 */
+.nav-go {
+  width: 100%; margin-top: 12px; padding: 10px 12px;
+  border: 0; border-radius: 10px; cursor: pointer;
+  font-size: 14px; font-weight: 600; letter-spacing: 2px; color: #fff;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, .35);
+  transition: transform .12s, box-shadow .2s, filter .2s;
+}
+.nav-go:hover { filter: brightness(1.08); }
+.nav-go:active { transform: scale(.985); }
+.nav-go.dirty {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  box-shadow: 0 4px 16px rgba(245, 158, 11, .45);
+  animation: nav-go-pulse 1.6s ease-in-out infinite;
+}
+@keyframes nav-go-pulse {
+  0%, 100% { box-shadow: 0 4px 16px rgba(245, 158, 11, .45); }
+  50%      { box-shadow: 0 4px 22px rgba(245, 158, 11, .75); }
+}
+
+/* 起/途经/终点发光圆点(黄/绿/红,纯 CSS 不用 emoji);充电停靠 = 青 */
+.nav-dot {
+  width: 11px; height: 11px; border-radius: 50%;
+  display: inline-block; flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, .9);
+  box-sizing: border-box;
+}
+.nav-dot-start { background: #eab308; box-shadow: 0 0 8px 2px rgba(234, 179, 8, .65); }
+.nav-dot-via   { background: #22c55e; box-shadow: 0 0 8px 2px rgba(34, 197, 94, .65); }
+.nav-dot-dest  { background: #ef4444; box-shadow: 0 0 8px 2px rgba(239, 68, 68, .65); }
+.nav-dot-chg   { background: #22d3ee; box-shadow: 0 0 8px 2px rgba(34, 211, 238, .65); }
+.nav-dot-s { width: 9px; height: 9px; border-width: 1.5px; vertical-align: 1px; }
 .nav-chg-only {
   flex: 0 0 auto; display: flex; align-items: center; gap: 4px;
   font-size: 12px; color: var(--text-secondary, #999); white-space: nowrap;
@@ -86,6 +120,7 @@
 
 .nav-stop { border-top: 1px solid rgba(128,128,128,.12); padding: 10px 0 6px; font-size: 13px; }
 .nav-stop .ns-name { font-weight: 600; }
+.nav-stop .ns-name .nav-dot { margin-right: 6px; }
 .nav-stop .ns-soc { color: var(--text-muted, #888); font-size: 12px; margin: 2px 0 6px; }
 .nav-stop input[type=range] { width: 100%; }
 
@@ -96,11 +131,22 @@
 .nav-push-row { display: flex; gap: 10px; }
 .nav-push-row .btn { flex: 1; }
 
+/* 地图标记 = 发光圆点(白描边 + 同色光晕,中心锚定) */
 .nav-mk {
-  font-size: 22px; line-height: 1; cursor: default;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,.5));
+  width: 17px; height: 17px; border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, .92);
+  box-sizing: border-box; cursor: default;
 }
-.nav-mk-chg { font-size: 24px; }
+.nav-mk-start { background: #eab308; box-shadow: 0 0 12px 3px rgba(234, 179, 8, .8), 0 1px 4px rgba(0, 0, 0, .5); }
+.nav-mk-via   { background: #22c55e; box-shadow: 0 0 12px 3px rgba(34, 197, 94, .8), 0 1px 4px rgba(0, 0, 0, .5); }
+.nav-mk-dest  { background: #ef4444; box-shadow: 0 0 12px 3px rgba(239, 68, 68, .8), 0 1px 4px rgba(0, 0, 0, .5); }
+.nav-mk-chg   { background: #22d3ee; box-shadow: 0 0 13px 4px rgba(34, 211, 238, .85), 0 1px 4px rgba(0, 0, 0, .5); }
+/* 沿途全部充电站推荐点(电量不足时):比入选停靠点更小更淡 */
+.nav-mk-chgall {
+  width: 12px; height: 12px; border-width: 2px;
+  background: rgba(34, 211, 238, .85);
+  box-shadow: 0 0 8px 2px rgba(34, 211, 238, .55), 0 1px 3px rgba(0, 0, 0, .45);
+}
 
 @media (max-width: 900px) {
   .nav-layout { grid-template-columns: 1fr; }

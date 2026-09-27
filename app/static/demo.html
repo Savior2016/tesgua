@@ -195,13 +195,16 @@
   </div>
   </section>
 
-  <!-- ===== 分页 2:仪表盘(占位) ===== -->
-  <section class="page" id="page-dash">
+  <!-- ===== 分页 2:车况 ===== -->
+  <section class="page" id="page-vehicle">
   <div class="grid">
-    <div class="card col-12 soon-card">
-      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5A9.5 9.5 0 0 0 2.5 13c0 2.6 1 5 2.7 6.7l1.4-1.4A7.5 7.5 0 1 1 19.5 13c0 2-.8 3.9-2.1 5.3l1.4 1.4a9.5 9.5 0 0 0 2.7-6.7A9.5 9.5 0 0 0 12 3.5z"/><path d="M12 15.2a1.7 1.7 0 0 1-.6-3.3l4.6-3-3 4.6a1.7 1.7 0 0 1-1 1.7z"/></svg>
-      <h2>仪表盘</h2>
-      <p>正在开发中 · 实时速度、功率与多种表盘,行车专属的横屏界面</p>
+    <div class="card col-6">
+      <div class="card-head"><div><h2>胎压变化</h2></div></div>
+      <div class="chart" id="d-chart-tpms"></div>
+    </div>
+    <div class="card col-6">
+      <div class="card-head"><div><h2>车内 / 车外温度</h2></div></div>
+      <div class="chart" id="d-chart-temp"></div>
     </div>
   </div>
   </section>
@@ -217,13 +220,12 @@
   </div>
   </section>
 
-  <!-- ===== 分页 4:数据(充电 / 行程 / 活动 / 车况 二级导航) ===== -->
+  <!-- ===== 分页 4:数据(充电 / 行程 / 活动 二级导航) ===== -->
   <section class="page" id="page-data">
   <nav class="data-tabs" id="data-tabs" role="tablist" aria-label="数据分类">
     <button class="dtab" role="tab" data-sub="charging" aria-selected="false">充电</button>
     <button class="dtab" role="tab" data-sub="drives" aria-selected="false">行程</button>
     <button class="dtab" role="tab" data-sub="activity" aria-selected="false">活动</button>
-    <button class="dtab" role="tab" data-sub="vehicle" aria-selected="false">车况</button>
   </nav>
   <section class="subpage" id="page-charging">
   <div class="grid">
@@ -283,19 +285,6 @@
   </div>
   </section>
 
-  <!-- ===== 数据子页:车况 ===== -->
-  <section class="subpage" id="page-vehicle">
-  <div class="grid">
-    <div class="card col-6">
-      <div class="card-head"><div><h2>胎压变化</h2></div></div>
-      <div class="chart" id="d-chart-tpms"></div>
-    </div>
-    <div class="card col-6">
-      <div class="card-head"><div><h2>车内 / 车外温度</h2></div></div>
-      <div class="chart" id="d-chart-temp"></div>
-    </div>
-  </div>
-  </section>
   </section>
 
   <!-- ===== 分页 5:控制 ===== -->
@@ -327,17 +316,17 @@
 <!-- 底部分页导航:与正式面板一致的液态玻璃 Tab 栏 -->
 <nav class="tabbar" id="tabbar" role="tablist" aria-label="功能分页">
   <i class="tab-bubble no-anim" id="tab-bubble" aria-hidden="true"></i>
-  <button class="tab" role="tab" data-page="overview" aria-selected="false">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.4 13.2 5 8.9A2.2 2.2 0 0 1 7.1 7.4h9.8a2.2 2.2 0 0 1 2.1 1.5l1.6 4.3c.4.1.8.5.8 1v4.2a.9.9 0 0 1-.9.9h-1.4a.9.9 0 0 1-.9-.9v-1h-12v1a.9.9 0 0 1-.9.9H3.9a.9.9 0 0 1-.9-.9v-4.2c0-.5.3-.9.4-1zM7.2 9 6 12.4h12L16.8 9H7.2z"/><circle cx="7.3" cy="14.9" r="1.5"/><circle cx="16.7" cy="14.9" r="1.5"/></svg>
-    <span>总览</span>
-  </button>
-  <button class="tab" role="tab" data-page="dash" aria-selected="false">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3.5A9.5 9.5 0 0 0 2.5 13c0 2.6 1 5 2.7 6.7l1.4-1.4A7.5 7.5 0 1 1 19.5 13c0 2-.8 3.9-2.1 5.3l1.4 1.4a9.5 9.5 0 0 0 2.7-6.7A9.5 9.5 0 0 0 12 3.5z"/><path d="M12 15.2a1.7 1.7 0 0 1-.6-3.3l4.6-3-3 4.6a1.7 1.7 0 0 1-1 1.7z"/></svg>
-    <span>仪表盘</span>
+  <button class="tab" role="tab" data-page="vehicle" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+    <span>车况</span>
   </button>
   <button class="tab" role="tab" data-page="nav" aria-selected="false">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z"/></svg>
     <span>导航</span>
+  </button>
+  <button class="tab tab-home" role="tab" data-page="overview" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362l-.004.002H12v-.002zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.349c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46v.003z"/></svg>
+    <span>总览</span>
   </button>
   <button class="tab" role="tab" data-page="data" aria-selected="false">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 20V10h3.2v10H4zm6.4 0V4h3.2v16h-3.2zM16.8 20v-7H20v7h-3.2z"/></svg>
