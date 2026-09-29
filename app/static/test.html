@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0d0d0d">
+  <title>测试页面 · TESLA Home</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
+  <style>
+    .tx-wrap { max-width: 1080px; }
+    .tx-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .tx-header h1 { font-size: 20px; margin: 0; font-weight: 600; color: var(--text-primary); }
+    .tx-back {
+      color: var(--text-secondary); text-decoration: none; font-size: 13px;
+      border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px;
+    }
+    .tx-back:hover { color: var(--text-primary); border-color: var(--baseline); }
+    .tx-tag {
+      font-size: 11px; color: var(--series-4); border: 1px solid currentColor;
+      border-radius: 999px; padding: 2px 10px; letter-spacing: 1px;
+    }
+    .tx-wrap .card { margin-bottom: 14px; }
+    .tx-note { font-size: 13px; color: var(--text-secondary); line-height: 1.8; margin: 4px 0 0; }
+
+    /* 2D 方案对比 */
+    .tx-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 12px; }
+    .tx-cell { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .tx-stage {
+      width: 100%; aspect-ratio: 340 / 470; border-radius: 12px;
+      background: var(--page); border: 1px solid var(--border);
+      display: grid; place-items: center; overflow: hidden;
+    }
+    .tx-stage svg { width: 88%; height: 96%; }
+    .tx-cell h3 { margin: 0; font-size: 14px; font-weight: 600; }
+    .tx-cell p { margin: 0; font-size: 12px; color: var(--text-muted); text-align: center; line-height: 1.6; }
+    .tx-cell.cur .tx-stage { opacity: 0.75; }
+    @media (max-width: 900px) { .tx-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) { .tx-grid { grid-template-columns: 1fr; } }
+
+    /* 新版车模通用件(主题变量沿用 style.css) */
+    .tx-hl { fill: #a8b6c8; opacity: 0.8; }
+    .tx-tail { fill: none; stroke: #e82127; stroke-width: 4; stroke-linecap: round; opacity: 0.85; }
+    .tx-handle { fill: var(--baseline); opacity: 0.7; }
+    .tx-chargeport { fill: none; stroke: var(--baseline); stroke-width: 1.4; opacity: 0.8; }
+    .tx-text-mut { fill: var(--text-muted); font-size: 9px; }
+    .tx-text-main { fill: var(--text-primary); font-size: 15px; font-weight: 650; }
+    .tx-text-batt { fill: #fff; font-size: 14px; font-weight: 650; }
+    .tx-text-range { fill: rgba(255,255,255,0.58); font-size: 8.5px; font-weight: 500; letter-spacing: 0.4px; }
+    .tx-text-temp { fill: var(--series-2); font-size: 12px; font-weight: 600; }
+    .tx-text-out { fill: var(--series-1); font-size: 11px; font-weight: 600; }
+    .tx-tpms { fill: var(--text-secondary); font-size: 10.5px; font-weight: 600; }
+    .tx-stage text { text-anchor: middle; font-variant-numeric: tabular-nums; }
+
+    /* 方案 B 渐变(随主题) */
+    .tx-gb-1 { stop-color: color-mix(in srgb, var(--car-body) 60%, #fff); }
+    .tx-gb-2 { stop-color: var(--car-body); }
+    .tx-gb-3 { stop-color: color-mix(in srgb, var(--car-body) 55%, #000); }
+    .tx-gg-1 { stop-color: #232b38; }
+    .tx-gg-2 { stop-color: #0b0e14; }
+    .tx-gs-1 { stop-color: #fff; stop-opacity: 0.16; }
+    .tx-gs-2 { stop-color: #fff; stop-opacity: 0; }
+    .tx-shadow { fill: #000; opacity: 0.35; filter: blur(7px); }
+    [data-theme="light"] .tx-shadow { opacity: 0.18; }
+    .tx-hl-glow { fill: #eaf2ff; opacity: 0.3; filter: blur(3px); }
+
+    /* 3D 原型 */
+    .tx3d-stage {
+      position: relative; height: 460px; border-radius: 12px; overflow: hidden;
+      background:
+        radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--series-1) 13%, transparent), transparent 60%),
+        radial-gradient(90% 70% at 50% 100%, color-mix(in srgb, var(--series-1) 7%, transparent), transparent 65%),
+        var(--page);
+      border: 1px solid var(--border); margin-top: 12px;
+    }
+    .tx3d-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+    .tx3d-hint {
+      position: absolute; left: 12px; top: 10px; font-size: 12px; color: var(--text-muted);
+      background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+      border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px;
+      backdrop-filter: blur(8px); pointer-events: none;
+    }
+    .tx3d-label {
+      position: absolute; transform: translate(-50%, -130%); pointer-events: none;
+      font-size: 12px; font-weight: 600; color: var(--text-primary);
+      background: color-mix(in srgb, var(--surface-1) 85%, transparent);
+      border: 1px solid var(--baseline); border-radius: 8px; padding: 3px 10px;
+      backdrop-filter: blur(8px); opacity: 0; transition: opacity 0.25s ease;
+      white-space: nowrap;
+    }
+    .tx3d-label.show { opacity: 1; }
+    .tx3d-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+    .tx3d-bar .lab { font-size: 13px; color: var(--text-secondary); }
+    .tx3d-log {
+      margin-top: 10px; font-size: 12.5px; color: var(--text-secondary);
+      font-variant-numeric: tabular-nums; min-height: 1.4em;
+    }
+    .tx3d-log b { color: var(--series-3); }
+    @media (max-width: 600px) { .tx3d-stage { height: 380px; } }
+  </style>
+</head>
+<body>
+<div class="wrap tx-wrap">
+
+  <header class="tx-header">
+    <a class="tx-back" href="/account.html">← 个人中心</a>
+    <h1>测试页面</h1>
+    <span class="tx-tag">实验性</span>
+  </header>
+
+  <section class="card">
+    <h2>说明</h2>
+    <p class="tx-note">
+      开发中的新效果先放在这个页面验证,确认后再合入正式页面。当前进行中的试验:
+      <b>① 总览页 2D 俯视车模重设计</b>(解决「像蛤蟆」:现款宽高比约 2.0,真实 Model Y 俯视约 2.47,且轮胎块肥大外凸);
+      <b>② 控制页 3D 车模原型</b>(Three.js 程序化建模,点击车身部位触发对应指令区域)。
+    </p>
+  </section>
+
+  <!-- 共享路径:新版车模轮廓(写实比例,长 384 / 宽 155 ≈ 2.48) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <!-- 车身轮廓:长 384(y40–424)、宽 155(x92.5–247.5),比例 2.48 ≈ 真实 Model Y -->
+      <path id="tx-body" d="M170 40 C196 40 218 50 232 68 C243 83 247 101 247.5 122
+        C248 140 246.5 156 245 172 C246 205 246.5 235 245.5 262 C244.5 292 243.5 318 242 338
+        C241 362 238 382 231 396 C222 414 198 424 170 424 C142 424 118 414 109 396
+        C102 382 99 362 98 338 C96.5 318 95.5 292 94.5 262 C93.5 235 94 205 95 172
+        C93.5 156 92 140 92.5 122 C93 101 97 83 108 68 C122 50 144 40 170 40 Z"/>
+      <!-- 前风挡 -->
+      <path id="tx-ws" d="M170 114 C140 114 120 126 115 150 L225 150 C220 126 200 114 170 114 Z"/>
+      <!-- 全景玻璃顶(能量环共用此路径) -->
+      <path id="tx-glass" d="M170 158 C200 158 219 164 222 184 C224.5 224 224.5 292 221.5 328
+        C219.5 350 198 364 170 364 C142 364 120.5 350 118.5 328 C115.5 292 115.5 224 118 184
+        C121 164 140 158 170 158 Z"/>
+      <!-- 后风挡 -->
+      <path id="tx-rw" d="M170 374 C192 374 205 379 209.5 386 C201 392 188 395 170 395
+        C152 395 139 392 130.5 386 C135 379 148 374 170 374 Z"/>
+      <!-- 前大灯(细月牙,贴车头两角) -->
+      <path id="tx-hl-l" d="M112 76 C105 85 100.5 96 99 109 C101.5 110 104 109.8 106 108.5
+        C107.5 96 112 85 119 77 C117 74.8 114.5 74.5 112 76 Z"/>
+      <path id="tx-hl-r" d="M228 76 C235 85 239.5 96 241 109 C238.5 110 236 109.8 234 108.5
+        C232.5 96 228 85 221 77 C223 74.8 225.5 74.5 228 76 Z"/>
+      <!-- 后视镜 -->
+      <path id="tx-mirror-l" d="M95.5 147 L84.5 149.5 C81.5 150.2 81.5 153.8 84.5 154.5 L95.5 157 Z"/>
+      <path id="tx-mirror-r" d="M244.5 147 L255.5 149.5 C258.5 150.2 258.5 153.8 255.5 154.5 L244.5 157 Z"/>
+      <!-- 机盖缝线 / 尾灯条 -->
+      <path id="tx-seam" d="M116 92 C142 84 198 84 224 92"/>
+      <path id="tx-tail" d="M124 399 C142 405 198 405 216 399"/>
+
+      <clipPath id="tx-ws-clip"><use href="#tx-ws"/></clipPath>
+      <clipPath id="tx-glass-clip"><use href="#tx-glass"/></clipPath>
+      <mask id="tx-ring-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="340" height="460">
+        <rect x="0" y="0" width="340" height="460" fill="#000"/>
+        <use href="#tx-glass" fill="#fff"/>
+      </mask>
+      <pattern id="tx-hatch" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <rect class="hatch-bg" width="7" height="7"/>
+        <line class="hatch-line" x1="0" y1="0" x2="0" y2="7"/>
+      </pattern>
+
+      <!-- 方案 B 渐变 -->
+      <radialGradient id="tx-grad-body" cx="0.5" cy="0.32" r="0.85">
+        <stop offset="0" class="tx-gb-1"/>
+        <stop offset="0.55" class="tx-gb-2"/>
+        <stop offset="1" class="tx-gb-3"/>
+      </radialGradient>
+      <linearGradient id="tx-grad-glass" x1="0" y1="0" x2="0.6" y2="1">
+        <stop offset="0" class="tx-gg-1"/>
+        <stop offset="1" class="tx-gg-2"/>
+      </linearGradient>
+      <linearGradient id="tx-grad-shine" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" class="tx-gs-1"/>
+        <stop offset="0.5" class="tx-gs-2"/>
+      </linearGradient>
+    </defs>
+  </svg>
+
+  <section class="card">
+    <h2>① 总览车模 · 2D 方案对比</h2>
+    <p class="tx-note">
+      三个方案共用同一副「写实比例」轮廓(长宽比 2.48,轮胎收窄贴合车身),差别在细节与质感;
+      均演示了正式功能叠加层:前风挡电量填充(65%)、玻璃顶能量环(未充/驻车/哨兵/行驶/剩余)、胎压读数。
+    </p>
+    <div class="tx-grid">
+
+      <!-- 现款(对照) -->
+      <div class="tx-cell cur">
+        <div class="tx-stage">
+          <svg viewBox="0 0 340 460" role="img" aria-label="现款车模">
+            <rect class="car-tire" x="58" y="108" width="32" height="60" rx="10"/>
+            <rect class="car-tire" x="250" y="108" width="32" height="60" rx="10"/>
+            <rect class="car-tire" x="55" y="316" width="38" height="62" rx="11"/>
+            <rect class="car-tire" x="247" y="316" width="38" height="62" rx="11"/>
+            <path class="car-body-base" d="M170 52 C196 52 218 62 232 84 C243 100 251 118 256 142 C261 168 263 190 261 210 C260 228 259 244 259 258 C259 288 261 316 261 334 C260 356 255 378 245 392 C233 408 205 418 170 418 C135 418 107 408 95 392 C85 378 80 356 79 334 C79 316 81 288 81 258 C81 244 80 228 79 210 C77 190 79 168 84 142 C89 118 97 100 108 84 C122 62 144 52 170 52 Z"/>
+            <path class="car-sheen" d="M170 52 C196 52 218 62 232 84 C240 96 246 108 251 122 C218 104 122 104 89 122 C94 108 100 96 108 84 C122 62 144 52 170 52 Z"/>
+            <path class="car-mirror" d="M79 148 L65 151 C60 152 60 160 65 161 L79 163 Z M261 148 L275 151 C280 152 280 160 275 161 L261 163 Z"/>
+            <path class="car-seam" d="M110 97 C140 88 200 88 230 97"/>
+            <path class="car-glazing" d="M170 396 C198 396 214 401 219 408 C210 414 192 417 170 417 C148 417 130 414 121 408 C126 401 142 396 170 396 Z"/>
+            <path class="car-glazing" d="M170 104 C128 104 102 120 97 146 L243 146 C238 120 212 104 170 104 Z"/>
+            <path class="car-glass-base" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z"/>
+            <path class="car-body-line" d="M170 52 C196 52 218 62 232 84 C243 100 251 118 256 142 C261 168 263 190 261 210 C260 228 259 244 259 258 C259 288 261 316 261 334 C260 356 255 378 245 392 C233 408 205 418 170 418 C135 418 107 408 95 392 C85 378 80 356 79 334 C79 316 81 288 81 258 C81 244 80 228 79 210 C77 190 79 168 84 142 C89 118 97 100 108 84 C122 62 144 52 170 52 Z"/>
+          </svg>
+        </div>
+        <h3>现款(对照)</h3>
+        <p>宽高比 2.0 偏宽 · 轮胎块肥大外凸<br>翼子板鼓出明显 →「蛤蟆」感来源</p>
+      </div>
+
+      <!-- 方案 A:写实线条 -->
+      <div class="tx-cell">
+        <div class="tx-stage">
+          <svg viewBox="0 0 340 460" role="img" aria-label="方案 A 写实线条">
+            <rect class="car-tire" x="239" y="96" width="13" height="54" rx="5"/>
+            <rect class="car-tire" x="88" y="96" width="13" height="54" rx="5"/>
+            <rect class="car-tire" x="234" y="330" width="13" height="56" rx="5"/>
+            <rect class="car-tire" x="93" y="330" width="13" height="56" rx="5"/>
+            <use href="#tx-body" class="car-body-base"/>
+            <use href="#tx-mirror-l" class="car-mirror"/><use href="#tx-mirror-r" class="car-mirror"/>
+            <use href="#tx-seam" class="car-seam"/>
+            <use href="#tx-rw" class="car-glazing"/>
+            <use href="#tx-ws" class="car-glazing"/>
+            <g clip-path="url(#tx-ws-clip)">
+              <rect class="car-ws-fill" x="115" y="114" width="71.5" height="36"/>
+            </g>
+            <use href="#tx-glass" class="car-glass-base"/>
+            <g mask="url(#tx-ring-mask)">
+              <use href="#tx-glass" class="carring" pathLength="100" stroke="url(#tx-hatch)" stroke-dasharray="15 85" stroke-dashoffset="0"/>
+              <use href="#tx-glass" class="carring carring-idle" pathLength="100" stroke-dasharray="8 92" stroke-dashoffset="-15"/>
+              <use href="#tx-glass" class="carring carring-sentry" pathLength="100" stroke-dasharray="6 94" stroke-dashoffset="-23"/>
+              <use href="#tx-glass" class="carring carring-drive" pathLength="100" stroke-dasharray="30 70" stroke-dashoffset="-29"/>
+              <use href="#tx-glass" class="carring carring-remaining" pathLength="100" stroke-dasharray="41 59" stroke-dashoffset="-59"/>
+            </g>
+            <use href="#tx-glass" class="car-glass-line" pointer-events="none"/>
+            <use href="#tx-hl-l" class="tx-hl"/><use href="#tx-hl-r" class="tx-hl"/>
+            <use href="#tx-tail" class="tx-tail"/>
+            <rect class="tx-handle" x="93" y="196" width="3.2" height="11" rx="1.6" transform="rotate(-1.5 94.6 201.5)"/>
+            <rect class="tx-handle" x="243.8" y="196" width="3.2" height="11" rx="1.6" transform="rotate(1.5 245.4 201.5)"/>
+            <rect class="tx-handle" x="92.4" y="256" width="3.2" height="11" rx="1.6"/>
+            <rect class="tx-handle" x="244.4" y="256" width="3.2" height="11" rx="1.6"/>
+            <circle class="tx-chargeport" cx="102" cy="332" r="4"/>
+            <text class="tx-text-mut" x="170" y="60">总里程</text>
+            <text class="tx-text-main" x="170" y="77">12,345 km</text>
+            <text class="tx-text-batt" x="170" y="134">65%</text>
+            <text class="tx-text-range" x="170" y="145">≈ 342 km</text>
+            <path class="car-logo" transform="translate(153 231) scale(1.4167)"
+              d="M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362l-.004.002H12v-.002zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.349c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46v.003z"/>
+            <text class="tx-text-temp" x="170" y="296">24.5°</text>
+            <text class="tx-text-out" x="170" y="388">18°</text>
+            <text class="tx-tpms" x="110" y="126">2.8</text>
+            <text class="tx-tpms" x="230" y="126">2.9</text>
+            <text class="tx-tpms" x="110" y="361">2.9</text>
+            <text class="tx-tpms" x="230" y="361">3.0</text>
+            <use href="#tx-body" class="car-body-line"/>
+          </svg>
+        </div>
+        <h3>方案 A · 写实线条</h3>
+        <p>扁平风格 + 完整车身细节<br>大灯 / 尾灯条 / 门把手 / 充电口</p>
+      </div>
+
+      <!-- 方案 B:光影质感 -->
+      <div class="tx-cell">
+        <div class="tx-stage">
+          <svg viewBox="0 0 340 460" role="img" aria-label="方案 B 光影质感">
+            <ellipse class="tx-shadow" cx="170" cy="430" rx="86" ry="14"/>
+            <rect class="car-tire" x="239" y="96" width="13" height="54" rx="5"/>
+            <rect class="car-tire" x="88" y="96" width="13" height="54" rx="5"/>
+            <rect class="car-tire" x="234" y="330" width="13" height="56" rx="5"/>
+            <rect class="car-tire" x="93" y="330" width="13" height="56" rx="5"/>
+            <use href="#tx-body" fill="url(#tx-grad-body)"/>
+            <use href="#tx-mirror-l" class="car-mirror"/><use href="#tx-mirror-r" class="car-mirror"/>
+            <use href="#tx-seam" class="car-seam"/>
+            <use href="#tx-rw" fill="url(#tx-grad-glass)"/>
+            <use href="#tx-ws" fill="url(#tx-grad-glass)"/>
+            <g clip-path="url(#tx-ws-clip)">
+              <rect class="car-ws-fill" x="115" y="114" width="71.5" height="36"/>
+            </g>
+            <use href="#tx-glass" fill="url(#tx-grad-glass)"/>
+            <rect x="100" y="150" width="150" height="230" clip-path="url(#tx-glass-clip)" fill="url(#tx-grad-shine)" pointer-events="none"/>
+            <g mask="url(#tx-ring-mask)">
+              <use href="#tx-glass" class="carring" pathLength="100" stroke="url(#tx-hatch)" stroke-dasharray="15 85" stroke-dashoffset="0"/>
+              <use href="#tx-glass" class="carring carring-idle" pathLength="100" stroke-dasharray="8 92" stroke-dashoffset="-15"/>
+              <use href="#tx-glass" class="carring carring-sentry" pathLength="100" stroke-dasharray="6 94" stroke-dashoffset="-23"/>
+              <use href="#tx-glass" class="carring carring-drive" pathLength="100" stroke-dasharray="30 70" stroke-dashoffset="-29"/>
+              <use href="#tx-glass" class="carring carring-remaining" pathLength="100" stroke-dasharray="41 59" stroke-dashoffset="-59"/>
+            </g>
+            <use href="#tx-glass" class="car-glass-line" pointer-events="none"/>
+            <use href="#tx-hl-l" class="tx-hl-glow"/><use href="#tx-hl-r" class="tx-hl-glow"/>
+            <use href="#tx-hl-l" class="tx-hl"/><use href="#tx-hl-r" class="tx-hl"/>
+            <use href="#tx-tail" class="tx-tail"/>
+            <circle class="tx-chargeport" cx="102" cy="332" r="4"/>
+            <text class="tx-text-mut" x="170" y="60">总里程</text>
+            <text class="tx-text-main" x="170" y="77">12,345 km</text>
+            <text class="tx-text-batt" x="170" y="134">65%</text>
+            <text class="tx-text-range" x="170" y="145">≈ 342 km</text>
+            <path class="car-logo" transform="translate(153 231) scale(1.4167)"
+              d="M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362l-.004.002H12v-.002zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.349c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46v.003z"/>
+            <text class="tx-text-temp" x="170" y="296">24.5°</text>
+            <text class="tx-text-out" x="170" y="388">18°</text>
+            <text class="tx-tpms" x="110" y="126">2.8</text>
+            <text class="tx-tpms" x="230" y="126">2.9</text>
+            <text class="tx-tpms" x="110" y="361">2.9</text>
+            <text class="tx-tpms" x="230" y="361">3.0</text>
+            <use href="#tx-body" class="car-body-line"/>
+          </svg>
+        </div>
+        <h3>方案 B · 光影质感</h3>
+        <p>同轮廓 + 车身径向光影 / 玻璃渐变<br>地面投影 / 大灯微光,接近渲染图</p>
+      </div>
+
+      <!-- 方案 C:极简纯净 -->
+      <div class="tx-cell">
+        <div class="tx-stage">
+          <svg viewBox="0 0 340 460" role="img" aria-label="方案 C 极简纯净">
+            <rect class="car-tire" x="239" y="96" width="13" height="54" rx="5"/>
+            <rect class="car-tire" x="88" y="96" width="13" height="54" rx="5"/>
+            <rect class="car-tire" x="234" y="330" width="13" height="56" rx="5"/>
+            <rect class="car-tire" x="93" y="330" width="13" height="56" rx="5"/>
+            <use href="#tx-body" class="car-body-base"/>
+            <use href="#tx-mirror-l" class="car-mirror"/><use href="#tx-mirror-r" class="car-mirror"/>
+            <use href="#tx-rw" class="car-glazing"/>
+            <use href="#tx-ws" class="car-glazing"/>
+            <g clip-path="url(#tx-ws-clip)">
+              <rect class="car-ws-fill" x="115" y="114" width="71.5" height="36"/>
+            </g>
+            <use href="#tx-glass" class="car-glass-base"/>
+            <g mask="url(#tx-ring-mask)">
+              <use href="#tx-glass" class="carring" pathLength="100" stroke="url(#tx-hatch)" stroke-dasharray="15 85" stroke-dashoffset="0"/>
+              <use href="#tx-glass" class="carring carring-idle" pathLength="100" stroke-dasharray="8 92" stroke-dashoffset="-15"/>
+              <use href="#tx-glass" class="carring carring-sentry" pathLength="100" stroke-dasharray="6 94" stroke-dashoffset="-23"/>
+              <use href="#tx-glass" class="carring carring-drive" pathLength="100" stroke-dasharray="30 70" stroke-dashoffset="-29"/>
+              <use href="#tx-glass" class="carring carring-remaining" pathLength="100" stroke-dasharray="41 59" stroke-dashoffset="-59"/>
+            </g>
+            <use href="#tx-glass" class="car-glass-line" pointer-events="none"/>
+            <text class="tx-text-mut" x="170" y="60">总里程</text>
+            <text class="tx-text-main" x="170" y="77">12,345 km</text>
+            <text class="tx-text-batt" x="170" y="134">65%</text>
+            <text class="tx-text-range" x="170" y="145">≈ 342 km</text>
+            <path class="car-logo" transform="translate(153 231) scale(1.4167)"
+              d="M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362l-.004.002H12v-.002zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.349c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46v.003z"/>
+            <text class="tx-text-temp" x="170" y="296">24.5°</text>
+            <text class="tx-text-out" x="170" y="388">18°</text>
+            <text class="tx-tpms" x="110" y="126">2.8</text>
+            <text class="tx-tpms" x="230" y="126">2.9</text>
+            <text class="tx-tpms" x="110" y="361">2.9</text>
+            <text class="tx-tpms" x="230" y="361">3.0</text>
+            <use href="#tx-body" class="car-body-line"/>
+          </svg>
+        </div>
+        <h3>方案 C · 极简纯净</h3>
+        <p>只留轮廓 + 玻璃 + 能量环<br>无灯组/门把手等装饰,最干净</p>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>② 控制页 · 3D 车模原型</h2>
+    <p class="tx-note">
+      Three.js 程序化建模的风格化 Model Y(无外部模型文件,库已本地化 /vendor/,无版权问题)。
+      点击车身部位 = 控制页指令区域:车头=前备箱、前风挡=哨兵、车顶=空调、左身=车锁、右身=车窗、
+      左后翼子板=充电口、车尾=后备箱。再次点击切换开/关(绿色发光=开)。
+    </p>
+    <div class="tx3d-stage" id="tx3d-stage">
+      <div class="tx3d-hint">拖动旋转 · 滚轮缩放 · 点击车身部位</div>
+      <div class="tx3d-label" id="tx3d-label"></div>
+    </div>
+    <div class="tx3d-bar">
+      <span class="lab">车漆</span>
+      <div class="seg mini" id="tx3d-paint" role="group" aria-label="车漆颜色">
+        <button type="button" data-paint="#17191d">星钻黑</button>
+        <button type="button" data-paint="#e6e7e9">珍珠白</button>
+        <button type="button" data-paint="#a32126">烈焰红</button>
+        <button type="button" data-paint="#25418f">深海蓝</button>
+        <button type="button" data-paint="#b9bdc4" class="on">冷光银</button>
+      </div>
+      <span class="lab">视角</span>
+      <div class="seg mini" id="tx3d-view" role="group" aria-label="视角">
+        <button type="button" data-view="front" class="on">前 3/4</button>
+        <button type="button" data-view="rear">后 3/4</button>
+        <button type="button" data-view="top">俯视</button>
+      </div>
+    </div>
+    <div class="tx3d-log" id="tx3d-log">尚未点击车身。</div>
+  </section>
+
+</div>
+<script type="module" src="/test.js"></script>
+</body>
+</html>
