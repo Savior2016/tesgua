@@ -29,9 +29,15 @@ def mat_name(g):
     return getattr(getattr(g.visual, 'material', None), 'name', '')
 
 
-def outline(gs, alpha=2.5, simplify_m=0.02, n=48):
-    """Projected concave hull -> n evenly sampled points (model coords)."""
+def outline(gs, alpha=2.5, simplify_m=0.02, n=48, symmetrize=True):
+    """Projected concave hull -> n evenly sampled points (model coords).
+
+    symmetrize: 点云按 z→±z 镜像合并后再求凹包,得到左右对称的干净轮廓
+    (投影会因网格不对称产生锯齿/缺口;实车左右对称)。
+    """
     pts = np.concatenate([g.vertices[:, [2, 0]] for g in gs])  # (z, x)
+    if symmetrize:
+        pts = np.concatenate([pts, pts * [-1, 1]])
     poly = alphashape.alphashape(pts, alpha)
     poly = poly.simplify(simplify_m)
     ring = poly.exterior
@@ -61,8 +67,14 @@ by_mat = {}
 for g in meshes:
     by_mat.setdefault(mat_name(g), []).append(g)
 
-# 车身:body + fenders(含后视镜、轮拱)
-body_path = catmull_rom_svg(outline(by_mat['body'] + by_mat['fenders'], alpha=2.0, n=56))
+# 车身:body + fenders,剔除后视镜(凸出外轮廓的两个小件,见用户反馈)
+def is_mirror(g):
+    b = g.bounds
+    ext = b[1] - b[0]
+    return ext[0] < 0.6 and b[0][1] > 0.9 and abs(b[0][2]) > 0.7
+
+shell = [g for g in by_mat['body'] + by_mat['fenders'] if not is_mirror(g)]
+body_path = catmull_rom_svg(outline(shell, alpha=2.0, n=56))
 print('BODY:', body_path)
 print()
 
@@ -88,14 +100,14 @@ for g in tires:
     print(f'TIRE: x={min(x0,x1):.1f} y={min(y0,y1):.1f} w={abs(x1-x0):.1f} h={abs(y1-y0):.1f}')
 print()
 
-# 前大灯:glass_front_lights 两枚(左/右)
+# 前大灯:glass_front_lights 两枚(左/右;单侧小件不做对称化,否则点左右分离成 MultiPolygon)
 for i, g in enumerate(sorted(by_mat['glass_front_lights'], key=lambda g: g.bounds[0][2])):
-    print(f'HL{i}:', catmull_rom_svg(outline([g], alpha=3.0, simplify_m=0.008, n=14)))
+    print(f'HL{i}:', catmull_rom_svg(outline([g], alpha=3.0, simplify_m=0.008, n=14, symmetrize=False)))
     print()
 
 # 尾灯:chrome_rear_lights 按左/右分组(z<0 / z>0)
 rl = by_mat['chrome_rear_lights']
 for i, grp in enumerate([[g for g in rl if (g.bounds[0][2] + g.bounds[1][2]) / 2 < 0],
                          [g for g in rl if (g.bounds[0][2] + g.bounds[1][2]) / 2 > 0]]):
-    print(f'TL{i}:', catmull_rom_svg(outline(grp, alpha=3.0, simplify_m=0.008, n=14)))
+    print(f'TL{i}:', catmull_rom_svg(outline(grp, alpha=3.0, simplify_m=0.008, n=14, symmetrize=False)))
     print()

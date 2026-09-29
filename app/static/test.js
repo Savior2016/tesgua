@@ -40,7 +40,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
+renderer.toneMappingExposure = 1.05;
 stage.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
@@ -52,17 +52,18 @@ const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
   const env = new THREE.Scene();
   env.background = new THREE.Color(0x10131a);
   const geo = new THREE.PlaneGeometry(9, 9);
-  const panel = (rgb, x, y, z, rx, ry) => {
-    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  const strip = new THREE.PlaneGeometry(4.5, 2.2);
+  const panel = (rgb, x, y, z, rx, ry, g) => {
+    const m = new THREE.Mesh(g || geo, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
     m.material.color.setRGB(...rgb);
     m.position.set(x, y, z);
     m.rotation.set(rx, ry, 0);
     env.add(m);
   };
-  panel([9, 9, 9], 0, 6, 0, Math.PI / 2, 0);          // 顶部主光带
-  panel([1.1, 1.4, 2.0], -7, 2, 0, 0, Math.PI / 2);   // 左·冷色
-  panel([2.0, 1.6, 1.2], 7, 2, 0, 0, -Math.PI / 2);   // 右·暖色
-  panel([0.5, 0.6, 0.8], 0, 2, -8, 0, 0);             // 尾部补光
+  panel([2.2, 2.2, 2.2], 0, 6, 0, Math.PI / 2, 0, strip); // 顶部窄光带(黑漆只留一道高光,不整面泛白)
+  panel([0.8, 1.0, 1.45], -7, 2, 0, 0, Math.PI / 2);   // 左·冷色
+  panel([1.45, 1.15, 0.85], 7, 2, 0, 0, -Math.PI / 2); // 右·暖色
+  panel([0.4, 0.48, 0.62], 0, 2, -8, 0, 0);            // 尾部补光
   scene.environment = pmrem.fromScene(env, 0.05).texture;
   pmrem.dispose();
 }
@@ -77,8 +78,8 @@ scene.add(car);
 
 // 车漆(可切换)与替换玻璃。源模型材质均为 doubleSided,替换材质保持双面。
 const paintMat = new THREE.MeshPhysicalMaterial({
-  color: 0x17191d, metalness: 0.55, roughness: 0.32,   // 默认星钻黑(用户车为钻黑)
-  clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.25,
+  color: 0x17191d, metalness: 0.45, roughness: 0.38,   // 默认星钻黑(用户车为钻黑)
+  clearcoat: 0.85, clearcoatRoughness: 0.18, envMapIntensity: 0.8,   // 收敛环境反射,黑漆保持黑
   side: THREE.DoubleSide,
 });
 const glassMat = new THREE.MeshPhysicalMaterial({
