@@ -115,11 +115,13 @@
     <h2>说明</h2>
     <p class="tx-note">
       开发中的新效果先放在这个页面验证,确认后再合入正式页面。当前进行中的试验:
-      <b>① 总览页 2D 车模</b>——轮廓、玻璃、灯组全部由下方真实 3D 模型的俯视投影生成
+      <b>① 总览页 2D 车模</b>——轮廓、玻璃、灯组全部由真实 3D 模型的俯视投影生成
       (<code>scripts/derive-car-outline.py</code>),不再是手绘近似;
-      <b>② 控制页 3D 车模</b>——真实 Model Y 模型(mesh 来源
-      <a href="https://github.com/Tina2088/tina-3d-tesla" style="color:var(--series-1)">Tina2088/tina-3d-tesla</a>,MIT),
-      已剥离内饰/刹车等不可见部件并减面(39 万 → 26 万顶点,8.6MB),点击车身部位触发对应指令区域。
+      <b>② 控制页 3D 车模</b>——真实 3D 模型,<b>按车型/年款切换</b>(正式接入时根据 TeslaMate 车辆信息自动选择):
+      新款 Model Y(L)用 <a href="https://sketchfab.com/3d-models/2025-tesla-model-y-619601e7800d418da5922c4fa7833f74" style="color:var(--series-1)">BloxBloger 的 2025 Model Y</a>(CC BY-NC,个人使用;经
+      <a href="https://github.com/aditano/tesla-studio" style="color:var(--series-1)">aditano/tesla-studio</a> 轴归一+材质化),
+      2021 款用 <a href="https://github.com/Tina2088/tina-3d-tesla" style="color:var(--series-1)">Tina2088/tina-3d-tesla</a>(MIT)。
+      点击车身部位触发对应指令区域。
     </p>
   </section>
 
@@ -338,25 +340,31 @@
   </section>
 
   <section class="card">
-    <h2>② 控制页 · 真实 3D 车模</h2>
+    <h2>② 控制页 · 真实 3D 车模(按车型切换)</h2>
     <p class="tx-note">
-      真实 Model Y 模型(已剥离不可见部件,8.6MB 本地托管)。
-      点击车身部位 = 控制页指令区域:车头=前备箱、前风挡=哨兵、车顶=空调、左身=车锁、右身=车窗、
+      新款 Model Y(2025 Juniper,含贯穿式前后灯带;5.2MB meshopt 压缩);Model Y L 为同 mesh 按 4.976m 车长拉伸的近似;
+      2021 款为旧模型(8.6MB)。点击车身部位 = 控制页指令区域:车头=前备箱、前风挡=哨兵、车顶=空调、左身=车锁、右身=车窗、
       左后翼子板=充电口、车尾=后备箱。再次点击切换开/关(绿色圆环 = 开)。
     </p>
     <div class="tx3d-stage" id="tx3d-stage">
       <div class="tx3d-hint">拖动旋转 · 滚轮缩放 · 点击车身部位</div>
-      <div class="tx3d-loading" id="tx3d-loading">3D 模型加载中(8.6MB)…</div>
+      <div class="tx3d-loading" id="tx3d-loading">3D 模型加载中…</div>
       <div class="tx3d-label" id="tx3d-label"></div>
     </div>
     <div class="tx3d-bar">
+      <span class="lab">车型</span>
+      <div class="seg mini" id="tx3d-model" role="group" aria-label="车型">
+        <button type="button" data-model="y-yl" class="on">新款 Model Y L</button>
+        <button type="button" data-model="y-juniper">新款 Model Y</button>
+        <button type="button" data-model="y-legacy">2021 款 Model Y</button>
+      </div>
       <span class="lab">车漆</span>
       <div class="seg mini" id="tx3d-paint" role="group" aria-label="车漆颜色">
-        <button type="button" data-paint="#17191d">星钻黑</button>
+        <button type="button" data-paint="#17191d" class="on">星钻黑</button>
         <button type="button" data-paint="#e6e7e9">珍珠白</button>
         <button type="button" data-paint="#a32126">烈焰红</button>
         <button type="button" data-paint="#25418f">深海蓝</button>
-        <button type="button" data-paint="#b9bdc4" class="on">冷光银</button>
+        <button type="button" data-paint="#b9bdc4">冷光银</button>
       </div>
       <span class="lab">视角</span>
       <div class="seg mini" id="tx3d-view" role="group" aria-label="视角">
