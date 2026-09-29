@@ -1,10 +1,14 @@
-// 测试页面 · 3D 车模原型(控制页候选方案)
-// Three.js 本地化(/vendor/three.module.min.js,MIT),程序化建模,无外部模型文件。
+// 测试页面 · 真实 3D 车模原型(控制页候选方案)
+// 模型:app/static/models/model-y.glb(来源 Tina2088/tina-3d-tesla,MIT;已剥离内饰/刹车并减面)
+// Three.js 本地化(/vendor/three.module.min.js,MIT);GLTFLoader 同源自托管。
+// 模型坐标:X = 车长(车头 = -X),Y = 高度,Z = 车宽(车辆左侧 = -Z)。
 import * as THREE from '/vendor/three.module.min.js';
+import { GLTFLoader } from '/vendor/loaders/GLTFLoader.js';
 
 const stage = document.getElementById('tx3d-stage');
 const labelEl = document.getElementById('tx3d-label');
 const logEl = document.getElementById('tx3d-log');
+const loadingEl = document.getElementById('tx3d-loading');
 
 // ---------- 渲染基础 ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -42,140 +46,62 @@ const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
 keyLight.position.set(5, 8, 6);
 scene.add(keyLight);
 
-// ---------- 车模(与 2D 新方案同一副轮廓;svg 坐标 → 米,k 为缩放) ----------
-const K = 0.0107;              // svg 单位 → 米(为挤出倒角预留外扩量)
-const Z_STRETCH = 1.09;        // 长度方向再拉伸,最终长宽比 ≈ 2.48
-const sx = (x) => (x - 170) * K;
-const sy = (y) => (y - 232) * K;
-
-// 车身俯视轮廓(同 test.html #tx-body)
-function bodyShape() {
-  const s = new THREE.Shape();
-  s.moveTo(sx(170), sy(40));
-  s.bezierCurveTo(sx(196), sy(40), sx(218), sy(50), sx(232), sy(68));
-  s.bezierCurveTo(sx(243), sy(83), sx(247), sy(101), sx(247.5), sy(122));
-  s.bezierCurveTo(sx(248), sy(140), sx(246.5), sy(156), sx(245), sy(172));
-  s.bezierCurveTo(sx(246), sy(205), sx(246.5), sy(235), sx(245.5), sy(262));
-  s.bezierCurveTo(sx(244.5), sy(292), sx(243.5), sy(318), sx(242), sy(338));
-  s.bezierCurveTo(sx(241), sy(362), sx(238), sy(382), sx(231), sy(396));
-  s.bezierCurveTo(sx(222), sy(414), sx(198), sy(424), sx(170), sy(424));
-  s.bezierCurveTo(sx(142), sy(424), sx(118), sy(414), sx(109), sy(396));
-  s.bezierCurveTo(sx(102), sy(382), sx(99), sy(362), sx(98), sy(338));
-  s.bezierCurveTo(sx(96.5), sy(318), sx(95.5), sy(292), sx(94.5), sy(262));
-  s.bezierCurveTo(sx(93.5), sy(235), sx(94), sy(205), sx(95), sy(172));
-  s.bezierCurveTo(sx(93.5), sy(156), sx(92), sy(140), sx(92.5), sy(122));
-  s.bezierCurveTo(sx(93), sy(101), sx(97), sy(83), sx(108), sy(68));
-  s.bezierCurveTo(sx(122), sy(50), sx(144), sy(40), sx(170), sy(40));
-  return s;
-}
-
-// 玻璃舱轮廓(前风挡 + 玻璃顶一体,同 #tx-ws + #tx-glass 合并范围)
-function cabinShape() {
-  const s = new THREE.Shape();
-  s.moveTo(sx(170), sy(116));
-  s.bezierCurveTo(sx(138), sy(116), sx(116), sy(128), sx(111), sy(154));
-  s.bezierCurveTo(sx(109), sy(166), sx(114), sy(172), sx(118), sy(184));
-  s.bezierCurveTo(sx(115.5), sy(224), sx(115.5), sy(292), sx(118.5), sy(328));
-  s.bezierCurveTo(sx(120.5), sy(350), sx(142), sy(366), sx(170), sy(366));
-  s.bezierCurveTo(sx(198), sy(366), sx(219.5), sy(350), sx(221.5), sy(328));
-  s.bezierCurveTo(sx(224.5), sy(292), sx(224.5), sy(224), sx(222), sy(184));
-  s.bezierCurveTo(sx(226), sy(172), sx(231), sy(166), sx(229), sy(154));
-  s.bezierCurveTo(sx(224), sy(128), sx(202), sy(116), sx(170), sy(116));
-  return s;
-}
-
-// 挤出后放平:shape XY(宽×长)→ 水平(x×z),挤出方向 → 高度 y
-function layFlat(geo, yBase) {
-  geo.rotateX(-Math.PI / 2);
-  geo.computeBoundingBox();
-  geo.translate(0, yBase - geo.boundingBox.min.y, 0);
-  return geo;
-}
-
+// ---------- 车模(GLB) ----------
 const car = new THREE.Group();
 scene.add(car);
 
-// 车身(车漆)
+// 车漆(可切换)与玻璃,加载后按材质名替换
+// 源模型所有材质均为 doubleSided(法线方向不一致),替换材质必须保持双面,否则外壳会「透明见内腔」一片黑
 const paintMat = new THREE.MeshPhysicalMaterial({
   color: 0xb9bdc4, metalness: 0.55, roughness: 0.32,
   clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 1.25,
+  side: THREE.DoubleSide,
 });
-const bodyGeo = layFlat(new THREE.ExtrudeGeometry(bodyShape(), {
-  depth: 0.46, steps: 1, bevelEnabled: true,
-  bevelThickness: 0.18, bevelSize: 0.13, bevelSegments: 5,
-}), 0.32);
-bodyGeo.scale(1, 1, Z_STRETCH);
-const body = new THREE.Mesh(bodyGeo, paintMat);
-body.userData.zone = 'body';
-car.add(body);
-
-// 玻璃舱(嵌入车身顶部,露出约 0.22,避免「大拖鞋」也不能被淹没)
 const glassMat = new THREE.MeshPhysicalMaterial({
-  color: 0x0d1117, metalness: 0.9, roughness: 0.08, envMapIntensity: 1.5,
+  color: 0x0d1117, metalness: 0.85, roughness: 0.35, envMapIntensity: 0.45,
+  side: THREE.FrontSide,   // 双面时背面反射顶光,俯视会透出亮斑;低环境强度避免镜面反射顶灯爆白
 });
-const cabinGeo = layFlat(new THREE.ExtrudeGeometry(cabinShape(), {
-  depth: 0.3, steps: 1, bevelEnabled: true,
-  bevelThickness: 0.14, bevelSize: 0.1, bevelSegments: 4,
-}), 0.82);
-cabinGeo.scale(1, 1, Z_STRETCH);
-const cabin = new THREE.Mesh(cabinGeo, glassMat);
-cabin.userData.zone = 'cabin';
-car.add(cabin);
-
-// 轮胎 + 轮毂盖(内收到轮拱内,俯 3/4 视角看不到对侧整轮)
-const tireMat = new THREE.MeshStandardMaterial({ color: 0x17171a, roughness: 0.95 });
-const hubMat = new THREE.MeshStandardMaterial({ color: 0x6a7078, metalness: 0.8, roughness: 0.4 });
-const tireGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.22, 28).rotateZ(Math.PI / 2);
-const hubGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.235, 20).rotateZ(Math.PI / 2);
-for (const [x, z] of [[-0.72, 1.28], [0.72, 1.28], [-0.72, -1.42], [0.72, -1.42]]) {
-  const t = new THREE.Mesh(tireGeo, tireMat);
-  t.position.set(x, 0.32, z);
-  t.userData.zone = 'wheel';
-  const h = new THREE.Mesh(hubGeo, hubMat);
-  h.position.set(x + Math.sign(x) * 0.005, 0.32, z);
-  car.add(t, h);
-}
-
-// 前大灯:与 2D 方案相同的楔形轮廓,压平贴在机盖前缘(顶盖平面 y≈1.14)
-const headMat = new THREE.MeshStandardMaterial({
-  color: 0x15181d, emissive: 0x9fc4ff, emissiveIntensity: 0.5,
+// 无名材质网格(轮胎/轮毂/门把手等,glTF 默认 metal=1 会白到爆)→ 统一深灰
+const trimMat = new THREE.MeshStandardMaterial({
+  color: 0x33373d, metalness: 0.25, roughness: 0.85, side: THREE.DoubleSide,
 });
-function headlightShape(sign) {
-  const s = new THREE.Shape();
-  // tx-hl-l: M111 74 C103 84 98 97 96.5 112 C100 113 104 112.5 107 110 C108.5 96 113 84 121 75 C118 72.5 114.5 72.5 111 74 Z
-  const pts = [[111, 74], [103, 84, 98, 97, 96.5, 112], [100, 113, 104, 112.5, 107, 110],
-               [108.5, 96, 113, 84, 121, 75], [118, 72.5, 114.5, 72.5, 111, 74]];
-  const X = (v) => sign * sx(v);
-  s.moveTo(X(pts[0][0]), sy(pts[0][1]));
-  for (let i = 1; i < pts.length; i++) {
-    const c = pts[i];
-    s.bezierCurveTo(X(c[0]), sy(c[1]), X(c[2]), sy(c[3]), X(c[4]), sy(c[5]));
-  }
-  return s;
-}
-for (const sign of [1, -1]) {
-  const g = layFlat(new THREE.ExtrudeGeometry(headlightShape(sign), {
-    depth: 0.025, bevelEnabled: false,
-  }), 1.142);
-  g.scale(1, 1, Z_STRETCH);
-  car.add(new THREE.Mesh(g, headMat));
-}
-// 贯穿尾灯(压平贴在尾盖后缘)
-const tailMat = new THREE.MeshStandardMaterial({
-  color: 0x2a0d0d, emissive: 0xff2525, emissiveIntensity: 0.85,
+
+let modelReady = false;
+new GLTFLoader().load('/models/model-y.glb', (gltf) => {
+  const bodyMeshes = [];
+  const wb = new THREE.Box3();
+  const wc = new THREE.Vector3();
+  gltf.scene.traverse((o) => {
+    if (!o.isMesh) return;
+    const name = (o.material && o.material.name) || '';
+    if (name === 'body') {
+      o.material = paintMat;
+      bodyMeshes.push(o);
+    } else if (name === 'glass_body') {
+      o.material = glassMat;
+    } else if (!name) {
+      o.material = trimMat;
+    } else if (o.material) {
+      o.material.envMapIntensity = name === 'chrome' ? 0.7 : 1.0;
+    }
+    // 轮胎区域(轮毂中心 ±1.45/±0.78、贴地)→ 点击归类为「轮胎」
+    wb.setFromObject(o);
+    wb.getCenter(wc);
+    if (wc.y < 0.72 && Math.abs(Math.abs(wc.x) - 1.45) < 0.55 && Math.abs(wc.z) > 0.55) {
+      o.userData.zone = 'wheel';
+    }
+    o.userData.mat = name;
+  });
+  car.add(gltf.scene);
+  modelReady = true;
+  loadingEl.remove();
+  const n = gltf.scene.children.length;
+  logEl.textContent = `模型已加载(${bodyMeshes.length} 个车漆网格可换色)。点击车身部位试试。`;
+}, undefined, (err) => {
+  loadingEl.textContent = '模型加载失败:' + (err && err.message || err);
 });
-const tail = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.025, 0.08), tailMat);
-tail.position.set(0, 1.155, -1.96);
-car.add(tail);
 
-// 充电口(左后翼子板;可点)
-const portMat = new THREE.MeshStandardMaterial({ color: 0x0e0f12, roughness: 0.5, metalness: 0.4 });
-const port = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.03, 20).rotateZ(Math.PI / 2), portMat);
-port.position.set(-0.93, 0.72, -1.17);
-port.userData.zone = 'chargeport';
-car.add(port);
-
-// 地面:舞台圆盘 + 柔和投影( canvas 径向渐变)
+// 地面:舞台圆盘 + 柔和投影(canvas 径向渐变;车长沿 X,阴影平面长边对 X)
 {
   const disc = new THREE.Mesh(
     new THREE.CircleGeometry(3.6, 48).rotateX(-Math.PI / 2),
@@ -191,20 +117,21 @@ car.add(port);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 256, 256);
   const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.1, 6.1).rotateX(-Math.PI / 2),
+    new THREE.PlaneGeometry(6.1, 3.1).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
   shadow.position.y = 0.01;
   scene.add(shadow);
 }
 
 // ---------- 轨道视角(自定义轻量实现:拖动旋转 / 滚轮缩放) ----------
-const target = new THREE.Vector3(0, 0.5, 0);
-const orbit = { theta: 0.62, phi: 1.08, r: 6.2 };
+// 车头 = -X:前 3/4 视角相机在 x<0、z<0(左前,可见充电口一侧)
+const target = new THREE.Vector3(0, 0.7, 0);
+const orbit = { theta: -2.52, phi: 1.08, r: 6.5 };
 const orbitGoal = { ...orbit };
 const VIEWS = {
-  front: { theta: 0.62, phi: 1.08, r: 6.2 },
-  rear: { theta: Math.PI - 0.62, phi: 1.05, r: 6.6 },
-  top: { theta: 0.0, phi: 0.14, r: 7.6 },
+  front: { theta: -2.52, phi: 1.08, r: 6.5 },
+  rear: { theta: 0.62, phi: 1.05, r: 6.8 },
+  top: { theta: 0.0, phi: 0.14, r: 7.8 },
 };
 let autoSpin = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 let downAt = null;
@@ -256,7 +183,7 @@ document.getElementById('tx3d-paint').addEventListener('click', (e) => {
   for (const b of btn.parentElement.children) b.classList.toggle('on', b === btn);
 });
 
-// ---------- 部位拾取(控制页指令区域映射) ----------
+// ---------- 部位拾取(控制页指令区域映射;落点坐标 = 模型世界坐标) ----------
 const ZONE_LABEL = {
   frunk: '前备箱', sentry: '哨兵(前风挡)', climate: '空调(玻璃顶)',
   lock: '车锁(车门)', windows: '车窗', chargeport: '充电口',
@@ -268,14 +195,19 @@ const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 
 function classify(hit) {
-  const p = hit.point, zone = hit.object.userData.zone;
-  if (zone === 'chargeport') return 'chargeport';
-  if (zone === 'wheel') return 'wheel';
-  if (zone === 'cabin') return p.z > 0.72 ? 'sentry' : 'climate';
-  // body:按落点位置划分
-  if (p.z > 1.45) return 'frunk';
-  if (p.z < -1.62) return 'trunk';
-  if (Math.abs(p.x) > 0.55) return p.x < 0 ? 'lock' : 'windows';
+  const p = hit.point, mat = hit.object.userData.mat || '';
+  if (hit.object.userData.zone === 'wheel') return 'wheel';
+  // 玻璃舱:前风挡 → 哨兵,后风挡 → 后备箱,车顶 → 空调
+  if (mat === 'glass_body') {
+    if (p.x < -0.2) return 'sentry';
+    if (p.x > 1.3) return 'trunk';
+    return 'climate';
+  }
+  // 车身:按落点位置划分(车头 = -X,车辆左侧 = -Z)
+  if (p.x < -1.35) return 'frunk';
+  if (p.x > 1.25 && p.z < -0.55) return 'chargeport';   // 左后翼子板(真实充电口位置)
+  if (p.x > 1.5) return 'trunk';
+  if (Math.abs(p.z) > 0.6) return p.z < 0 ? 'lock' : 'windows';
   return 'body';
 }
 
@@ -302,11 +234,12 @@ function showLabel(text, point) {
 }
 
 function pick(e) {
+  if (!modelReady) return;
   const rect = el.getBoundingClientRect();
   ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1,
           -((e.clientY - rect.top) / rect.height) * 2 + 1);
   raycaster.setFromCamera(ndc, camera);
-  const hits = raycaster.intersectObjects(car.children, false);
+  const hits = raycaster.intersectObjects(car.children, true);
   if (!hits.length) return;
   const zone = classify(hits[0]);
   const name = ZONE_LABEL[zone] || zone;
@@ -325,7 +258,6 @@ function pick(e) {
     mk.position.copy(hits[0].point).addScaledVector(hits[0].face.normal, 0.02);
     mk.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), hits[0].face.normal.clone().normalize());
   }
-  if (zone === 'chargeport') portMat.emissive.set(on ? 0x1baf7a : 0x000000);
   logEl.innerHTML = `${t} 点击 <b>${name}</b> → ${on ? '开' : '关'}(演示,正式接入时此处发送对应指令)`;
   showLabel(`${name} · ${on ? '开' : '关'}`, hits[0].point);
 }
@@ -354,6 +286,23 @@ function frame() {
     labelEl.style.left = `${(v.x * 0.5 + 0.5) * stage.clientWidth}px`;
     labelEl.style.top = `${(-v.y * 0.5 + 0.5) * stage.clientHeight}px`;
   }
-  renderer.render(scene, camera);
+  if (!window.__tx3dPaused) renderer.render(scene, camera);
 }
 frame();
+
+// 调试钩子(自动化截图用):__tx3d.pause() 暂停渲染,__tx3d.resume() 恢复
+window.__tx3d = {
+  pause() { window.__tx3dPaused = true; },
+  resume() { window.__tx3dPaused = false; },
+  // 车身材质排障:normal=法线可视化 basic=无光照红 std=普通标准银
+  debug(mode) {
+    const mats = {
+      normal: new THREE.MeshNormalMaterial({ side: THREE.DoubleSide }),
+      basic: new THREE.MeshBasicMaterial({ color: 0xff2222, side: THREE.DoubleSide }),
+      std: new THREE.MeshStandardMaterial({ color: 0xb9bdc4, metalness: 0, roughness: 0.5, side: THREE.DoubleSide }),
+    };
+    car.traverse((o) => {
+      if (o.isMesh && o.userData.mat === 'body') o.material = mats[mode] || paintMat;
+    });
+  },
+};
