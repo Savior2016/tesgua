@@ -13,9 +13,39 @@ stage.prepend(renderer.domElement);   // canvas 垫底,数据 chips 在其上
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
-camera.position.set(3.3, 2.9, -4.35);   // 右前上方 3/4 俯视
-camera.lookAt(0.35, 0.45, 0.1);         // 车偏右,左侧留给电量卡
 setupStudio(renderer, scene);
+
+// ---------- 轨道视角(默认右前上方 3/4 俯视;拖动旋转 / 滚轮缩放) ----------
+const target = new THREE.Vector3(0.35, 0.45, 0.1);   // 车偏右,左侧留给电量卡
+const orbit = { theta: 2.557, phi: 1.139, r: 5.87 }; // = 旧固定机位 (3.3,2.9,-4.35)
+const orbitGoal = { ...orbit };
+function applyOrbit() {
+  const { theta, phi, r } = orbit;
+  camera.position.set(
+    target.x + r * Math.sin(phi) * Math.sin(theta),
+    target.y + r * Math.cos(phi),
+    target.z + r * Math.sin(phi) * Math.cos(theta));
+  camera.lookAt(target);
+}
+applyOrbit();
+{
+  const el = renderer.domElement;
+  let downAt = null;
+  el.addEventListener('pointerdown', (e) => {
+    downAt = { x: e.clientX, y: e.clientY, theta: orbitGoal.theta, phi: orbitGoal.phi };
+    el.setPointerCapture(e.pointerId);
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (!downAt) return;
+    orbitGoal.theta = downAt.theta - (e.clientX - downAt.x) * 0.006;
+    orbitGoal.phi = Math.min(1.45, Math.max(0.15, downAt.phi - (e.clientY - downAt.y) * 0.005));
+  });
+  el.addEventListener('pointerup', () => { downAt = null; });
+  el.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    orbitGoal.r = Math.min(10, Math.max(3.2, orbitGoal.r * (1 + e.deltaY * 0.001)));
+  }, { passive: false });
+}
 
 // 地面圆盘 + 柔和投影(与②同款)
 {
@@ -116,25 +146,35 @@ function place(id, x, y) {
   el.style.top = `${y}px`;
 }
 
+// 固定卡片(电量/里程/温度):仅随尺寸布局,不随视角动
 function layout() {
   const W = stage.clientWidth, H = stage.clientHeight;
   place('txov-batt', W * 0.14, H * 0.24);
   place('txov-odo', W * 0.5, H * 0.075);
   place('txov-tin', W * 0.87, H * 0.30);
   place('txov-tout', W * 0.85, H * 0.52);
-  if (wheelAnchors) {
-    // 近侧三轮锚到车轮旁;远侧后轮(roof 后方,任何投影都落在玻璃上)叠放在 rr 上方
-    let rrPos = null;
-    for (const k of Object.keys(wheelAnchors)) {
-      if (k === 'rl') continue;
-      const p = wheelAnchors[k].clone();
-      if (p.x < 0) { p.x *= 1.5; p.y = 0; }              // 远侧前轮:往车外地面让
-      else { p.x *= 1.15; p.y = 0.1; }                   // 近侧轮:贴近车轮
-      const [x, y] = project(p);
-      if (k === 'rr') rrPos = [x, y - 28];
-      place(`txov-tpms-${k}`, x, y - 28);
-    }
-    if (rrPos) place('txov-tpms-rl', rrPos[0], rrPos[1] - 46);
+}
+
+// 胎压 chips:锚在四轮旁,每帧随视角重投影;侧视时背侧轮调淡
+const tpmsP = new THREE.Vector3();
+function layoutTpms() {
+  if (!wheelAnchors) return;
+  const camX = camera.position.x - target.x;
+  const camZ = camera.position.z - target.z;
+  const lat = Math.hypot(camX, camZ) || 1;
+  for (const k of Object.keys(wheelAnchors)) {
+    const a = wheelAnchors[k];
+    // 沿水平径向往车外让出一小段,避免投影落在玻璃/车身上
+    tpmsP.set(a.x, 0, a.z - 0.1).normalize().multiplyScalar(0.28);
+    tpmsP.set(a.x + tpmsP.x, 0.05, a.z + tpmsP.z);
+    // 相机明显偏向一侧时,另一侧的轮为背侧(被车身挡住)→ 调淡;
+    // 前/后正视时两侧都可见,保持正常亮度
+    const dim = a.x * camX < 0 && Math.abs(camX) / lat > 0.45;
+    const [x, y] = project(tpmsP);
+    const el = document.getElementById(`txov-tpms-${k}`);
+    el.style.left = `${x}px`;
+    el.style.top = `${y - 26}px`;
+    el.classList.toggle('dim', dim);
   }
 }
 
@@ -150,6 +190,11 @@ resize();
 
 function frame() {
   requestAnimationFrame(frame);
+  orbit.theta += (orbitGoal.theta - orbit.theta) * 0.12;
+  orbit.phi += (orbitGoal.phi - orbit.phi) * 0.12;
+  orbit.r += (orbitGoal.r - orbit.r) * 0.15;
+  applyOrbit();
+  layoutTpms();
   if (!window.__txovPaused) renderer.render(scene, camera);
 }
 frame();
@@ -159,4 +204,10 @@ window.__txov = {
   pause() { window.__txovPaused = true; },
   resume() { window.__txovPaused = false; },
   layout,
+  // 立即切到指定轨道视角(跳过插值):__txov.setOrbit(theta, phi, r)
+  setOrbit(theta, phi, r) {
+    if (theta !== undefined) orbit.theta = orbitGoal.theta = theta;
+    if (phi !== undefined) orbit.phi = orbitGoal.phi = phi;
+    if (r !== undefined) orbit.r = orbitGoal.r = r;
+  },
 };
