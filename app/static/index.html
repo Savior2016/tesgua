@@ -208,6 +208,17 @@
           <div class="car-legend car-legend-r" id="car-legend-r"></div>
         </div>
       </div>
+      <!-- 3D 全景(个人中心「显示偏好 → 总览样式 → 3D」):可旋转 3D 车模,
+           数据在圆柱曲面背景(里程/电量/陪伴/能耗/温度)与底座双环(外=电量,内=能耗构成,点色块看明细)上 -->
+      <div class="txov-stage" id="txov-stage" hidden>
+        <div class="tx3d-loading" id="txov-loading">3D 模型加载中…</div>
+        <div class="txov-tip" id="txov-tip"></div>
+        <div class="txov-chip txov-tpms" id="txov-tpms-fl">—</div>
+        <div class="txov-chip txov-tpms" id="txov-tpms-fr">—</div>
+        <div class="txov-chip txov-tpms" id="txov-tpms-rl">—</div>
+        <div class="txov-chip txov-tpms" id="txov-tpms-rr">—</div>
+        <div class="txov-status"></div>
+      </div>
       <!-- 卡片底部:充电周期横滑选择条 -->
       <div class="cycle-strip" id="cycle-strip" hidden></div>
     </div>
@@ -658,6 +669,27 @@
               <path class="car-glass-line" d="M170 162 C210 162 238 168 242 190 C244 230 244 300 240 342 C238 370 208 384 170 384 C132 384 102 370 100 342 C96 300 96 230 98 190 C102 168 130 162 170 162 Z" pointer-events="none"/>
               <path class="car-body-line" d="M170 52 C196 52 218 62 232 84 C243 100 251 118 256 142 C261 168 263 190 261 210 C260 228 259 244 259 258 C259 288 261 316 261 334 C260 356 255 378 245 392 C233 408 205 418 170 418 C135 418 107 408 95 392 C85 378 80 356 79 334 C79 316 81 288 81 258 C81 244 80 228 79 210 C77 190 79 168 84 142 C89 118 97 100 108 84 C122 62 144 52 170 52 Z" pointer-events="none"/>
             </svg>
+            <!-- 3D 车模(个人中心「显示偏好 → 控制样式 → 3D 车模」):与 2D 车身互换,
+                 热点/部位点击走同一套底部滑层控制流程,舱盖按真实状态开合 -->
+            <div class="tx3d-stage" id="tx3d-stage" hidden>
+              <div class="tx3d-hint">拖动旋转 · 滚轮缩放 · 点击车上控制点</div>
+              <div class="tx3d-loading" id="tx3d-loading">3D 模型加载中…</div>
+              <div class="tx3d-label" id="tx3d-label"></div>
+              <div class="tx3d-hot" id="tx3d-hot"></div>
+              <div class="tx3d-confirm" id="tx3d-confirm">
+                <div class="msg"></div>
+                <div class="row"><button type="button" class="no">取消</button><button type="button" class="yes">确认</button></div>
+              </div>
+              <div class="tx3d-log" id="tx3d-log" style="display:none"></div>
+            </div>
+            <div class="tx3d-bar" id="ctl3d-bar" hidden>
+              <div class="seg mini" id="tx3d-view" role="group" aria-label="视角">
+                <button type="button" data-view="front" class="on">前 3/4</button>
+                <button type="button" data-view="rear">后 3/4</button>
+                <button type="button" data-view="side">侧面</button>
+                <button type="button" data-view="top">俯视</button>
+              </div>
+            </div>
             <div class="ctl-chips" id="ctl-chips"></div>
             <p class="ctl-legend-hint">点按车身部位操作 · 部位发绿光 = 开启/已锁</p>
 

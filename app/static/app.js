@@ -8,7 +8,8 @@
     theme: localStorage.getItem('ttv-theme') || 'dark',
     battMode: localStorage.getItem('ttv-batt-mode') || 'pct',
     carMode: localStorage.getItem('ttv-car-mode') || 'pct',
-    ovMode: localStorage.getItem('ttv-ovmode') === 'data' ? 'data' : 'car',  // 总览样式:车模 / 数据
+    ovMode: ['car', 'data', '3d'].includes(localStorage.getItem('ttv-ovmode'))
+      ? localStorage.getItem('ttv-ovmode') : 'car',  // 总览样式:车模 / 数据 / 3D 全景
     overview: null,
     health: null,
     cycles: null,
@@ -1278,15 +1279,36 @@
     if (cv) cv.classList.toggle('has-sel', !!carSel);
   }
 
-  /* --- 总览样式:车模 ⇄ 数据(个人中心「显示偏好」设置,存服务端按账号隔离) --- */
+  /* --- 总览样式:车模 ⇄ 数据 ⇄ 3D(个人中心「显示偏好」设置,存服务端按账号隔离) --- */
   /* 胎压着色复用车况页的 TPMS_STD/tpmsColor(2.9 bar 偏差,全站统一口径) */
+  let ov3dImport = null;
+  function ensureOv3D() {   // 3D 模块懒加载(5MB 模型 + WebGL,仅在启用 3D 模式时拉取)
+    if (!ov3dImport) {
+      window.__ov3d = { demo: false };   // 告诉 ov3d 模块:等 setData 喂真实数据
+      ov3dImport = import('/ov3d.js')
+        .then(() => feedOv3D())
+        .catch((e) => console.warn('[ov3d] 模块加载失败:', e));
+    }
+    return ov3dImport;
+  }
   function applyOvMode() {
     const cv = $('#carview');
     const dv = $('#car-dataview');
+    const v3 = $('#txov-stage');
     if (!cv || !dv) return;
     const isData = S.ovMode === 'data';
+    const is3d = S.ovMode === '3d';
     cv.classList.toggle('mode-data', isData);
+    cv.style.display = is3d ? 'none' : '';   // 3D 模式整行让位(含两侧面板)
     dv.hidden = !isData;
+    if (v3) v3.hidden = !is3d;
+    const effBar = $('#car-eff');
+    if (effBar && is3d) effBar.hidden = true;   // 能耗已上圆柱背景,HTML 条收起
+    if (is3d) {
+      ensureOv3D().then(() => {   // 容器刚从 hidden 变为可见,下一帧喂一次数据
+        requestAnimationFrame(() => feedOv3D());
+      });
+    }
     if (isData) {
       // 环图容器刚从 hidden 变为可见,下一帧再重置尺寸并重渲染
       // (主题切换会 notMerge 清空 option,仅 resize 可能得到空图,故必须走 renderCar)
@@ -1295,6 +1317,78 @@
         renderCar();
       });
     }
+  }
+
+  /* --- 3D 全景数据:与 2D 车模同一份 S.overview / S.cycles / S.delivery --- */
+  function feedOv3D() {
+    if (!window.Ov3D || !S.overview) return;
+    const o = S.overview;
+    const lat = o.latest || null;
+    const usable = lat && lat.usable_battery_level != null ? Number(lat.usable_battery_level) : null;
+    const odo = lat && lat.odometer != null ? Number(lat.odometer) : null;
+    const inT = lat && lat.inside_temp != null ? Number(lat.inside_temp) : null;
+    const outT = lat && lat.outside_temp != null ? Number(lat.outside_temp) : null;
+    const battKm = usable === null ? null : kmAtPct(usable);
+
+    // 能耗构成:与 2D 玻璃顶环同一归一化(未充为原始值,其余段按充至电量缩放)
+    const cycles = (S.cycles && S.cycles.cycles) || [];
+    const cyc = cycles.length ? cycles[Math.min(S.cycleIdx, cycles.length - 1)] : null;
+    const bd = [];
+    if (cyc) {
+      const inner = [
+        ['uncharged', Number(cyc.uncharged_pct), true, '未充', 0x5a6270, 0.5],
+        ['idle', Number(cyc.idle_pct), false, '驻车耗电', 0x4a3aa7, 0.95],
+        ['sentry', Number(cyc.sentry_pct), false, '哨兵模式', 0xe87ba4, 0.95],
+        ['drive', Number(cyc.drive_pct), false, '行驶', 0xeda100, 0.95],
+        ['remaining', Number(cyc.remaining_pct), false,
+         cyc.active ? '当前剩余' : '周期末剩余', 0x3987e5, 0.95],
+      ];
+      const normSum = inner.slice(1).reduce((s, x) => s + x[1], 0);
+      const scale = normSum > 0 ? cyc.level_after / normSum : 0;
+      const cap = cyc.cap_kwh ? Number(cyc.cap_kwh) : 84;
+      for (const [key, v, raw, label, color, opacity] of inner) {
+        const frac = raw ? v : v * scale;
+        bd.push({ key, label, pct: frac, color, opacity, kwh: frac / 100 * cap });
+      }
+    }
+
+    // 平均能耗:与 2D 顶条同口径(本周期不足 1km 回退上一周期;刻度 100..200)
+    let eff = null;
+    {
+      let effCyc = cyc;
+      if (S.cycleIdx === 0 && (!effCyc || effCyc.drive_km == null || Number(effCyc.drive_km) < 1)) {
+        effCyc = cycles.slice(1).find((x) => x.drive_km != null && Number(x.drive_km) >= 1) || effCyc;
+      }
+      const dKwh = effCyc && effCyc.drive_kwh != null ? Number(effCyc.drive_kwh) : 0;
+      const dKm = effCyc && effCyc.drive_km != null ? Number(effCyc.drive_km) : 0;
+      const official = o.kwh_per_ideal_km ? Number(o.kwh_per_ideal_km) * 1000 : null;
+      if (dKm >= 1 && official) eff = { val: dKwh * 1000 / dKm, lo: 100, hi: 200, official };
+    }
+
+    // 胎压:最近 24h 最后一条上报,按与 2.9 bar 的偏差着色
+    const tpms = {};
+    const tpmsColors = {};
+    const w = (o.tpms24 && o.tpms24.wheels) || {};
+    for (const k of ['fl', 'fr', 'rl', 'rr']) {
+      const data = (w[k] || []).map((p) => [Number(p[0]), Number(p[1])]);
+      const lastV = data.length ? data[data.length - 1][1] : null;
+      tpms[k] = lastV === null ? '—' : fmtNum(lastV, 1);
+      if (lastV !== null) tpmsColors[k] = tpmsColor(lastV);
+    }
+
+    window.Ov3D.setData({
+      soc: usable,
+      rangeKm: battKm === null ? null : Math.round(battKm),
+      odoText: odo === null ? '' : fmtNum(odo, 0),
+      tin: inT === null ? null : fmtNum(inT, 1),
+      tout: outT === null ? null : fmtNum(outT, 1),
+      companionDays: companionDays(),
+      eff,
+      bd,
+      tpms,
+      tpmsColors,
+      statusText: STATE_LABEL[o.state] || o.state || '',
+    });
   }
 
   /* --- 数据模式:KPI 大数字横排 + 能量分布环图 + 次要指标列(与车模同一份数据) --- */
@@ -1737,7 +1831,7 @@
         offVal.textContent = fmtNum(official, 0);
         $('.car-eff-label').textContent = effPrev ? '平均能耗 · 上周期' : '平均能耗';
         $('#car-eff-val').textContent = `${fmtNum(eff, 0)} Wh/km`;
-        effG.hidden = false;
+        effG.hidden = S.ovMode === '3d';   // 3D 模式能耗在圆柱背景上,HTML 条收起
       } else {
         effG.hidden = true;
       }
@@ -1795,6 +1889,8 @@
 
     // 数据模式:KPI 横排 + 能量分布环图 + 次要指标列(与车模同一份数据)
     renderCarData(o, cyc);
+    // 3D 全景模式:同一份数据喂给 3D 场景(模块未加载时为空操作)
+    feedOv3D();
   }
 
   /* ---------- 渲染:充电详情(卡片式,纵向布局,适配手机) ---------- */
@@ -4303,13 +4399,17 @@
         localStorage.setItem('ttv-days', String(p.days));
         if (p.days !== S.days) { S.days = p.days; refresh(); }
       }
-      if (p.overview_mode === 'car' || p.overview_mode === 'data') {
+      if (p.overview_mode === 'car' || p.overview_mode === 'data' || p.overview_mode === '3d') {
         localStorage.setItem('ttv-ovmode', p.overview_mode);
         if (p.overview_mode !== S.ovMode) {
           S.ovMode = p.overview_mode;
           applyOvMode();
           renderCar();
         }
+      }
+      if (p.control_mode === '2d' || p.control_mode === '3d') {
+        localStorage.setItem('ttv-ctlmode', p.control_mode);
+        if (window.CtlModeApply) window.CtlModeApply(p.control_mode);  // 控制页 2D/3D 校准
       }
     }).catch(() => { /* 偏好拉取失败就用缓存/默认值 */ });
 

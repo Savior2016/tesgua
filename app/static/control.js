@@ -83,6 +83,26 @@
   /* 车身部位:开/关只靠视觉效果(发光描边+图标变色,车锁换图标),不再拼状态文字 */
   const zones={lock:['locked','已锁','未锁'],sentry:['sentry','哨兵已开启','哨兵已关闭'],windows:['windows_open','车窗已通风','车窗已关闭'],chargeport:['charge_port','充电口已打开','充电口已关闭'],frunk:['frunk_open','前备箱已打开','前备箱已关闭'],trunk:['trunk_open','后备箱已打开','后备箱已关闭'],climate:['climate_on','空调已开启','空调已关闭']};
   const names={lock:'车锁',sentry:'哨兵',windows:'车窗',chargeport:'充电口',frunk:'前备箱',trunk:'后备箱',climate:'空调'};
+  /* 控制样式:2D 车身 ⇄ 3D 车模(个人中心「显示偏好」);3D 模块懒加载,
+     热点/部位点击回调同一套 open() 滑层流程,状态由 setStates 推入 */
+  let ctl3dImport=null;
+  function applyCtlMode(m){
+    const is3d=m==='3d';
+    const svg=document.querySelector('.ctl-car');
+    const stage=$('tx3d-stage'),bar=$('ctl3d-bar');
+    if(svg)svg.style.display=is3d?'none':'';
+    if(stage)stage.hidden=!is3d;
+    if(bar)bar.hidden=!is3d;
+    if(!is3d)return;
+    if(!ctl3dImport){
+      window.__ctl3d={demo:false,onZone:(name)=>open(name),ui:{log:false,paintPicker:false,modelPicker:false}};
+      ctl3dImport=import('/ctl3d.js').then(()=>{
+        if(window.Ctl3D)window.Ctl3D.setStates(model.states);
+      }).catch(e=>console.warn('[ctl3d] 模块加载失败:',e));
+    }else if(window.Ctl3D){
+      window.Ctl3D.setStates(model.states);
+    }
+  }
   function renderZones(){
     const s=model.states||{};
     Object.entries(zones).forEach(([zone,[key,on,off]])=>{
@@ -94,6 +114,7 @@
       if(zone==='lock')element.classList.toggle('unlocked',value===false);
       element.setAttribute('aria-label',names[zone]+'：'+(value==null?'状态未知':value?on:off)+'，点击查看操作');
     });
+    if(window.Ctl3D)window.Ctl3D.setStates(s);   // 3D 车模热点/舱盖同步(模块未加载时为空操作)
   }
   /* 滑动开关:右滑开启、回滑关闭(凹槽轨道 + 立体旋钮,滑动本身就是确认,不再弹确认框);
      momentary=true 时滑动触发一次操作后旋钮弹回。onFire(target) 须返回最终开态(bool)。 */
@@ -698,6 +719,9 @@
   grip.addEventListener('pointercancel',gripEnd);
   grip.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();hideSheet();}});
   window.TeslaControl={load,overview(value){vehicle=value||{};render();}};
+  /* 控制样式(2D/3D):localStorage 秒开,app.js 拉取服务端偏好后回调这里校准 */
+  window.CtlModeApply=applyCtlMode;
+  applyCtlMode(localStorage.getItem('ttv-ctlmode')==='3d'?'3d':'2d');
   // Refresh cached state only; querying Tesla is explicit to avoid continuous billed polling.
   setInterval(()=>{if(!document.hidden&&$('page-control').classList.contains('active'))load();},15000);
   setInterval(renderNap,1000);

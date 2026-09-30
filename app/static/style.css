@@ -1350,6 +1350,125 @@ button { touch-action: manipulation; }
   white-space: nowrap;
 }
 
+/* 个人中心 3D 车模选择:5 个长名称选项,手机端一行放不下 → 允许换行 */
+#carmodel-seg { flex-wrap: wrap; max-width: 100%; }
+#carmodel-seg button { white-space: nowrap; }
+
+/* ===== 3D 车模(总览 3D 全景 / 控制页 3D,与 test.html 同款样式) ===== */
+.tx3d-stage {
+  position: relative; height: 460px; border-radius: 12px; overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--series-1) 13%, transparent), transparent 60%),
+    radial-gradient(90% 70% at 50% 100%, color-mix(in srgb, var(--series-1) 7%, transparent), transparent 65%),
+    var(--page);
+  border: 1px solid var(--border); margin-top: 12px;
+}
+.tx3d-stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.tx3d-hint {
+  position: absolute; left: 12px; top: 10px; font-size: 12px; color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-1) 72%, transparent);
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px;
+  backdrop-filter: blur(8px); pointer-events: none;
+}
+.tx3d-loading {
+  position: absolute; inset: 0; display: grid; place-items: center;
+  font-size: 13px; color: var(--text-muted); background: transparent; pointer-events: none;
+}
+.tx3d-label {
+  position: absolute; transform: translate(-50%, -130%); pointer-events: none;
+  font-size: 12px; font-weight: 600; color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-1) 85%, transparent);
+  border: 1px solid var(--baseline); border-radius: 8px; padding: 3px 10px;
+  backdrop-filter: blur(8px); opacity: 0; transition: opacity 0.25s ease;
+  white-space: nowrap;
+}
+.tx3d-label.show { opacity: 1; }
+.tx3d-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 12px; }
+.tx3d-bar .lab { font-size: 13px; color: var(--text-secondary); }
+.tx3d-log {
+  margin-top: 10px; font-size: 12.5px; color: var(--text-secondary);
+  font-variant-numeric: tabular-nums; min-height: 1.4em;
+}
+.tx3d-log b { color: var(--series-3); }
+@media (max-width: 600px) { .tx3d-stage { height: 380px; } }
+
+/* 车上控制热点(直接显示在 3D 车模上) */
+.tx3d-hot { position: absolute; inset: 0; pointer-events: none; }
+.tx3d-chip {
+  position: absolute; transform: translate(-50%, -50%); pointer-events: auto;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11.5px; color: var(--text-primary); white-space: nowrap;
+  background: color-mix(in srgb, var(--surface-1) 68%, transparent);
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px 4px 7px;
+  backdrop-filter: blur(8px); cursor: pointer;
+  transition: opacity .2s, border-color .2s, box-shadow .2s;
+}
+.tx3d-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); flex: none; }
+.tx3d-chip:hover { border-color: var(--baseline); }
+.tx3d-chip.on { border-color: var(--series-3); box-shadow: 0 0 10px color-mix(in srgb, var(--series-3) 45%, transparent); }
+.tx3d-chip.on i { background: var(--series-3); }
+.tx3d-chip.dim { opacity: 0.28; }
+/* 开合二次确认弹层 */
+.tx3d-confirm {
+  position: absolute; transform: translate(-50%, -100%); z-index: 5; display: none;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; box-shadow: 0 8px 30px rgba(0, 0, 0, .35);
+}
+.tx3d-confirm.show { display: block; }
+.tx3d-confirm .msg { font-size: 13px; color: var(--text-primary); margin-bottom: 8px; white-space: nowrap; }
+.tx3d-confirm .row { display: flex; gap: 8px; justify-content: flex-end; }
+.tx3d-confirm button {
+  font-size: 12.5px; border-radius: 8px; padding: 5px 14px; cursor: pointer;
+  border: 1px solid var(--border); background: transparent; color: var(--text-secondary);
+}
+.tx3d-confirm button.yes {
+  background: var(--series-1); border-color: var(--series-1); color: #fff;
+}
+
+/* ③ 3D 总览 */
+.txov-stage {
+  position: relative; height: 520px; border-radius: 12px; overflow: hidden; margin-top: 12px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in srgb, var(--series-1) 13%, transparent), transparent 60%),
+    radial-gradient(90% 70% at 50% 100%, color-mix(in srgb, var(--series-1) 7%, transparent), transparent 65%),
+    var(--page);
+  border: 1px solid var(--border);
+}
+.txov-stage canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+.txov-stage canvas:active { cursor: grabbing; }
+.txov-chip.dim { opacity: 0.32; }
+.txov-chip {
+  position: absolute; transform: translate(-50%, -50%); pointer-events: none;
+  background: color-mix(in srgb, var(--surface-1) 70%, transparent);
+  border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px;
+  backdrop-filter: blur(8px); text-align: center; color: var(--text-primary);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.txov-tpms { font-size: 12px; font-weight: 650; padding: 4px 9px; border-radius: 999px; }
+.txov-tpms::after {
+  content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 14px;
+  background: color-mix(in srgb, var(--text-muted) 55%, transparent);
+}
+.txov-status {
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  font-size: 12px; color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface-1) 70%, transparent);
+  border: 1px solid var(--border); border-radius: 999px; padding: 5px 16px;
+  backdrop-filter: blur(8px); pointer-events: none; white-space: nowrap;
+}
+/* 色块点击浮层 */
+.txov-tip {
+  position: absolute; transform: translate(-50%, calc(-100% - 8px)); pointer-events: none;
+  background: color-mix(in srgb, var(--surface-1) 84%, transparent);
+  border: 1px solid var(--border); border-radius: 10px; padding: 7px 13px;
+  backdrop-filter: blur(8px); color: var(--text-primary); text-align: center;
+  white-space: nowrap; opacity: 0; transition: opacity .18s; z-index: 3;
+}
+.txov-tip.show { opacity: 1; }
+.txov-tip b { display: block; font-size: 12.5px; font-weight: 650; }
+.txov-tip small { display: block; font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+@media (max-width: 600px) { .txov-stage { height: 420px; } }
+
 .card-head-right {
   display: flex;
   flex-direction: column;

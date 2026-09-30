@@ -153,21 +153,6 @@
       backdrop-filter: blur(8px); text-align: center; color: var(--text-primary);
       font-variant-numeric: tabular-nums; white-space: nowrap;
     }
-    .txov-batt { text-align: left; padding: 10px 16px; }
-    .txov-batt .big { font-size: 30px; font-weight: 700; line-height: 1.1; }
-    .txov-batt .sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-    .txov-batt .bar {
-      width: 120px; height: 5px; border-radius: 3px; margin-top: 8px;
-      background: color-mix(in srgb, var(--text-muted) 25%, transparent); overflow: hidden;
-    }
-    .txov-batt .bar i {
-      display: block; height: 100%; border-radius: 3px;
-      background: linear-gradient(90deg, var(--series-3), color-mix(in srgb, var(--series-3) 55%, #fff));
-    }
-    .txov-odo .lab { display: block; font-size: 10.5px; color: var(--text-muted); }
-    .txov-odo b { font-size: 15px; font-weight: 650; }
-    .txov-temp { font-size: 13.5px; font-weight: 600; }
-    .txov-temp small { display: block; font-size: 10px; color: var(--text-muted); font-weight: 400; }
     .txov-tpms { font-size: 12px; font-weight: 650; padding: 4px 9px; border-radius: 999px; }
     .txov-tpms::after {
       content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 14px;
@@ -180,15 +165,6 @@
       border: 1px solid var(--border); border-radius: 999px; padding: 5px 16px;
       backdrop-filter: blur(8px); pointer-events: none; white-space: nowrap;
     }
-    .txov-legend {
-      position: absolute; left: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 4px;
-      font-size: 11px; color: var(--text-secondary); pointer-events: none;
-      background: color-mix(in srgb, var(--surface-1) 60%, transparent);
-      border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px;
-      backdrop-filter: blur(8px);
-    }
-    .txov-legend span { display: flex; align-items: center; gap: 6px; }
-    .txov-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
     /* 色块点击浮层 */
     .txov-tip {
       position: absolute; transform: translate(-50%, calc(-100% - 8px)); pointer-events: none;
@@ -200,26 +176,7 @@
     .txov-tip.show { opacity: 1; }
     .txov-tip b { display: block; font-size: 12.5px; font-weight: 650; }
     .txov-tip small { display: block; font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
-    /* 平均能耗条(对齐 2D 效率条) */
-    .txov-eff { text-align: left; padding: 8px 14px; }
-    .txov-eff .lab { font-size: 10.5px; color: var(--text-muted); }
-    .txov-eff b { font-size: 13.5px; font-weight: 650; margin-left: 6px; }
-    .txov-eff .bar {
-      position: relative; width: 132px; height: 5px; border-radius: 3px; margin-top: 6px;
-      background: color-mix(in srgb, var(--text-muted) 25%, transparent);
-    }
-    .txov-eff .bar .fill {
-      display: block; height: 100%; border-radius: 3px; width: 0;
-      background: linear-gradient(90deg, var(--series-1), color-mix(in srgb, var(--series-1) 55%, #fff));
-    }
-    .txov-eff .bar .official {
-      position: absolute; top: -2.5px; width: 2px; height: 10px; border-radius: 1px;
-      background: var(--text-primary); opacity: 0.75;
-    }
-    /* 陪伴天数:贴在车顶的 chip */
-    .txov-companion { font-size: 12px; padding: 4px 12px; border-radius: 999px; color: var(--text-secondary); }
-    .txov-companion b { color: var(--series-3); font-weight: 650; }
-    @media (max-width: 600px) { .txov-stage { height: 420px; } .txov-batt .big { font-size: 24px; } }
+    @media (max-width: 600px) { .txov-stage { height: 420px; } }
   </style>
 </head>
 <body>
@@ -515,44 +472,24 @@
     <h2>③ 总览车模 · 3D 全景方案(候选:替代 2D 投影)</h2>
     <p class="tx-note">
       同一真实 3D 模型(跟随个人中心「3D 车模」选择),<b>拖动旋转 · 滚轮/双指缩放</b>(窄屏自动拉远),
-      数据直接叠在车模上:<b>底盘圆盘外圈 = 当前电量,内圈 = 本充电周期能耗构成</b>(与 2D 玻璃顶能量环同口径,
-      <b>点击色块查看明细</b>),圆盘车头侧为 T 型车标,
-      四轮旁胎压读数(随视角实时跟随,背面自动调淡),车顶中后段贴陪伴天数,
-      左列电量/续航/平均能耗、右列车内外温度、上方总里程。对比上方 2D 投影方案。
+      数据全部落在 3D 场景里:<b>车模后方一圈圆柱曲面背景</b> = 总里程 / 当前电量续航 / 平均能耗 / 陪伴天数 / 车内空调 / 车外温度
+      (转动视角依次入画,不再有溢出画面的浮动卡片);<b>底盘圆盘外圈 = 当前电量,内圈 = 本充电周期能耗构成</b>(与 2D 玻璃顶能量环同口径,
+      <b>点击色块查看明细</b>),圆盘正中心为特斯拉红 T 型车标,
+      四轮旁胎压读数(随视角实时跟随,背面自动调淡)。对比上方 2D 投影方案。
     </p>
     <div class="txov-stage" id="txov-stage">
       <div class="tx3d-loading" id="txov-loading">3D 模型加载中…</div>
-      <div class="txov-chip txov-batt" id="txov-batt">
-        <div class="big">65%</div>
-        <div class="sub">≈ 342 km · 驻车</div>
-        <div class="bar"><i style="width:65%"></i></div>
-      </div>
-      <div class="txov-chip txov-odo" id="txov-odo"><span class="lab">总里程</span><b>12,345 km</b></div>
-      <div class="txov-chip txov-temp" id="txov-tin"><small>车内</small>24.5°</div>
-      <div class="txov-chip txov-temp" id="txov-tout"><small>车外</small>18°</div>
-      <div class="txov-chip txov-eff" id="txov-eff">
-        <span class="lab">平均能耗</span><b>—</b>
-        <div class="bar"><i class="fill"></i><i class="official"></i></div>
-      </div>
-      <div class="txov-chip txov-companion" id="txov-companion">已陪伴 <b>—</b> 天</div>
       <div class="txov-tip" id="txov-tip"></div>
       <div class="txov-chip txov-tpms" id="txov-tpms-fl">2.8</div>
       <div class="txov-chip txov-tpms" id="txov-tpms-fr">2.9</div>
       <div class="txov-chip txov-tpms" id="txov-tpms-rl">2.9</div>
       <div class="txov-chip txov-tpms" id="txov-tpms-rr">3.0</div>
       <div class="txov-status">已锁定 · 驻车 · 哨兵中</div>
-      <div class="txov-legend">
-        <span><i style="background:#5a6270"></i>未充</span>
-        <span><i style="background:#4a3aa7"></i>驻车耗电</span>
-        <span><i style="background:#e87ba4"></i>哨兵</span>
-        <span><i style="background:#eda100"></i>行驶</span>
-        <span><i style="background:#3987e5"></i>剩余</span>
-      </div>
     </div>
   </section>
 
 </div>
-<script type="module" src="/test.js"></script>
-<script type="module" src="/test-overview.js"></script>
+<script type="module" src="/ctl3d.js"></script>
+<script type="module" src="/ov3d.js"></script>
 </body>
 </html>

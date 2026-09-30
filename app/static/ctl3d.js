@@ -1,13 +1,13 @@
 // 测试页面 · 真实 3D 车模原型(控制页候选方案)
-// 加载管线/车型注册表/幽灵开合件在 test-car.js(与总览 3D 方案共用)。
+// 加载管线/车型注册表/幽灵开合件在 car3d.js(与总览 3D 方案共用)。
 // 本文件:轨道视角 + 车身上直接显示的控制热点(前备箱/后备箱/车门二次确认,
 // 确认后模型跟着开合;演示阶段不发送真实控制指令) + 部位拾取。
 import {
   THREE, MODELS, resolveCfg, makeLoader, setupStudio, makeMats,
   prepareModel, makeGhostParts, applyMovers,
-} from '/test-car.js';
-import { prepareHighland, highlandMovers } from '/test-highland.js';
-import { prepareCybertruck, cybertruckMovers } from '/test-cybertruck.js';
+} from '/car3d.js';
+import { prepareHighland, highlandMovers } from '/highland3d.js';
+import { prepareCybertruck, cybertruckMovers } from '/cybertruck3d.js';
 
 const stage = document.getElementById('tx3d-stage');
 const labelEl = document.getElementById('tx3d-label');
@@ -37,10 +37,14 @@ let ghosts = null;            // 开合件(幽灵面板或真实铰链组,均含
 
 // ---------- 控制热点 ----------
 // pos 为模型局部坐标(车头 = -Z 轴方向);confirm = 需要二次确认的开合类控制
+// 正式页注入 window.__ctl3d = { demo:false, onZone(name), ui:{...} } 后,
+// 热点/部位点击不再走演示状态,改为回调正式页控制流程(底部滑层 + 真实指令)
+const CONF = window.__ctl3d || {};
+const DEMO_MODE = CONF.demo !== false;
 const HOTSPOTS = [
   { id: 'frunk', label: '前备箱', pos: [0, 1.16, -1.5], confirm: true },
   { id: 'trunk', label: '后备箱', pos: [0, 1.28, 1.72], confirm: true },
-  { id: 'doors', label: '车门', pos: [-1.02, 0.92, 0.62], confirm: true },
+  { id: 'doors', label: '车门', pos: [-1.02, 0.92, 0.62], confirm: true, demoOnly: true },
   { id: 'lock', label: '车锁', pos: [-1.02, 1.04, -0.55] },
   { id: 'windows', label: '车窗', pos: [1.02, 1.3, -0.2] },
   { id: 'climate', label: '空调', pos: [0, 1.64, 0.35] },
@@ -59,6 +63,7 @@ const zoneState = {};    // 开关类状态(lock/climate/...)
 
 function buildHotspots() {
   for (const h of (cfg.hotspots || HOTSPOTS)) {
+    if (!DEMO_MODE && (h.demoOnly || h.id === 'doors')) continue;   // 车门开合无真实指令,仅测试页演示
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'tx3d-chip';
@@ -94,6 +99,10 @@ function stamp() { return new Date().toTimeString().slice(0, 8); }
 function onChip(h) {
   if (!modelReady) return;
   const id = h.id;
+  if (!DEMO_MODE) {   // 正式页:全部交给控制页底部滑层流程(自带确认/滑动/指令)
+    if (CONF.onZone) CONF.onZone(id);
+    return;
+  }
   if (h.confirm) {
     showConfirm(h);
     return;
@@ -233,6 +242,18 @@ const VIEWS = {
 };
 let autoSpin = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 let downAt = null;
+let userZoomed = false;   // 滚轮缩放过 → 不再随舞台尺寸自适应
+let viewR = 6.5;          // 视角按钮设定的基准半径(自适应只在其上兜底)
+
+// 自适应半径:车+地面圆盘(半径 3.6)完整落入当前舞台画幅(窄舞台自动拉远)
+function fitRadius() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (w < 10 || h < 10) return viewR;   // 舞台隐藏中(width 0)→ 别算,tan(0) 会得 Infinity
+  const aspect = w / h;
+  const vHalf = THREE.MathUtils.degToRad(camera.fov / 2);
+  const hHalf = Math.atan(Math.tan(vHalf) * aspect);
+  return Math.max(6.5, (3.6 / Math.tan(Math.min(vHalf, hHalf))) * 1.08);
+}
 
 function applyOrbit() {
   const { theta, phi, r } = orbit;
@@ -264,23 +285,37 @@ el.addEventListener('pointerup', (e) => {
 el.addEventListener('wheel', (e) => {
   e.preventDefault();
   autoSpin = false;
+  userZoomed = true;
   orbitGoal.r = orbit.r = Math.min(12, Math.max(4, orbit.r * (1 + e.deltaY * 0.001)));
 }, { passive: false });
 
-document.getElementById('tx3d-view').addEventListener('click', (e) => {
+// 工具条(视角/换漆/车型):正式页可按 CONF.ui 隐藏部分条;元素缺失时容错
+const viewBar = document.getElementById('tx3d-view');
+const paintBar = document.getElementById('tx3d-paint');
+const modelBar = document.getElementById('tx3d-model');
+if (!DEMO_MODE && CONF.ui) {
+  if (CONF.ui.paintPicker === false && paintBar) paintBar.style.display = 'none';
+  if (CONF.ui.modelPicker === false && modelBar) modelBar.style.display = 'none';
+  if (CONF.ui.viewPicker === false && viewBar) viewBar.style.display = 'none';
+  if (CONF.ui.log === false && logEl) logEl.style.display = 'none';
+}
+if (viewBar) viewBar.addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-view]');
   if (!btn) return;
   autoSpin = false;
+  userZoomed = false;   // 选视角后恢复画幅自适应
   Object.assign(orbitGoal, VIEWS[btn.dataset.view]);
+  viewR = VIEWS[btn.dataset.view].r;
+  orbitGoal.r = Math.max(viewR, fitRadius());
   for (const b of btn.parentElement.children) b.classList.toggle('on', b === btn);
 });
-document.getElementById('tx3d-paint').addEventListener('click', (e) => {
+if (paintBar) paintBar.addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-paint]');
   if (!btn) return;
   paintMat.color.set(btn.dataset.paint);
   for (const b of btn.parentElement.children) b.classList.toggle('on', b === btn);
 });
-document.getElementById('tx3d-model').addEventListener('click', (e) => {
+if (modelBar) modelBar.addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-model]');
   if (!btn || (cfg && btn.dataset.model === cfg.key)) return;
   for (const b of btn.parentElement.children) b.classList.toggle('on', b === btn);
@@ -351,6 +386,12 @@ function pick(e) {
   }
   zoneState[zone] = !zoneState[zone];
   const on = zoneState[zone];
+  if (!DEMO_MODE) {   // 正式页:部位点击 → 控制页对应模块滑层
+    zoneState[zone] = !on;   // 状态由 setStates 驱动,撤销演示翻转
+    if (CONF.onZone) CONF.onZone(zone);
+    showLabel(name, hits[0].point);
+    return;
+  }
   const mk = markerFor(zone);
   mk.visible = on;
   if (on) {
@@ -368,6 +409,9 @@ function resize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  if (!userZoomed) {   // 未手动缩放时随画幅自适应(窄舞台在视角半径上兜底拉远)
+    orbitGoal.r = Math.max(viewR, fitRadius());
+  }
 }
 new ResizeObserver(resize).observe(stage);
 resize();
@@ -485,4 +529,30 @@ window.__tx3d = {
     });
     return found;
   },
+};
+
+// ---------- 状态注入(正式页:/api/control/status 的 states → 热点亮灭 + 舱盖开合动画) ----------
+const STATE_KEY = {
+  lock: 'locked', sentry: 'sentry', windows: 'windows_open',
+  chargeport: 'charge_port', climate: 'climate_on',
+  frunk: 'frunk_open', trunk: 'trunk_open',
+};
+function setStates(states) {
+  const s = states || {};
+  for (const [id, key] of Object.entries(STATE_KEY)) {
+    let on = s[key] === true;
+    if (id === 'chargeport' && s.charging === true) on = true;   // 充电中充电口必然打开
+    zoneState[id] = on;
+    setChipState(id, on);
+    if (id === 'frunk' || id === 'trunk') {
+      openTarget[id] = on ? 1 : 0;   // 走补间动画(openT 在当前帧逐步逼近)
+    }
+  }
+}
+window.Ctl3D = {
+  setStates,
+  setOpen: window.__tx3d.setOpen,
+  pause: window.__tx3d.pause,
+  resume: window.__tx3d.resume,
+  setView: window.__tx3d.setView,
 };

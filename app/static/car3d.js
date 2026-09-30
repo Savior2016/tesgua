@@ -1,12 +1,12 @@
-// 测试页共享 3D 车模加载管线(控制页原型 test.js 与总览 3D 方案 test-overview.js 共用)
+// 共享 3D 车模加载管线(控制页 3D ctl3d.js 与总览 3D ov3d.js 共用,测试页同用)
 // 模型:
 //  - model-y-juniper.glb  2025 新款 Model Y(BloxBloger @ Sketchfab,CC BY-NC,
 //    经 aditano/tesla-studio 轴归一+材质化处理,meshopt 压缩,车头 = -Z,左侧 = -X)
 //  - model-y.glb          2021 款 Model Y(Tina2088/tina-3d-tesla,MIT,车头 = -X)
 //  - highland/model.glb   2024 款 Model 3 Highland(RBLXSupercars @ Sketchfab,CC BY 4.0,
-//    经 aditano/tesla-studio 压缩+纹理外置;专用管线 test-highland.js:归一化+真实铰链面板)
+//    经 aditano/tesla-studio 压缩+纹理外置;专用管线 highland3d.js:归一化+真实铰链面板)
 //  - cybertruck/model.glb 2025 Cybertruck(Nieve5677 @ Sketchfab,CC BY 4.0;
-//    专用管线 test-cybertruck.js:车壳逐面拆分+真实铰链面板;暂作 Model Y L 占位)
+//    专用管线 cybertruck3d.js:车壳逐面拆分+真实铰链面板;暂作 Model Y L 占位)
 // Three.js 本地化(/vendor/three.module.min.js,MIT);GLTFLoader/MeshoptDecoder 同源自托管。
 import * as THREE from '/vendor/three.module.min.js';
 import { GLTFLoader } from '/vendor/loaders/GLTFLoader.js';
@@ -38,7 +38,7 @@ export const MODELS = {
     meshopt: true, lenAxis: 'z', frontSign: -1, latAxis: 'x', leftSign: -1,
     paint: 'exterior_steel', glass: 'glass', keepGlass: true,
     wheelRe: /wheel_finish|tire_rubber/, halfLen: 2.84,
-    cybertruck: true,   // 走 test-cybertruck.js 专用管线(车壳逐面拆分 + 真实铰链面板)
+    cybertruck: true,   // 走 cybertruck3d.js 专用管线(车壳逐面拆分 + 真实铰链面板)
     note: '不锈钢车身不支持换漆;车门/前备箱/尾门沿真实缝线裁切,开合为真面板动画',
     // Cybertruck 更高更长(5.68m),热点锚点与 Model Y 不同
     hotspots: [
@@ -57,7 +57,7 @@ export const MODELS = {
     meshopt: true, lenAxis: 'z', frontSign: -1, latAxis: 'x', leftSign: -1,
     paint: 'exterior_paint', glass: 'glass', keepGlass: true,
     wheelRe: /wheel_finish|tire_rubber/, halfLen: 2.36,
-    highland: true,   // 走 test-highland.js 专用管线(归一化烘焙 + 真实铰链面板)
+    highland: true,   // 走 highland3d.js 专用管线(归一化烘焙 + 真实铰链面板)
     note: '车门/前备箱/后备箱沿真实缝线裁切,开合为真面板动画',
     // Model 3 更低更矮(车顶 1.41m),热点锚点与 Model Y 不同
     hotspots: [

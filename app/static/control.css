@@ -141,3 +141,6 @@
 /* 滑层内底部按钮:与模块网格同宽,贴在网格下方 */
 .ctl-sheet-home .ctl-foot-actions{margin-top:14px;padding-bottom:4px}
 @media(max-width:600px){#page-control .ctl-modules{gap:10px}#page-control .ctl-module{padding:14px}}
+
+/* 3D 车模舞台:子元素全部绝对定位,carbox(flex 列)里固有宽度会塌成 2px → 显式拉满 */
+#page-control .tx3d-stage{width:100%}

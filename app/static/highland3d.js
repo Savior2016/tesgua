@@ -7,7 +7,7 @@
 //  - 车漆角色直接用共享 paintMat(换漆与其它车型一致)
 //  - 网格 userData.mat = 角色名、轮组 userData.zone='wheel'(控制页拾取用)
 //  - 去掉表演性尾翼
-import { THREE } from '/test-car.js';
+import { THREE } from '/car3d.js';
 import { mergeVertices } from '/vendor/utils/BufferGeometryUtils.js';
 
 // ---------- 材质角色判定(源导出几乎全黑且未标车漆,按材质名+面心位置归类) ----------

@@ -144,8 +144,17 @@
       <div class="seg" id="ovmode-seg" role="group" aria-label="总览样式">
         <button type="button" data-ovmode="car">车模</button>
         <button type="button" data-ovmode="data">数据</button>
+        <button type="button" data-ovmode="3d">3D</button>
       </div>
-      <span style="font-size:12px;color:var(--text-muted)">数据模式:KPI 大数字 + 能量分布环图,不显示车模</span>
+      <span style="font-size:12px;color:var(--text-muted)">数据模式:KPI 大数字 + 能量分布环图,不显示车模;3D 模式:可旋转 3D 车模全景</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px">
+      <span style="font-size:13px;color:var(--text-secondary)">控制样式</span>
+      <div class="seg" id="ctlmode-seg" role="group" aria-label="控制样式">
+        <button type="button" data-ctmode="2d">2D 车身</button>
+        <button type="button" data-ctmode="3d">3D 车模</button>
+      </div>
+      <span style="font-size:12px;color:var(--text-muted)">控制页车模展示方式,操作项完全一致</span>
     </div>
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px">
       <span style="font-size:13px;color:var(--text-secondary)">3D 车模</span>

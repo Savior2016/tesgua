@@ -257,9 +257,9 @@
       msg($('days-msg'), err.message, false);
     }
   });
-  /* 总览样式:车模 / 数据(POST 为合并语义,这里只发 overview_mode,不影响 days) */
+  /* 总览样式:车模 / 数据 / 3D(POST 为合并语义,这里只发 overview_mode,不影响 days) */
   const ovSeg = $('ovmode-seg');
-  const OV_MODES = ['car', 'data'];
+  const OV_MODES = ['car', 'data', '3d'];
   function markOvMode(m) {
     ovSeg.querySelectorAll('button').forEach((b) =>
       b.classList.toggle('on', b.dataset.ovmode === m));
@@ -275,6 +275,30 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ overview_mode: m }),
+      });
+      msg($('days-msg'), '已保存', true);
+    } catch (err) {
+      msg($('days-msg'), err.message, false);
+    }
+  });
+  /* 控制样式:2D 车身 / 3D 车模(POST 合并语义,只发 control_mode) */
+  const ctSeg = $('ctlmode-seg');
+  const CTL_MODES = ['2d', '3d'];
+  function markCtlMode(m) {
+    ctSeg.querySelectorAll('button').forEach((b) =>
+      b.classList.toggle('on', b.dataset.ctmode === m));
+  }
+  ctSeg.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const m = btn.dataset.ctmode;
+    markCtlMode(m);
+    localStorage.setItem('ttv-ctlmode', m);  // 面板下次打开即刻生效
+    try {
+      await api('/api/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ control_mode: m }),
       });
       msg($('days-msg'), '已保存', true);
     } catch (err) {
@@ -314,6 +338,9 @@
       const m = OV_MODES.includes(p.overview_mode) ? p.overview_mode : 'car';
       markOvMode(m);
       localStorage.setItem('ttv-ovmode', m);
+      const ctm = CTL_MODES.includes(p.control_mode) ? p.control_mode : '2d';
+      markCtlMode(ctm);
+      localStorage.setItem('ttv-ctlmode', ctm);
       const cm = CAR_MODELS.includes(p.car_model) ? p.car_model : 'y-yl';
       markCarModel(cm);
       localStorage.setItem('ttv-carmodel', cm);

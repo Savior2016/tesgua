@@ -5,8 +5,8 @@
 // 玻璃/轮眉/轮胎/轮毂/灯条/座舱,再用共享 articulate 沿缝线裁出真铰链面板。
 // 适配改动:钢壳保持拉丝不锈钢质感(不随换漆);轮胎/轮毂网格标记
 // userData.zone='wheel'(总览胎压锚点用);去掉表演性尾翼。
-import { THREE } from '/test-car.js';
-import { articulate, panelSpecsCybertruck, addBox } from '/test-highland.js';
+import { THREE } from '/car3d.js';
+import { articulate, panelSpecsCybertruck, addBox } from '/highland3d.js';
 
 // ---------- 拉丝不锈钢纹理(横向细纹,避免平板银色的塑料感) ----------
 let brushed = null;
