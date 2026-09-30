@@ -2,9 +2,10 @@
 // 固定 3/4 俯视机位的新款 Model Y L(与②共用 test-car.js 加载管线),
 // 数据直接叠在车模上:地面能量弧环=电量、四轮胎压、左列电量/续航、右列温度、上方里程。
 import {
-  THREE, resolveCfg, makeLoader, setupStudio, makeMats, prepareModel,
+  THREE, MODELS, resolveCfg, makeLoader, setupStudio, makeMats, prepareModel,
 } from '/test-car.js';
 import { prepareCybertruck } from '/test-cybertruck.js';
+import { prepareHighland } from '/test-highland.js';
 
 const stage = document.getElementById('txov-stage');
 const loadingEl = document.getElementById('txov-loading');
@@ -16,10 +17,11 @@ const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
 setupStudio(renderer, scene);
 
-// ---------- 轨道视角(默认右前上方 3/4 俯视;拖动旋转 / 滚轮缩放) ----------
+// ---------- 轨道视角(默认右前上方 3/4 俯视;拖动旋转 / 滚轮或双指缩放) ----------
 const target = new THREE.Vector3(0.35, 0.45, 0.1);   // 车偏右,左侧留给电量卡
-const orbit = { theta: 2.557, phi: 1.139, r: 6.9 };  // 旧固定机位方向,半径拉远适配更长车身
+const orbit = { theta: 2.557, phi: 1.139, r: 6.9 };  // 方向同旧固定机位,半径由 fitRadius 校准
 const orbitGoal = { ...orbit };
+let userZoomed = false;   // 用户手动缩放后不再随窗口尺寸重置
 function applyOrbit() {
   const { theta, phi, r } = orbit;
   camera.position.set(
@@ -29,29 +31,65 @@ function applyOrbit() {
   camera.lookAt(target);
 }
 applyOrbit();
+
+// 自适应半径:保证车身+底盘圆盘(半径 ~3.9m)完整落入当前舞台画幅
+// (手机竖屏横向视场窄 → 自动拉远;宽屏保持原构图)
+function fitRadius() {
+  const aspect = stage.clientWidth / Math.max(1, stage.clientHeight);
+  const vHalf = THREE.MathUtils.degToRad(camera.fov / 2);
+  const hHalf = Math.atan(Math.tan(vHalf) * aspect);
+  return Math.max(6.9, (3.9 / Math.tan(Math.min(vHalf, hHalf))) * 1.04);
+}
 {
   const el = renderer.domElement;
+  const pointers = new Map();
   let downAt = null;
+  let pinch = null;
   el.addEventListener('pointerdown', (e) => {
-    downAt = { x: e.clientX, y: e.clientY, theta: orbitGoal.theta, phi: orbitGoal.phi };
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     el.setPointerCapture(e.pointerId);
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), r: orbitGoal.r };
+      downAt = null;
+    } else {
+      downAt = { x: e.clientX, y: e.clientY, theta: orbitGoal.theta, phi: orbitGoal.phi };
+    }
   });
   el.addEventListener('pointermove', (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pinch && pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a.x - b.x, a.y - b.y);
+      if (d > 10) {
+        userZoomed = true;
+        orbitGoal.r = Math.min(20, Math.max(3.2, pinch.r * (pinch.dist / d)));
+      }
+      return;
+    }
     if (!downAt) return;
     orbitGoal.theta = downAt.theta - (e.clientX - downAt.x) * 0.006;
     orbitGoal.phi = Math.min(1.45, Math.max(0.15, downAt.phi - (e.clientY - downAt.y) * 0.005));
   });
-  el.addEventListener('pointerup', () => { downAt = null; });
+  const release = (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 0) downAt = null;
+  };
+  el.addEventListener('pointerup', release);
+  el.addEventListener('pointercancel', release);
   el.addEventListener('wheel', (e) => {
     e.preventDefault();
-    orbitGoal.r = Math.min(10, Math.max(3.2, orbitGoal.r * (1 + e.deltaY * 0.001)));
+    userZoomed = true;
+    orbitGoal.r = Math.min(20, Math.max(3.2, orbitGoal.r * (1 + e.deltaY * 0.001)));
   }, { passive: false });
 }
 
 // 地面圆盘 + 柔和投影(与②同款)
 {
   const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(3.6, 48).rotateX(-Math.PI / 2),
+    new THREE.CircleGeometry(4.0, 48).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ color: 0x5a6270, transparent: true, opacity: 0.12 }));
   disc.position.y = 0.001;
   scene.add(disc);
@@ -70,8 +108,17 @@ applyOrbit();
   scene.add(shadow);
 }
 
-// ---------- 演示数据(与 2D 方案同源) ----------
-const DEMO = { soc: 65 };
+// ---------- 演示数据(与 2D 方案同源;bd = 本充电周期能耗构成,自车头起顺时针) ----------
+const DEMO = {
+  soc: 65,
+  bd: [
+    ['uncharged', 10, 0x5a6270, 0.5],   // 未充(充至 90%)
+    ['idle', 4, 0x4a3aa7, 0.95],        // 驻车耗电
+    ['sentry', 6, 0xe87ba4, 0.95],      // 哨兵
+    ['drive', 15, 0xeda100, 0.95],      // 行驶
+    ['remaining', 65, 0x3987e5, 0.95],  // 剩余(= 当前电量)
+  ],
+};
 
 // ---------- 底盘圆盘上的能量环(3D 场景内,正确遮挡/透视) ----------
 // 圆环画在车身底部圆盘靠近边缘处:暗色整圈 + 亮弧 = 电量,从车头正前方起顺时针
@@ -98,22 +145,38 @@ function ellipseRibbon(rx, rz, t0, t1, width, y, color, opacity, additive = fals
   return m;
 }
 {
-  const R = 3.22;   // 圆盘半径 3.6,环贴圆盘边缘内侧
+  // 外圈:当前电量(绿弧);内圈:本充电周期能耗构成(五色分段,与 2D 玻璃顶能量环同口径)
+  const R = 3.62;   // 圆盘半径 4.0,外圈贴圆盘边缘内侧
   const track = ellipseRibbon(R, R, 0, Math.PI * 2, 0.07, 0.025, 0x808ca0, 0.25);
   const tSoc = (DEMO.soc / 100) * Math.PI * 2;
   const arc = ellipseRibbon(R, R, 0, tSoc, 0.075, 0.03, 0x1baf7a, 0.95);
   const glow = ellipseRibbon(R, R, 0, tSoc, 0.26, 0.022, 0x1baf7a, 0.16, true);
   scene.add(track, arc, glow);
+  const RB = 3.28;  // 内圈:能耗构成
+  let acc = 0;
+  for (const [, pct, color, opacity] of DEMO.bd) {
+    if (pct <= 0.05) continue;
+    const t0 = (acc / 100) * Math.PI * 2;
+    acc += pct;
+    const t1 = (acc / 100) * Math.PI * 2;
+    scene.add(ellipseRibbon(RB, RB, t0, t1, 0.1, 0.028, color, opacity));
+  }
 }
 
-// ---------- 加载用户车型(新款 Model Y L) ----------
+// ---------- 加载用户车型(个人中心「3D 车模」偏好;后台校准 localStorage) ----------
 const loader = makeLoader();
-const cfg = resolveCfg('y-yl');
+const prefKey = localStorage.getItem('ttv-carmodel');
+const cfg = resolveCfg(prefKey && MODELS[prefKey] ? prefKey : 'y-yl');
+fetch('/api/prefs').then((r) => r.json()).then((p) => {
+  if (p.car_model && MODELS[p.car_model]) localStorage.setItem('ttv-carmodel', p.car_model);
+}).catch(() => {});
 let wheelAnchors = null;   // { fl/fr/rl/rr: Vector3 世界坐标 }
 
 loader.load(cfg.url, (gltf) => {
   if (cfg.cybertruck) {
     gltf.scene = prepareCybertruck(gltf.scene).scene;
+  } else if (cfg.highland) {
+    gltf.scene = prepareHighland(gltf.scene, makeMats()).scene;
   } else {
     prepareModel(gltf.scene, cfg, makeMats());
   }
@@ -186,6 +249,7 @@ function resize() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  if (!userZoomed) orbit.r = orbitGoal.r = fitRadius();   // 未手动缩放时随画幅自适应
   layout();
 }
 new ResizeObserver(resize).observe(stage);

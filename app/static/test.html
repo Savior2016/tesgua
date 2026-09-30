@@ -180,6 +180,15 @@
       border: 1px solid var(--border); border-radius: 999px; padding: 5px 16px;
       backdrop-filter: blur(8px); pointer-events: none; white-space: nowrap;
     }
+    .txov-legend {
+      position: absolute; left: 12px; bottom: 12px; display: flex; flex-direction: column; gap: 4px;
+      font-size: 11px; color: var(--text-secondary); pointer-events: none;
+      background: color-mix(in srgb, var(--surface-1) 60%, transparent);
+      border: 1px solid var(--border); border-radius: 10px; padding: 7px 10px;
+      backdrop-filter: blur(8px);
+    }
+    .txov-legend span { display: flex; align-items: center; gap: 6px; }
+    .txov-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
     @media (max-width: 600px) { .txov-stage { height: 420px; } .txov-batt .big { font-size: 24px; } }
   </style>
 </head>
@@ -450,6 +459,7 @@
         <button type="button" data-model="y-yl" class="on">新款 Model Y L</button>
         <button type="button" data-model="y-juniper">新款 Model Y</button>
         <button type="button" data-model="model-3">Model 3</button>
+        <button type="button" data-model="cybertruck">Cybertruck</button>
         <button type="button" data-model="y-legacy">2021 款 Model Y</button>
       </div>
       <span class="lab">车漆</span>
@@ -474,8 +484,9 @@
   <section class="card">
     <h2>③ 总览车模 · 3D 全景方案(候选:替代 2D 投影)</h2>
     <p class="tx-note">
-      同一真实 3D 模型(新款 Model Y L 暂以 Cybertruck 占位),<b>拖动旋转 · 滚轮缩放</b>,数据直接叠在车模上:
-      <b>底盘圆盘边缘的能量环 = 电量</b>(驻车蓝/行驶绿渐变),四轮旁胎压读数(随视角实时跟随,背面自动调淡),
+      同一真实 3D 模型(跟随个人中心「3D 车模」选择),<b>拖动旋转 · 滚轮/双指缩放</b>(窄屏自动拉远),
+      数据直接叠在车模上:<b>底盘圆盘外圈 = 当前电量,内圈 = 本充电周期能耗构成</b>(与 2D 玻璃顶能量环同口径),
+      四轮旁胎压读数(随视角实时跟随,背面自动调淡),
       左列电量/续航、右列车内外温度、上方总里程。对比上方 2D 投影方案。
     </p>
     <div class="txov-stage" id="txov-stage">
@@ -493,6 +504,13 @@
       <div class="txov-chip txov-tpms" id="txov-tpms-rl">2.9</div>
       <div class="txov-chip txov-tpms" id="txov-tpms-rr">3.0</div>
       <div class="txov-status">已锁定 · 驻车 · 哨兵中</div>
+      <div class="txov-legend">
+        <span><i style="background:#5a6270"></i>未充</span>
+        <span><i style="background:#4a3aa7"></i>驻车耗电</span>
+        <span><i style="background:#e87ba4"></i>哨兵</span>
+        <span><i style="background:#eda100"></i>行驶</span>
+        <span><i style="background:#3987e5"></i>剩余</span>
+      </div>
     </div>
   </section>
 

@@ -103,9 +103,30 @@ def test_merge_semantics(env):
     client.post("/api/prefs", json={"overview_mode": "data"})
     assert prefs["owner"] == {"days": 30, "overview_mode": "data"}
     got = client.get("/api/prefs").json()
-    assert got == {"days": 30, "overview_mode": "data"}
+    assert got == {"days": 30, "overview_mode": "data", "car_model": "y-yl"}
     client.post("/api/prefs", json={"days": 1})
     assert prefs["owner"] == {"days": 1, "overview_mode": "data"}
+
+
+def test_default_car_model(env):
+    client, _ = env
+    login(client)
+    assert client.get("/api/prefs").json()["car_model"] == "y-yl"
+
+
+def test_set_car_model(env):
+    client, prefs = env
+    login(client)
+    r = client.post("/api/prefs", json={"car_model": "model-3"})
+    assert r.status_code == 200 and r.json()["car_model"] == "model-3"
+    assert client.get("/api/prefs").json()["car_model"] == "model-3"
+    assert prefs["owner"] == {"car_model": "model-3"}
+
+
+def test_invalid_car_model(env):
+    client, _ = env
+    login(client)
+    assert client.post("/api/prefs", json={"car_model": "model-s"}).status_code == 422
 
 
 def test_invalid_overview_mode(env):

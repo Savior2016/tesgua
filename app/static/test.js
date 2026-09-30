@@ -141,6 +141,9 @@ confirmEl.querySelector('.yes').addEventListener('click', () => {
 
 function loadModel(key) {
   cfg = resolveCfg(key);
+  // 车型 seg 高亮跟随(含偏好加载的初始车型)
+  document.querySelectorAll('#tx3d-model button').forEach((b) =>
+    b.classList.toggle('on', b.dataset.model === key));
   modelReady = false;
   loadingEl.style.display = '';
   loadingEl.textContent = `3D 模型加载中(${cfg.sizeMB}MB)…`;
@@ -408,8 +411,18 @@ function frame() {
 }
 frame();
 
-// 默认加载用户车型(新款 Model Y L)
-loadModel('y-yl');
+// 默认加载用户车型(个人中心「3D 车模」偏好;localStorage 秒开,服务端后台校准)
+function preferredModel() {
+  const m = localStorage.getItem('ttv-carmodel');
+  return (m && MODELS[m]) ? m : 'y-yl';
+}
+loadModel(preferredModel());
+fetch('/api/prefs').then((r) => r.json()).then((p) => {
+  if (p.car_model && MODELS[p.car_model]) {
+    localStorage.setItem('ttv-carmodel', p.car_model);
+    if (p.car_model !== cfg.key) loadModel(p.car_model);
+  }
+}).catch(() => {});
 
 // 调试钩子(自动化截图用):__tx3d.pause() 暂停渲染,__tx3d.resume() 恢复
 window.__THREE = THREE;

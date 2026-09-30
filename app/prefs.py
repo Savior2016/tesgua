@@ -15,12 +15,16 @@ _DAYS = (1, 7, 30)
 _DEFAULT_DAYS = 7
 _OV_MODES = ("car", "data")  # 总览样式:车模模式 / 数据模式
 _DEFAULT_OV_MODE = "car"
+# 车模显示(test 页 3D 注册表键;y-yl 暂无真模型,占位方案随注册表实现)
+_CAR_MODELS = ("y-yl", "y-juniper", "model-3", "cybertruck", "y-legacy")
+_DEFAULT_CAR_MODEL = "y-yl"
 
 
 class PrefsIn(BaseModel):
-    # 合并语义:缺省字段保留已存值,两个设置(时间范围/总览样式)互不覆盖
+    # 合并语义:缺省字段保留已存值,各设置(时间范围/总览样式/车模)互不覆盖
     days: int | None = None  # 默认时间范围:1 / 7 / 30 天
     overview_mode: str | None = None  # 总览样式:car(车模)/ data(数据)
+    car_model: str | None = None  # 车模显示:y-yl / y-juniper / model-3 / cybertruck / y-legacy
 
 
 def _m():
@@ -39,9 +43,11 @@ def get_prefs(request: Request):
     row = _prefs_of(request.state.user)
     days = row.get("days")
     ov = row.get("overview_mode")
+    cm = row.get("car_model")
     return {
         "days": days if days in _DAYS else _DEFAULT_DAYS,
         "overview_mode": ov if ov in _OV_MODES else _DEFAULT_OV_MODE,
+        "car_model": cm if cm in _CAR_MODELS else _DEFAULT_CAR_MODEL,
     }
 
 
@@ -52,11 +58,15 @@ def set_prefs(payload: PrefsIn, request: Request):
         raise HTTPException(status_code=422, detail="days 只能是 1 / 7 / 30")
     if payload.overview_mode is not None and payload.overview_mode not in _OV_MODES:
         raise HTTPException(status_code=422, detail="overview_mode 只能是 car / data")
+    if payload.car_model is not None and payload.car_model not in _CAR_MODELS:
+        raise HTTPException(status_code=422, detail="car_model 未知车型键")
     row = _prefs_of(request.state.user)
     if payload.days is not None:
         row["days"] = payload.days
     if payload.overview_mode is not None:
         row["overview_mode"] = payload.overview_mode
+    if payload.car_model is not None:
+        row["car_model"] = payload.car_model
     _m()._exec(
         """
         INSERT INTO panel_manual (kind, key, payload) VALUES (%s, %s, %s)

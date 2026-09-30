@@ -281,6 +281,30 @@
       msg($('days-msg'), err.message, false);
     }
   });
+  /* 3D 车模选择:test 页 3D 注册表键(POST 合并语义,只发 car_model) */
+  const cmSeg = $('carmodel-seg');
+  const CAR_MODELS = ['y-yl', 'y-juniper', 'model-3', 'cybertruck', 'y-legacy'];
+  function markCarModel(m) {
+    cmSeg.querySelectorAll('button').forEach((b) =>
+      b.classList.toggle('on', b.dataset.cm === m));
+  }
+  cmSeg.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const m = btn.dataset.cm;
+    markCarModel(m);
+    localStorage.setItem('ttv-carmodel', m);  // 面板下次打开即刻生效
+    try {
+      await api('/api/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ car_model: m }),
+      });
+      msg($('days-msg'), '已保存', true);
+    } catch (err) {
+      msg($('days-msg'), err.message, false);
+    }
+  });
   (async () => {
     try {
       const p = await api('/api/prefs');
@@ -290,6 +314,9 @@
       const m = OV_MODES.includes(p.overview_mode) ? p.overview_mode : 'car';
       markOvMode(m);
       localStorage.setItem('ttv-ovmode', m);
+      const cm = CAR_MODELS.includes(p.car_model) ? p.car_model : 'y-yl';
+      markCarModel(cm);
+      localStorage.setItem('ttv-carmodel', cm);
     } catch (e) {
       msg($('days-msg'), e.message, false);
     }
