@@ -3,6 +3,8 @@
 //  - model-y-juniper.glb  2025 新款 Model Y(BloxBloger @ Sketchfab,CC BY-NC,
 //    经 aditano/tesla-studio 轴归一+材质化处理,meshopt 压缩,车头 = -Z,左侧 = -X)
 //  - model-y.glb          2021 款 Model Y(Tina2088/tina-3d-tesla,MIT,车头 = -X)
+//  - highland/model.glb   2024 款 Model 3 Highland(RBLXSupercars @ Sketchfab,CC BY 4.0,
+//    经 aditano/tesla-studio 压缩+纹理外置;专用管线 test-highland.js:归一化+真实铰链面板)
 // Three.js 本地化(/vendor/three.module.min.js,MIT);GLTFLoader/MeshoptDecoder 同源自托管。
 import * as THREE from '/vendor/three.module.min.js';
 import { GLTFLoader } from '/vendor/loaders/GLTFLoader.js';
@@ -28,6 +30,25 @@ export const MODELS = {
     meshopt: false, lenAxis: 'x', frontSign: -1, latAxis: 'z', leftSign: -1,
     paint: 'body', glass: 'glass_body', keepGlass: false,
     wheelRe: null, halfLen: 2.375,   // 旧模型轮胎材质无名,用包围盒位置判定
+  },
+  'model-3': {
+    label: 'Model 3(2024 新款)', url: '/models/highland/model.glb', sizeMB: 4.8,
+    meshopt: true, lenAxis: 'z', frontSign: -1, latAxis: 'x', leftSign: -1,
+    paint: 'exterior_paint', glass: 'glass', keepGlass: true,
+    wheelRe: /wheel_finish|tire_rubber/, halfLen: 2.36,
+    highland: true,   // 走 test-highland.js 专用管线(归一化烘焙 + 真实铰链面板)
+    note: '车门/前备箱/后备箱沿真实缝线裁切,开合为真面板动画',
+    // Model 3 更低更矮(车顶 1.41m),热点锚点与 Model Y 不同
+    hotspots: [
+      { id: 'frunk', label: '前备箱', pos: [0, 1.0, -1.55], confirm: true },
+      { id: 'trunk', label: '后备箱', pos: [0, 1.12, 1.95], confirm: true },
+      { id: 'doors', label: '车门', pos: [-1.0, 0.85, 0.5], confirm: true },
+      { id: 'lock', label: '车锁', pos: [-1.0, 0.95, -0.5] },
+      { id: 'windows', label: '车窗', pos: [1.0, 1.15, -0.1] },
+      { id: 'climate', label: '空调', pos: [0, 1.44, 0.3] },
+      { id: 'chargeport', label: '充电口', pos: [-0.9, 0.78, 1.9] },
+      { id: 'sentry', label: '哨兵', pos: [0, 1.28, -0.85] },
+    ],
   },
 };
 
@@ -211,7 +232,7 @@ export function makeGhostParts(cfg, mats) {
       new THREE.Vector3(0.45, 1.14, -0.94), new THREE.Vector3(-0.45, 1.14, -0.94),
     ], lampMat());
     group.add(pivot, cavity, lamp);
-    movers.frunk = { pivot, axis: 'x', open: 0.72, cavities: [cavity, lamp] };
+    movers.frunk = { pivot, axis: 'x', open: 0.72, cavities: [cavity, lamp], hideWhenClosed: true };
   }
   // 尾门(掀背):铰链在顶后缘(z≈0.98,y≈1.50);关闭时略沉进车身,开启沿铰链掀起
   {
@@ -244,7 +265,7 @@ export function makeGhostParts(cfg, mats) {
       new THREE.Vector3(0.55, 1.04, 1.28), new THREE.Vector3(-0.55, 1.04, 1.28),
     ], lampMat());
     group.add(pivot, cavity, lamp);
-    movers.trunk = { pivot, axis: 'x', open: -0.65, cavities: [cavity, lamp] };
+    movers.trunk = { pivot, axis: 'x', open: -0.65, cavities: [cavity, lamp], hideWhenClosed: true };
   }
   // 四门:铰链在各门前缘;左 = -X。门板 = 车漆下段 + 深色玻璃上段
   // 关闭时收于车身曲面内侧(|x|=0.94 < 半宽 0.97)不可见,开启时旋出
@@ -273,24 +294,28 @@ export function makeGhostParts(cfg, mats) {
     group.add(pivot);
     doorPivots.push({ pivot, sign: d.sign });
   }
-  movers.doors = { list: doorPivots, axis: 'y', open: 0.5, cavities: [] };
+  movers.doors = { list: doorPivots, axis: 'y', open: 0.5, cavities: [], hideWhenClosed: true };
 
   return { group, movers, darkMat };
 }
 
 // 开合状态应用(t 从 0=关 到 1=开,由调用方补间)
-// 幽灵面板在完全关闭时隐藏(t<=0.01):关闭态呈现源模型原本的完整车身,
+// 幽灵面板(hideWhenClosed)在完全关闭时隐藏(t<=0.01):关闭态呈现源模型原本的完整车身,
 // 幽灵件与车身曲面的贴合误差只在开启动画中出现,且被舱口暗板盖住。
+// Model 3 的真实铰链面板是车身本体,常显,不做隐藏。
 export function applyMovers(movers, id, t) {
   const m = movers[id];
   if (!m) return;
   const kk = t * t * (3 - 2 * t);   // smoothstep
   const vis = t > 0.01;
   if (id === 'doors') {
-    for (const d of m.list) { d.pivot.rotation.y = d.sign * m.open * kk; d.pivot.visible = vis; }
+    for (const d of m.list) {
+      d.pivot.rotation.y = d.sign * m.open * kk;
+      if (m.hideWhenClosed) d.pivot.visible = vis;
+    }
   } else {
     m.pivot.rotation[m.axis] = m.open * kk;
-    m.pivot.visible = vis;
+    if (m.hideWhenClosed) m.pivot.visible = vis;
   }
   for (const c of (m.cavities || [])) c.material.opacity = 0.96 * kk;
 }

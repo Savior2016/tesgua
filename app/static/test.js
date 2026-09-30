@@ -6,6 +6,7 @@ import {
   THREE, MODELS, resolveCfg, makeLoader, setupStudio, makeMats,
   prepareModel, applyStretchYL, makeGhostParts, applyMovers,
 } from '/test-car.js';
+import { prepareHighland, highlandMovers } from '/test-highland.js';
 
 const stage = document.getElementById('tx3d-stage');
 const labelEl = document.getElementById('tx3d-label');
@@ -57,7 +58,7 @@ const openTarget = { frunk: 0, trunk: 0, doors: 0 };
 const zoneState = {};    // 开关类状态(lock/climate/...)
 
 function buildHotspots() {
-  for (const h of HOTSPOTS) {
+  for (const h of (cfg.hotspots || HOTSPOTS)) {
     const el = document.createElement('button');
     el.type = 'button';
     el.className = 'tx3d-chip';
@@ -156,11 +157,21 @@ function loadModel(key) {
   for (const k of Object.keys(openT)) { openT[k] = 0; openTarget[k] = 0; }
 
   loader.load(cfg.url, (gltf) => {
-    const { paintCount } = prepareModel(gltf.scene, cfg, mats);
-    if (cfg.stretch) bodyGroup = applyStretchYL(gltf.scene).bodyGroup;
-    ghosts = makeGhostParts(cfg, mats);
-    if (ghosts) (bodyGroup || gltf.scene).add(ghosts.group);
-    currentRoot = gltf.scene;
+    let paintCount;
+    if (cfg.highland) {
+      // Model 3 专用管线:归一化烘焙 + 逐面角色分类 + 真实铰链面板(车门/机盖/尾箱盖)
+      const built = prepareHighland(gltf.scene, mats);
+      paintCount = built.paintCount;
+      gltf.scene = built.scene;
+      ghosts = { movers: highlandMovers(built.body) };
+      currentRoot = built.scene;
+    } else {
+      paintCount = prepareModel(gltf.scene, cfg, mats).paintCount;
+      if (cfg.stretch) bodyGroup = applyStretchYL(gltf.scene).bodyGroup;
+      ghosts = makeGhostParts(cfg, mats);
+      if (ghosts) (bodyGroup || gltf.scene).add(ghosts.group);
+      currentRoot = gltf.scene;
+    }
     car.add(gltf.scene);
     buildHotspots();
     modelReady = true;
@@ -168,7 +179,7 @@ function loadModel(key) {
     logEl.textContent = `${cfg.label}已加载(${paintCount} 个车漆网格可换色)` +
       (cfg.note ? `。${cfg.note}` : '') + '。点击车上控制点或车身部位试试。';
   }, undefined, (err) => {
-    loadingEl.textContent = '模型加载失败:' + (err && err.message || err);
+    loadingEl.textContent = '模型加载失败:' + (err && (err.stack || err.message) || err);
   });
 }
 
