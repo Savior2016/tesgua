@@ -66,7 +66,7 @@
   function redrawMarkers() {
     NS.markers.forEach((m) => m.remove());
     NS.markers = [];
-    // 起/途经/终点 = 黄/绿/红发光圆点(纯 CSS,不用 emoji);充电 = 青
+    // 起/途经/终点 = 绿/黄/红发光圆点(纯 CSS,不用 emoji);充电 = 青
     const add = (lngLat, cls) => {
       const el = document.createElement('div');
       el.className = cls;

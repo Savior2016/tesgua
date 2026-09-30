@@ -137,8 +137,8 @@
   border: 3px solid rgba(255, 255, 255, .92);
   box-sizing: border-box; cursor: default;
 }
-.nav-mk-start { background: #eab308; box-shadow: 0 0 12px 3px rgba(234, 179, 8, .8), 0 1px 4px rgba(0, 0, 0, .5); }
-.nav-mk-via   { background: #22c55e; box-shadow: 0 0 12px 3px rgba(34, 197, 94, .8), 0 1px 4px rgba(0, 0, 0, .5); }
+.nav-mk-start { background: #22c55e; box-shadow: 0 0 12px 3px rgba(34, 197, 94, .8), 0 1px 4px rgba(0, 0, 0, .5); }
+.nav-mk-via   { background: #eab308; box-shadow: 0 0 12px 3px rgba(234, 179, 8, .8), 0 1px 4px rgba(0, 0, 0, .5); }
 .nav-mk-dest  { background: #ef4444; box-shadow: 0 0 12px 3px rgba(239, 68, 68, .8), 0 1px 4px rgba(0, 0, 0, .5); }
 .nav-mk-chg   { background: #22d3ee; box-shadow: 0 0 13px 4px rgba(34, 211, 238, .85), 0 1px 4px rgba(0, 0, 0, .5); }
 /* 沿途全部充电站推荐点(电量不足时):比入选停靠点更小更淡 */

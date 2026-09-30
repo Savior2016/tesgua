@@ -1,179 +1,178 @@
 // 测试页面 · 真实 3D 车模原型(控制页候选方案)
-// 车型注册表:不同车型/年款加载不同模型,区域映射统一抽象为「纵向/侧向」坐标。
-// 模型:
-//  - model-y-juniper.glb  2025 新款 Model Y(BloxBloger @ Sketchfab,CC BY-NC,
-//    经 aditano/tesla-studio 轴归一+材质化处理,meshopt 压缩,车头 = -Z)
-//  - model-y.glb          2021 款 Model Y(Tina2088/tina-3d-tesla,MIT,车头 = -X)
-// Three.js 本地化(/vendor/three.module.min.js,MIT);GLTFLoader/MeshoptDecoder 同源自托管。
-import * as THREE from '/vendor/three.module.min.js';
-import { GLTFLoader } from '/vendor/loaders/GLTFLoader.js';
-import { MeshoptDecoder } from '/vendor/libs/meshopt_decoder.module.js';
+// 加载管线/车型注册表/幽灵开合件在 test-car.js(与总览 3D 方案共用)。
+// 本文件:轨道视角 + 车身上直接显示的控制热点(前备箱/后备箱/车门二次确认,
+// 确认后模型跟着开合;演示阶段不发送真实控制指令) + 部位拾取。
+import {
+  THREE, MODELS, resolveCfg, makeLoader, setupStudio, makeMats,
+  prepareModel, applyStretchYL, makeGhostParts, applyMovers,
+} from '/test-car.js';
 
 const stage = document.getElementById('tx3d-stage');
 const labelEl = document.getElementById('tx3d-label');
 const logEl = document.getElementById('tx3d-log');
 const loadingEl = document.getElementById('tx3d-loading');
-
-// ---------- 车型注册表 ----------
-// forward: 车头朝向的轴与符号;leftAxis/leftSign: 车辆左侧方向;halfLen: 半车长(米)
-const MODELS = {
-  'y-yl': {
-    label: '新款 Model Y L', base: 'y-juniper', stretch: 4.976 / 4.794,   // 加长近似:仅拉伸车长
-    note: '轮廓按 4.976m 车长近似(同款 mesh 纵向拉伸),六座布局不在模型内体现',
-  },
-  'y-juniper': {
-    label: '新款 Model Y', url: '/models/model-y-juniper.glb', sizeMB: 5.2,
-    meshopt: true, lenAxis: 'z', frontSign: -1, latAxis: 'x', leftSign: -1,
-    paint: 'exterior_paint', glass: 'glass', keepGlass: true,
-    wheelRe: /wheel_finish|tire_rubber|brake_/, halfLen: 2.397,
-  },
-  'y-legacy': {
-    label: '2021 款 Model Y', url: '/models/model-y.glb', sizeMB: 8.6,
-    meshopt: false, lenAxis: 'x', frontSign: -1, latAxis: 'z', leftSign: -1,
-    paint: 'body', glass: 'glass_body', keepGlass: false,
-    wheelRe: null, halfLen: 2.375,   // 旧模型轮胎材质无名,用包围盒位置判定
-  },
-};
+const hotEl = document.getElementById('tx3d-hot');
+const confirmEl = document.getElementById('tx3d-confirm');
 
 // ---------- 渲染基础 ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
 stage.appendChild(renderer.domElement);
-
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-
-// 环境反射:手工搭一个极简「摄影棚」,经 PMREM 预滤波后作为车漆/玻璃的环境贴图
-{
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const env = new THREE.Scene();
-  env.background = new THREE.Color(0x10131a);
-  const geo = new THREE.PlaneGeometry(9, 9);
-  const strip = new THREE.PlaneGeometry(4.5, 2.2);
-  const panel = (rgb, x, y, z, rx, ry, g) => {
-    const m = new THREE.Mesh(g || geo, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
-    m.material.color.setRGB(...rgb);
-    m.position.set(x, y, z);
-    m.rotation.set(rx, ry, 0);
-    env.add(m);
-  };
-  panel([2.2, 2.2, 2.2], 0, 6, 0, Math.PI / 2, 0, strip); // 顶部窄光带(黑漆只留一道高光,不整面泛白)
-  panel([0.8, 1.0, 1.45], -7, 2, 0, 0, Math.PI / 2);   // 左·冷色
-  panel([1.45, 1.15, 0.85], 7, 2, 0, 0, -Math.PI / 2); // 右·暖色
-  panel([0.4, 0.48, 0.62], 0, 2, -8, 0, 0);            // 尾部补光
-  scene.environment = pmrem.fromScene(env, 0.05).texture;
-  pmrem.dispose();
-}
-scene.add(new THREE.HemisphereLight(0xdfe8ff, 0x1a1c20, 0.7));
-const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
-keyLight.position.set(5, 8, 6);
-scene.add(keyLight);
+setupStudio(renderer, scene);
 
 // ---------- 车模 ----------
 const car = new THREE.Group();
 scene.add(car);
-
-// 车漆(可切换)与替换玻璃。源模型材质均为 doubleSided,替换材质保持双面。
-const paintMat = new THREE.MeshPhysicalMaterial({
-  color: 0x17191d, metalness: 0.45, roughness: 0.38,   // 默认星钻黑(用户车为钻黑)
-  clearcoat: 0.85, clearcoatRoughness: 0.18, envMapIntensity: 0.8,   // 收敛环境反射,黑漆保持黑
-  side: THREE.DoubleSide,
-});
-const glassMat = new THREE.MeshPhysicalMaterial({
-  color: 0x0d1117, metalness: 0.85, roughness: 0.35, envMapIntensity: 0.45,
-  side: THREE.FrontSide,
-});
-// 无名材质网格(旧模型的轮胎/轮毂/门把手等,glTF 默认 metal=1 会白到爆)→ 统一深灰
-const trimMat = new THREE.MeshStandardMaterial({
-  color: 0x33373d, metalness: 0.25, roughness: 0.85, side: THREE.DoubleSide,
-});
-
-const loader = new GLTFLoader();
-loader.setMeshoptDecoder(MeshoptDecoder);
+const mats = makeMats();
+const paintMat = mats.paintMat;
+const loader = makeLoader();
 
 let cfg = null;               // 当前车型配置(展开 base 后)
 let modelReady = false;
 let currentRoot = null;
+let ghosts = null;            // 幽灵开合件(makeGhostParts)
+let bodyGroup = null;         // Y L 拉伸时的车身组(锚点/幽灵件挂其下继承拉伸)
 
-function resolveCfg(key) {
-  const c = { ...MODELS[key] };
-  if (c.base) Object.assign(c, { ...MODELS[c.base], ...c });
-  c.key = key;
-  return c;
+// ---------- 控制热点 ----------
+// pos 为模型局部坐标(车头 = -Z 轴方向);confirm = 需要二次确认的开合类控制
+const HOTSPOTS = [
+  { id: 'frunk', label: '前备箱', pos: [0, 1.16, -1.5], confirm: true },
+  { id: 'trunk', label: '后备箱', pos: [0, 1.28, 1.72], confirm: true },
+  { id: 'doors', label: '车门', pos: [-1.02, 0.92, 0.62], confirm: true },
+  { id: 'lock', label: '车锁', pos: [-1.02, 1.04, -0.55] },
+  { id: 'windows', label: '车窗', pos: [1.02, 1.3, -0.2] },
+  { id: 'climate', label: '空调', pos: [0, 1.64, 0.35] },
+  { id: 'chargeport', label: '充电口', pos: [-0.98, 0.98, 1.82] },
+  { id: 'sentry', label: '哨兵', pos: [0, 1.44, -0.92] },
+];
+const ZONE_LABEL = {
+  frunk: '前备箱', sentry: '哨兵(前风挡)', climate: '空调(玻璃顶)',
+  lock: '车锁(车门)', windows: '车窗', chargeport: '充电口',
+  trunk: '后备箱', wheel: '轮胎', body: '车身', doors: '车门',
+};
+const chips = {};        // id → { el, anchor(Object3D) }
+const openT = { frunk: 0, trunk: 0, doors: 0 };      // 开合动画当前值 0..1
+const openTarget = { frunk: 0, trunk: 0, doors: 0 };
+const zoneState = {};    // 开关类状态(lock/climate/...)
+
+function buildHotspots() {
+  for (const h of HOTSPOTS) {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'tx3d-chip';
+    el.dataset.id = h.id;
+    el.innerHTML = `<i></i><span>${h.label}</span>`;
+    el.addEventListener('click', () => onChip(h));
+    hotEl.appendChild(el);
+    const anchor = new THREE.Object3D();
+    anchor.position.set(...h.pos);
+    (bodyGroup || car).add(anchor);
+    chips[h.id] = { el, anchor, def: h };
+  }
 }
+
+function clearHotspots() {
+  for (const id of Object.keys(chips)) {
+    chips[id].el.remove();
+    chips[id].anchor.removeFromParent();
+    delete chips[id];
+  }
+  hideConfirm();
+}
+
+function isOpen(id) { return openTarget[id] > 0.5; }
+
+function setChipState(id, on) {
+  const c = chips[id];
+  if (c) c.el.classList.toggle('on', on);
+}
+
+function stamp() { return new Date().toTimeString().slice(0, 8); }
+
+function onChip(h) {
+  if (!modelReady) return;
+  const id = h.id;
+  if (h.confirm) {
+    showConfirm(h);
+    return;
+  }
+  // 开关类:直接切换(演示,不发送真实指令)
+  zoneState[id] = !zoneState[id];
+  setChipState(id, !!zoneState[id]);
+  logEl.innerHTML = `${stamp()} <b>${h.label}</b> → ${zoneState[id] ? '开' : '关'}(演示,正式接入时此处发送对应指令)`;
+}
+
+// ---------- 二次确认 ----------
+let confirmFor = null;
+function showConfirm(h) {
+  confirmFor = h;
+  const open = isOpen(h.id);
+  confirmEl.querySelector('.msg').textContent = `确认${open ? '关闭' : '开启'}${h.label}?`;
+  confirmEl.querySelector('.yes').textContent = open ? '确认关闭' : '确认开启';
+  confirmEl.classList.add('show');
+  positionConfirm(h);
+}
+function hideConfirm() {
+  confirmFor = null;
+  confirmEl.classList.remove('show');
+}
+function positionConfirm(h) {
+  const c = chips[h.id];
+  if (!c) return;
+  const r = c.el.getBoundingClientRect();
+  const sr = stage.getBoundingClientRect();
+  confirmEl.style.left = `${Math.min(Math.max(r.left - sr.left + r.width / 2, 120), sr.width - 120)}px`;
+  confirmEl.style.top = `${r.top - sr.top - 10}px`;
+}
+confirmEl.querySelector('.no').addEventListener('click', hideConfirm);
+confirmEl.querySelector('.yes').addEventListener('click', () => {
+  const h = confirmFor;
+  hideConfirm();
+  if (!h) return;
+  const open = !isOpen(h.id);
+  openTarget[h.id] = open ? 1 : 0;
+  setChipState(h.id, open);
+  const canAnim = !!ghosts;
+  logEl.innerHTML = `${stamp()} <b>${h.label}</b> → ${open ? '开启' : '关闭'}(演示,不发送控制指令)` +
+    (canAnim ? '' : '<br>2021 款模型车门/舱盖与车身一体,无独立面板,无法演示开合动画');
+});
 
 function loadModel(key) {
   cfg = resolveCfg(key);
   modelReady = false;
   loadingEl.style.display = '';
   loadingEl.textContent = `3D 模型加载中(${cfg.sizeMB}MB)…`;
-  // 卸载旧模型
   if (currentRoot) {
     currentRoot.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
     car.remove(currentRoot);
     currentRoot = null;
   }
-  car.scale.set(1, 1, 1);
+  clearHotspots();
+  ghosts = null;
+  bodyGroup = null;
   for (const m of Object.values(markers)) m.visible = false;
   for (const k of Object.keys(zoneState)) delete zoneState[k];
+  for (const k of Object.keys(openT)) { openT[k] = 0; openTarget[k] = 0; }
 
   loader.load(cfg.url, (gltf) => {
-    const wb = new THREE.Box3();
-    const wc = new THREE.Vector3();
-    let paintCount = 0;
-    gltf.scene.traverse((o) => {
-      if (!o.isMesh) return;
-      const name = (o.material && o.material.name) || '';
-      if (name === cfg.paint) {
-        o.material = paintMat;
-        paintCount += 1;
-      } else if (name === cfg.glass && !cfg.keepGlass) {
-        o.material = glassMat;
-      } else if (!name) {
-        o.material = trimMat;   // 仅旧模型存在无名材质
-      } else if (o.material && !cfg.keepGlass) {
-        o.material.envMapIntensity = name === 'chrome' ? 0.7 : 1.0;
-      }
-      // 新款的 LED 灯带材质:压自发光+去透明,收敛到灯罩质感(原材质 BLEND 高自发光像一团红布)
-      if (name === 'taillight_led' && o.material) {
-        o.material.transparent = false;
-        o.material.opacity = 1;
-        o.material.roughness = 0.35;
-        o.material.metalness = 0.2;
-        o.material.emissiveIntensity = Math.min(o.material.emissiveIntensity ?? 1, 0.5);
-      }
-      if (name === 'signature_led' && o.material) {
-        o.material.emissiveIntensity = Math.min(o.material.emissiveIntensity ?? 1, 1.2);
-      }
-      o.userData.mat = name;
-      // 轮胎区域判定
-      if (cfg.wheelRe) {
-        if (cfg.wheelRe.test(name)) o.userData.zone = 'wheel';
-      } else {
-        wb.setFromObject(o);
-        wb.getCenter(wc);
-        if (wc.y < 0.72 && Math.abs(Math.abs(wc.x) - 1.45) < 0.55 && Math.abs(wc.z) > 0.55) {
-          o.userData.zone = 'wheel';
-        }
-      }
-    });
+    const { paintCount } = prepareModel(gltf.scene, cfg, mats);
+    if (cfg.stretch) bodyGroup = applyStretchYL(gltf.scene).bodyGroup;
+    ghosts = makeGhostParts(cfg, mats);
+    if (ghosts) (bodyGroup || gltf.scene).add(ghosts.group);
     currentRoot = gltf.scene;
     car.add(gltf.scene);
-    if (cfg.stretch) car.scale.z = cfg.stretch;   // Y L 近似:拉伸车长方向
+    buildHotspots();
     modelReady = true;
     loadingEl.style.display = 'none';
     logEl.textContent = `${cfg.label}已加载(${paintCount} 个车漆网格可换色)` +
-      (cfg.note ? `。${cfg.note}` : '') + '。点击车身部位试试。';
+      (cfg.note ? `。${cfg.note}` : '') + '。点击车上控制点或车身部位试试。';
   }, undefined, (err) => {
     loadingEl.textContent = '模型加载失败:' + (err && err.message || err);
   });
 }
 
 // 地面:舞台圆盘 + 柔和投影(canvas 径向渐变;长边对车长方向)
-let shadowMesh = null;
 {
   const disc = new THREE.Mesh(
     new THREE.CircleGeometry(3.6, 48).rotateX(-Math.PI / 2),
@@ -188,21 +187,21 @@ let shadowMesh = null;
   g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 256, 256);
-  shadowMesh = new THREE.Mesh(
+  const shadow = new THREE.Mesh(
     new THREE.PlaneGeometry(6.1, 3.1).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
-  shadowMesh.position.y = 0.01;
-  scene.add(shadowMesh);
+  shadow.position.y = 0.01;
+  scene.add(shadow);
 }
 
-// ---------- 轨道视角(自定义轻量实现:拖动旋转 / 滚轮缩放) ----------
-// 两个模型车头/左侧都朝向 (-轴1,-轴2),同一组相机角度通用:前 3/4 = 左前视角(可见充电口一侧)
+// ---------- 轨道视角(拖动旋转 / 滚轮缩放) ----------
 const target = new THREE.Vector3(0, 0.7, 0);
 const orbit = { theta: -2.52, phi: 1.08, r: 6.5 };
 const orbitGoal = { ...orbit };
 const VIEWS = {
   front: { theta: -2.52, phi: 1.08, r: 6.5 },
   rear: { theta: 0.62, phi: 1.05, r: 6.8 },
+  side: { theta: -Math.PI / 2, phi: 1.25, r: 6.8 },
   top: { theta: 0.0, phi: 0.14, r: 7.8 },
 };
 let autoSpin = !matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -263,31 +262,22 @@ document.getElementById('tx3d-model').addEventListener('click', (e) => {
 
 // ---------- 部位拾取(控制页指令区域映射) ----------
 // 统一抽象:along = 纵向坐标(正值朝车头),sideL = 侧向坐标(正值朝车辆左侧)
-const ZONE_LABEL = {
-  frunk: '前备箱', sentry: '哨兵(前风挡)', climate: '空调(玻璃顶)',
-  lock: '车锁(车门)', windows: '车窗', chargeport: '充电口',
-  trunk: '后备箱', wheel: '轮胎', body: '车身',
-};
-const zoneState = {};           // zone → 开/关(演示)
 const markers = {};             // zone → 高亮圆环
 const raycaster = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 
 function classify(hit) {
   const p = hit.point;
-  // 世界坐标 → 模型局部(car 可能有 Y L 拉伸,用局部坐标判定)
   const local = car.worldToLocal(p.clone());
   const along = local[cfg.lenAxis] * cfg.frontSign;        // 车头为正
   const sideL = local[cfg.latAxis] * cfg.leftSign;         // 左侧为正
   const mat = hit.object.userData.mat || '';
   if (hit.object.userData.zone === 'wheel') return 'wheel';
-  // 玻璃舱:前风挡 → 哨兵,后风挡 → 后备箱,车顶 → 空调
   if (mat === cfg.glass) {
     if (along > 0.2) return 'sentry';
     if (along < -1.3) return 'trunk';
     return 'climate';
   }
-  // 车身:按落点位置划分
   if (along > 1.35) return 'frunk';
   if (along < -1.25 && sideL > 0.55) return 'chargeport';   // 左后翼子板(真实充电口位置)
   if (along < -1.5) return 'trunk';
@@ -327,22 +317,21 @@ function pick(e) {
   if (!hits.length) return;
   const zone = classify(hits[0]);
   const name = ZONE_LABEL[zone] || zone;
-  const t = new Date().toTimeString().slice(0, 8);
   if (zone === 'wheel' || zone === 'body') {
-    logEl.textContent = `${t} 点击 ${name}(未映射指令)`;
+    logEl.textContent = `${stamp()} 点击 ${name}(未映射指令)`;
     showLabel(name, hits[0].point);
     return;
   }
   zoneState[zone] = !zoneState[zone];
   const on = zoneState[zone];
-  // 开 = 在点击处留一个绿色发光环(对应控制页「部位发绿光 = 开」)
   const mk = markerFor(zone);
   mk.visible = on;
   if (on) {
     mk.position.copy(hits[0].point).addScaledVector(hits[0].face.normal, 0.02);
     mk.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), hits[0].face.normal.clone().normalize());
   }
-  logEl.innerHTML = `${t} 点击 <b>${name}</b> → ${on ? '开' : '关'}(演示,正式接入时此处发送对应指令)`;
+  setChipState(zone, on);
+  logEl.innerHTML = `${stamp()} 点击 <b>${name}</b> → ${on ? '开' : '关'}(演示,正式接入时此处发送对应指令)`;
   showLabel(`${name} · ${on ? '开' : '关'}`, hits[0].point);
 }
 
@@ -356,19 +345,47 @@ function resize() {
 new ResizeObserver(resize).observe(stage);
 resize();
 
+const clock = new THREE.Clock();
+const projV = new THREE.Vector3();
+const camOff = new THREE.Vector3();
+
 function frame() {
   requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), 0.1);
   if (autoSpin) orbitGoal.theta += 0.0016;
-  // 视角过渡(按钮切换视角时平滑插值)
   orbit.theta += (orbitGoal.theta - orbit.theta) * 0.08;
   orbit.phi += (orbitGoal.phi - orbit.phi) * 0.08;
   orbit.r += (orbitGoal.r - orbit.r) * 0.12;
   applyOrbit();
+  // 开合动画补间
+  for (const id of Object.keys(openT)) {
+    const d = openTarget[id] - openT[id];
+    if (Math.abs(d) > 0.001) {
+      openT[id] += Math.sign(d) * Math.min(Math.abs(d), dt / 0.7);
+      if (ghosts) applyMovers(ghosts.movers, id, openT[id]);
+    }
+  }
   // 点击标签跟随
   if (labelEl.classList.contains('show')) {
     const v = labelPos.clone().project(camera);
     labelEl.style.left = `${(v.x * 0.5 + 0.5) * stage.clientWidth}px`;
     labelEl.style.top = `${(-v.y * 0.5 + 0.5) * stage.clientHeight}px`;
+  }
+  // 热点 chips 跟随锚点;背对相机的调淡
+  if (modelReady) {
+    camOff.copy(camera.position).sub(target);
+    for (const id of Object.keys(chips)) {
+      const c = chips[id];
+      c.anchor.getWorldPosition(projV);
+      const facing = projV.clone().sub(target).normalize().dot(camOff.clone().normalize());
+      projV.project(camera);
+      const x = (projV.x * 0.5 + 0.5) * stage.clientWidth;
+      const y = (-projV.y * 0.5 + 0.5) * stage.clientHeight;
+      c.el.style.left = `${x}px`;
+      c.el.style.top = `${y}px`;
+      c.el.classList.toggle('dim', facing < -0.05);
+    }
+    if (confirmFor) positionConfirm(confirmFor);
   }
   if (!window.__tx3dPaused) renderer.render(scene, camera);
 }
@@ -378,7 +395,9 @@ frame();
 loadModel('y-yl');
 
 // 调试钩子(自动化截图用):__tx3d.pause() 暂停渲染,__tx3d.resume() 恢复
+window.__THREE = THREE;
 window.__tx3d = {
+  car,
   pause() { window.__tx3dPaused = true; },
   resume() { window.__tx3dPaused = false; },
   // 立即切到目标视角(跳过插值,低速渲染环境下截图用)
@@ -388,6 +407,13 @@ window.__tx3d = {
       Object.assign(orbit, VIEWS[name]);
       Object.assign(orbitGoal, VIEWS[name]);
     }
+  },
+  // 开合演示:__tx3d.setOpen('frunk', true)
+  setOpen(id, open) {
+    openTarget[id] = open ? 1 : 0;
+    openT[id] = open ? 1 : 0;
+    if (ghosts) applyMovers(ghosts.movers, id, openT[id]);
+    setChipState(id, open);
   },
   // 网格排障:__tx3d.list('taillight') → 匹配材质名的网格包围盒
   list(matSub) {
@@ -404,13 +430,22 @@ window.__tx3d = {
   },
   // 车身材质排障:normal=法线可视化 basic=无光照红 std=普通标准银
   debug(mode) {
-    const mats = {
+    const m = {
       normal: new THREE.MeshNormalMaterial({ side: THREE.DoubleSide }),
       basic: new THREE.MeshBasicMaterial({ color: 0xff2222, side: THREE.DoubleSide }),
       std: new THREE.MeshStandardMaterial({ color: 0xb9bdc4, metalness: 0, roughness: 0.5, side: THREE.DoubleSide }),
     };
     car.traverse((o) => {
-      if (o.isMesh && o.userData.mat === cfg.paint) o.material = mats[mode] || paintMat;
+      if (o.isMesh && o.userData.mat === cfg.paint) o.material = m[mode] || paintMat;
     });
+  },
+  // 按节点名高亮网格(识别可动部件用):__tx3d.highlight('Plane012')
+  highlight(nameSub) {
+    const hot = new THREE.MeshBasicMaterial({ color: 0xff2bd6, side: THREE.DoubleSide });
+    const found = [];
+    car.traverse((o) => {
+      if (o.isMesh && o.name.includes(nameSub)) { o.material = hot; found.push(o.name); }
+    });
+    return found;
   },
 };
