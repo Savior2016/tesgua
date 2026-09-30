@@ -150,6 +150,39 @@ function panelSpecsModel3() {
   ];
 }
 
+// Cybertruck 缝线规格(铰链:门在 A/B 柱、机盖在舱后缘、尾门底铰链下折、卷帘盖滑动)
+const CYBERTRUCK_WHEELS = [
+  { x: -0.86, z: -1.82, r: 0.44, y: 0.72 },
+  { x: 0.86, z: -1.82, r: 0.44, y: 0.72 },
+  { x: -0.86, z: 1.82, r: 0.44, y: 0.72 },
+  { x: 0.86, z: 1.82, r: 0.44, y: 0.72 },
+];
+
+export function panelSpecsCybertruck() {
+  return [
+    { ...doorSpec('door_fl', -1, -0.95, 0.08, 0.72, 1.48, 0.7, 0.86), glass: 'side', facingMin: 0.35, wheels: CYBERTRUCK_WHEELS },
+    { ...doorSpec('door_fr', 1, -0.95, 0.08, 0.72, 1.48, 0.7, 0.86), glass: 'side', facingMin: 0.35, wheels: CYBERTRUCK_WHEELS },
+    { ...doorSpec('door_rl', -1, 0.18, 1.28, 0.72, 1.48, 0.7, 0.9), glass: 'side', facingMin: 0.35, wheels: CYBERTRUCK_WHEELS },
+    { ...doorSpec('door_rr', 1, 0.18, 1.28, 0.72, 1.48, 0.7, 0.9), glass: 'side', facingMin: 0.35, wheels: CYBERTRUCK_WHEELS },
+    {
+      name: 'hood', pivot: [0, 1.22, -1.22], facing: 'up', glass: 'none',
+      facingMin: 0.55, wheels: CYBERTRUCK_WHEELS,
+      clip: [above(0, -0.92), below(0, 0.92), above(1, 1.08), above(2, -2.55), below(2, -1.22)],
+    },
+    {
+      // 底铰链:尾门向下折
+      name: 'tailgate', pivot: [0, 0.62, 2.55], facing: 'back', glass: 'none',
+      facingMin: 0.4, wheels: CYBERTRUCK_WHEELS,
+      clip: [above(0, -0.95), below(0, 0.95), above(1, 0.66), below(1, 1.32), above(2, 2.4)],
+    },
+    {
+      name: 'tonneau', pivot: [0, 1.52, 0.85], facing: 'up', glass: 'none',
+      facingMin: 0.45, wheels: CYBERTRUCK_WHEELS,
+      clip: [above(0, -0.88), below(0, 0.88), above(1, 1.42), above(2, 0.7), below(2, 2.3)],
+    },
+  ];
+}
+
 // ---------- 三角面切分/归并(把缝线从封闭车壳里裁出来,挂到铰链组) ----------
 function nearWheel(spec, x, y, z) {
   return (spec.wheels || []).some((w) => y < w.y && Math.hypot(x - w.x, z - w.z) < w.r);
@@ -176,7 +209,14 @@ function claims(spec, c, n, glass) {
     }
     case 'up':
       if (glass) return false;
+      // 卷帘盖:尾箱上方朝上的面
+      if (spec.name === 'tonneau') return n.y > 0.32 && c.z > 0.9;
       return n.y > 0.22;
+    case 'back':
+      if (glass) return false;
+      return n.z > Math.max(min, 0.45) && n.y < 0.45;
+    case 'forward':
+      return !glass && n.z < -min;
     case 'cover':
       // 三厢尾箱盖,含不垂直朝上的拐角
       if (glass) return false;
@@ -242,7 +282,7 @@ function geometryFrom(bucket) {
 
 const SKIP_ROLE = /tire_rubber|wheel_finish|brake_|headlight_led|taillight_led|signature_led|lamp_lens/;
 
-function articulate(body, specs) {
+export function articulate(body, specs) {
   if (!specs.length) return;
   const planes = [];
   const seen = new Set();
@@ -336,7 +376,7 @@ function coverMaterial(materials, name, color, roughness) {
   return material;
 }
 
-function addBox(body, materials, name, role, center, size, color, roughness) {
+export function addBox(body, materials, name, role, center, size, color, roughness) {
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(...size), coverMaterial(materials, name, color, roughness));
   mesh.position.set(...center);

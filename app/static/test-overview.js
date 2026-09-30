@@ -2,8 +2,9 @@
 // 固定 3/4 俯视机位的新款 Model Y L(与②共用 test-car.js 加载管线),
 // 数据直接叠在车模上:地面能量弧环=电量、四轮胎压、左列电量/续航、右列温度、上方里程。
 import {
-  THREE, resolveCfg, makeLoader, setupStudio, makeMats, prepareModel, applyStretchYL,
+  THREE, resolveCfg, makeLoader, setupStudio, makeMats, prepareModel,
 } from '/test-car.js';
+import { prepareCybertruck } from '/test-cybertruck.js';
 
 const stage = document.getElementById('txov-stage');
 const loadingEl = document.getElementById('txov-loading');
@@ -17,7 +18,7 @@ setupStudio(renderer, scene);
 
 // ---------- 轨道视角(默认右前上方 3/4 俯视;拖动旋转 / 滚轮缩放) ----------
 const target = new THREE.Vector3(0.35, 0.45, 0.1);   // 车偏右,左侧留给电量卡
-const orbit = { theta: 2.557, phi: 1.139, r: 5.87 }; // = 旧固定机位 (3.3,2.9,-4.35)
+const orbit = { theta: 2.557, phi: 1.139, r: 6.9 };  // 旧固定机位方向,半径拉远适配更长车身
 const orbitGoal = { ...orbit };
 function applyOrbit() {
   const { theta, phi, r } = orbit;
@@ -72,8 +73,8 @@ applyOrbit();
 // ---------- 演示数据(与 2D 方案同源) ----------
 const DEMO = { soc: 65 };
 
-// ---------- 地面能量弧环(3D 场景内,正确遮挡/透视) ----------
-// 椭圆轨道绕车一周:暗色整圈 + 亮弧 = 电量,从车头正前方起顺时针
+// ---------- 底盘圆盘上的能量环(3D 场景内,正确遮挡/透视) ----------
+// 圆环画在车身底部圆盘靠近边缘处:暗色整圈 + 亮弧 = 电量,从车头正前方起顺时针
 function ellipseRibbon(rx, rz, t0, t1, width, y, color, opacity, additive = false) {
   const N = 96;
   const pos = [];
@@ -97,12 +98,11 @@ function ellipseRibbon(rx, rz, t0, t1, width, y, color, opacity, additive = fals
   return m;
 }
 {
-  const RX = 1.5, RZ = 2.78, CZ = 0.1;
-  const track = ellipseRibbon(RX, RZ, 0, Math.PI * 2, 0.05, 0.025, 0x808ca0, 0.22);
+  const R = 3.22;   // 圆盘半径 3.6,环贴圆盘边缘内侧
+  const track = ellipseRibbon(R, R, 0, Math.PI * 2, 0.07, 0.025, 0x808ca0, 0.25);
   const tSoc = (DEMO.soc / 100) * Math.PI * 2;
-  const arc = ellipseRibbon(RX, RZ, 0, tSoc, 0.055, 0.03, 0x1baf7a, 0.95);
-  const glow = ellipseRibbon(RX, RZ, 0, tSoc, 0.22, 0.022, 0x1baf7a, 0.18, true);
-  track.position.z = CZ; arc.position.z = CZ; glow.position.z = CZ;
+  const arc = ellipseRibbon(R, R, 0, tSoc, 0.075, 0.03, 0x1baf7a, 0.95);
+  const glow = ellipseRibbon(R, R, 0, tSoc, 0.26, 0.022, 0x1baf7a, 0.16, true);
   scene.add(track, arc, glow);
 }
 
@@ -112,8 +112,11 @@ const cfg = resolveCfg('y-yl');
 let wheelAnchors = null;   // { fl/fr/rl/rr: Vector3 世界坐标 }
 
 loader.load(cfg.url, (gltf) => {
-  prepareModel(gltf.scene, cfg, makeMats());
-  applyStretchYL(gltf.scene);
+  if (cfg.cybertruck) {
+    gltf.scene = prepareCybertruck(gltf.scene).scene;
+  } else {
+    prepareModel(gltf.scene, cfg, makeMats());
+  }
   scene.add(gltf.scene);
   // 四轮锚点:按左(-X)/右、前(-Z)/后聚类轮网格包围盒中心
   const cls = { fl: [], fr: [], rl: [], rr: [] };

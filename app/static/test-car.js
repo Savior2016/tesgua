@@ -5,6 +5,8 @@
 //  - model-y.glb          2021 款 Model Y(Tina2088/tina-3d-tesla,MIT,车头 = -X)
 //  - highland/model.glb   2024 款 Model 3 Highland(RBLXSupercars @ Sketchfab,CC BY 4.0,
 //    经 aditano/tesla-studio 压缩+纹理外置;专用管线 test-highland.js:归一化+真实铰链面板)
+//  - cybertruck/model.glb 2025 Cybertruck(Nieve5677 @ Sketchfab,CC BY 4.0;
+//    专用管线 test-cybertruck.js:车壳逐面拆分+真实铰链面板;暂作 Model Y L 占位)
 // Three.js 本地化(/vendor/three.module.min.js,MIT);GLTFLoader/MeshoptDecoder 同源自托管。
 import * as THREE from '/vendor/three.module.min.js';
 import { GLTFLoader } from '/vendor/loaders/GLTFLoader.js';
@@ -16,8 +18,8 @@ export { THREE };
 // lenAxis/frontSign: 车头朝向的轴与符号;latAxis/leftSign: 车辆左侧方向;halfLen: 半车长(米)
 export const MODELS = {
   'y-yl': {
-    label: '新款 Model Y L', base: 'y-juniper', stretch: true,
-    note: '按真实尺寸近似:车长 4.976m/轴距 3.040m(车身纵向拉伸、轴距加大,车轮保持圆形)',
+    label: '新款 Model Y L', base: 'cybertruck',
+    note: 'Y L 暂无 3D 模型(2025 中国特供新款,社区尚无作品),暂以 Cybertruck 占位显示',
   },
   'y-juniper': {
     label: '新款 Model Y', url: '/models/model-y-juniper.glb', sizeMB: 5.2,
@@ -30,6 +32,25 @@ export const MODELS = {
     meshopt: false, lenAxis: 'x', frontSign: -1, latAxis: 'z', leftSign: -1,
     paint: 'body', glass: 'glass_body', keepGlass: false,
     wheelRe: null, halfLen: 2.375,   // 旧模型轮胎材质无名,用包围盒位置判定
+  },
+  'cybertruck': {
+    label: 'Cybertruck', url: '/models/cybertruck/model.glb', sizeMB: 1.1,
+    meshopt: true, lenAxis: 'z', frontSign: -1, latAxis: 'x', leftSign: -1,
+    paint: 'exterior_steel', glass: 'glass', keepGlass: true,
+    wheelRe: /wheel_finish|tire_rubber/, halfLen: 2.84,
+    cybertruck: true,   // 走 test-cybertruck.js 专用管线(车壳逐面拆分 + 真实铰链面板)
+    note: '不锈钢车身不支持换漆;车门/前备箱/尾门沿真实缝线裁切,开合为真面板动画',
+    // Cybertruck 更高更长(5.68m),热点锚点与 Model Y 不同
+    hotspots: [
+      { id: 'frunk', label: '前备箱', pos: [0, 1.34, -1.85], confirm: true },
+      { id: 'trunk', label: '后备箱', pos: [0, 1.32, 2.45], confirm: true },
+      { id: 'doors', label: '车门', pos: [-1.08, 1.0, 0.6], confirm: true },
+      { id: 'lock', label: '车锁', pos: [-1.08, 1.15, -0.55] },
+      { id: 'windows', label: '车窗', pos: [1.08, 1.45, 0.1] },
+      { id: 'climate', label: '空调', pos: [0, 1.82, -0.2] },
+      { id: 'chargeport', label: '充电口', pos: [-1.0, 0.75, 2.3] },
+      { id: 'sentry', label: '哨兵', pos: [0, 1.56, -1.2] },
+    ],
   },
   'model-3': {
     label: 'Model 3(2024 新款)', url: '/models/highland/model.glb', sizeMB: 4.8,
@@ -51,10 +72,6 @@ export const MODELS = {
     ],
   },
 };
-
-// Model Y L 与 Model Y 的真实尺寸比:车长 4976/4794,轴距 3040/2890
-export const YL_LEN = 4.976 / 4.794;
-export const YL_WB = 3.040 / 2.890;
 
 export function resolveCfg(key) {
   const c = { ...MODELS[key] };
@@ -159,29 +176,6 @@ export function prepareModel(root, cfg, mats) {
     }
   });
   return { paintCount };
-}
-
-// ---------- Model Y L 近似:轴距拉伸 ----------
-// 均匀整体拉伸会把车轮拉成椭圆、视觉上也分辨不出加长;改为:
-// 车身网格统一进 bodyGroup 按车长比拉伸,车轮保持圆形、轴心按轴距比外移。
-export function applyStretchYL(root) {
-  const bodyGroup = new THREE.Group();
-  bodyGroup.name = 'bodyGroup';
-  const wheels = [];
-  root.traverse((o) => { if (o.isMesh && o.userData.zone === 'wheel') wheels.push(o); });
-  const wb = new THREE.Box3();
-  const wc = new THREE.Vector3();
-  for (const o of wheels) {
-    wb.setFromObject(o);
-    wb.getCenter(wc);
-    o.position.z += wc.z * (YL_WB - 1);   // 轴心外移(前轴向前、后轴向后),车轮不变形
-  }
-  for (const o of [...root.children]) {
-    if (o.isMesh && o.userData.zone !== 'wheel') bodyGroup.add(o);
-  }
-  bodyGroup.scale.z = YL_LEN;
-  root.add(bodyGroup);
-  return { bodyGroup };
 }
 
 // ---------- 幽灵开合件(车门/前备箱盖/尾门) ----------

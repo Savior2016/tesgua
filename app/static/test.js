@@ -4,9 +4,10 @@
 // 确认后模型跟着开合;演示阶段不发送真实控制指令) + 部位拾取。
 import {
   THREE, MODELS, resolveCfg, makeLoader, setupStudio, makeMats,
-  prepareModel, applyStretchYL, makeGhostParts, applyMovers,
+  prepareModel, makeGhostParts, applyMovers,
 } from '/test-car.js';
 import { prepareHighland, highlandMovers } from '/test-highland.js';
+import { prepareCybertruck, cybertruckMovers } from '/test-cybertruck.js';
 
 const stage = document.getElementById('tx3d-stage');
 const labelEl = document.getElementById('tx3d-label');
@@ -32,8 +33,7 @@ const loader = makeLoader();
 let cfg = null;               // 当前车型配置(展开 base 后)
 let modelReady = false;
 let currentRoot = null;
-let ghosts = null;            // 幽灵开合件(makeGhostParts)
-let bodyGroup = null;         // Y L 拉伸时的车身组(锚点/幽灵件挂其下继承拉伸)
+let ghosts = null;            // 开合件(幽灵面板或真实铰链组,均含 movers)
 
 // ---------- 控制热点 ----------
 // pos 为模型局部坐标(车头 = -Z 轴方向);confirm = 需要二次确认的开合类控制
@@ -68,7 +68,7 @@ function buildHotspots() {
     hotEl.appendChild(el);
     const anchor = new THREE.Object3D();
     anchor.position.set(...h.pos);
-    (bodyGroup || car).add(anchor);
+    car.add(anchor);
     chips[h.id] = { el, anchor, def: h };
   }
 }
@@ -151,7 +151,6 @@ function loadModel(key) {
   }
   clearHotspots();
   ghosts = null;
-  bodyGroup = null;
   for (const m of Object.values(markers)) m.visible = false;
   for (const k of Object.keys(zoneState)) delete zoneState[k];
   for (const k of Object.keys(openT)) { openT[k] = 0; openTarget[k] = 0; }
@@ -165,18 +164,25 @@ function loadModel(key) {
       gltf.scene = built.scene;
       ghosts = { movers: highlandMovers(built.body) };
       currentRoot = built.scene;
+    } else if (cfg.cybertruck) {
+      // Cybertruck 专用管线:车壳逐面拆分 + 真实铰链面板(车门/机盖/底铰链尾门)
+      const built = prepareCybertruck(gltf.scene);
+      paintCount = built.paintCount;
+      gltf.scene = built.scene;
+      ghosts = { movers: cybertruckMovers(built.body) };
+      currentRoot = built.scene;
     } else {
       paintCount = prepareModel(gltf.scene, cfg, mats).paintCount;
-      if (cfg.stretch) bodyGroup = applyStretchYL(gltf.scene).bodyGroup;
       ghosts = makeGhostParts(cfg, mats);
-      if (ghosts) (bodyGroup || gltf.scene).add(ghosts.group);
+      if (ghosts) gltf.scene.add(ghosts.group);
       currentRoot = gltf.scene;
     }
     car.add(gltf.scene);
     buildHotspots();
     modelReady = true;
     loadingEl.style.display = 'none';
-    logEl.textContent = `${cfg.label}已加载(${paintCount} 个车漆网格可换色)` +
+    logEl.textContent = `${cfg.label}已加载` +
+      (paintCount ? `(${paintCount} 个车漆网格可换色)` : '') +
       (cfg.note ? `。${cfg.note}` : '') + '。点击车上控制点或车身部位试试。';
   }, undefined, (err) => {
     loadingEl.textContent = '模型加载失败:' + (err && (err.stack || err.message) || err);
