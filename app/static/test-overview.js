@@ -10,7 +10,7 @@ import { prepareHighland } from '/test-highland.js';
 const stage = document.getElementById('txov-stage');
 const loadingEl = document.getElementById('txov-loading');
 
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 stage.prepend(renderer.domElement);   // canvas 垫底,数据 chips 在其上
 
 const scene = new THREE.Scene();
@@ -45,15 +45,19 @@ function fitRadius() {
   const pointers = new Map();
   let downAt = null;
   let pinch = null;
+  let tap = null;   // 单击候选:抬起时位移 <8px → 查询色块信息
   el.addEventListener('pointerdown', (e) => {
+    hideTip();
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     el.setPointerCapture(e.pointerId);
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), r: orbitGoal.r };
       downAt = null;
+      tap = null;
     } else {
       downAt = { x: e.clientX, y: e.clientY, theta: orbitGoal.theta, phi: orbitGoal.phi };
+      tap = { x: e.clientX, y: e.clientY };
     }
   });
   el.addEventListener('pointermove', (e) => {
@@ -75,7 +79,11 @@ function fitRadius() {
   const release = (e) => {
     pointers.delete(e.pointerId);
     if (pointers.size < 2) pinch = null;
-    if (pointers.size === 0) downAt = null;
+    if (pointers.size === 0) {
+      downAt = null;
+      if (e.type === 'pointerup' && tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 8) inspectRing(e);
+      tap = null;
+    }
   };
   el.addEventListener('pointerup', release);
   el.addEventListener('pointercancel', release);
@@ -106,17 +114,37 @@ function fitRadius() {
     new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
   shadow.position.y = 0.01;
   scene.add(shadow);
+
+  // 车头前方圆盘空区的 T 型车标(与 2D 总览车标同一路径,纹理顶边朝车头 -Z)
+  const lc = document.createElement('canvas');
+  lc.width = lc.height = 256;
+  const lctx = lc.getContext('2d');
+  lctx.translate(28, 28);
+  lctx.scale(200 / 24, 200 / 24);
+  lctx.fillStyle = 'rgba(203,212,228,0.9)';
+  lctx.fill(new Path2D('M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362l-.004.002H12v-.002zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.349c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46v.003z'));
+  const logoTex = new THREE.CanvasTexture(lc);
+  logoTex.colorSpace = THREE.SRGBColorSpace;
+  const logo = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.62, 0.62).rotateX(-Math.PI / 2),
+    new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, opacity: 0.5, depthWrite: false }));
+  logo.position.set(0, 0.006, -2.95);   // 车头前方圆盘空区(保险杠之前、内环之内)
+  logo.renderOrder = 1;
+  scene.add(logo);
 }
 
 // ---------- 演示数据(与 2D 方案同源;bd = 本充电周期能耗构成,自车头起顺时针) ----------
 const DEMO = {
-  soc: 65,
+  soc: 65,                    // 当前电量 %(= bd 中 remaining)
+  rangeKm: 342,
+  companionDays: 532,         // 陪伴天数(正式页来自 /api/vehicle/delivery)
+  eff: { val: 152, lo: 120, hi: 210, official: 129 },   // 平均能耗 Wh/km + 近期区间 + 官方值
   bd: [
-    ['uncharged', 10, 0x5a6270, 0.5],   // 未充(充至 90%)
-    ['idle', 4, 0x4a3aa7, 0.95],        // 驻车耗电
-    ['sentry', 6, 0xe87ba4, 0.95],      // 哨兵
-    ['drive', 15, 0xeda100, 0.95],      // 行驶
-    ['remaining', 65, 0x3987e5, 0.95],  // 剩余(= 当前电量)
+    { key: 'uncharged', label: '未充(充至 90%)', pct: 10, color: 0x5a6270, opacity: 0.5 },
+    { key: 'idle', label: '驻车耗电', pct: 4, color: 0x4a3aa7, opacity: 0.95, kwh: 1.2 },
+    { key: 'sentry', label: '哨兵模式', pct: 6, color: 0xe87ba4, opacity: 0.95, kwh: 1.8 },
+    { key: 'drive', label: '行驶', pct: 15, color: 0xeda100, opacity: 0.95, kwh: 4.5 },
+    { key: 'remaining', label: '剩余电量', pct: 65, color: 0x3987e5, opacity: 0.95 },
   ],
 };
 
@@ -144,6 +172,7 @@ function ellipseRibbon(rx, rz, t0, t1, width, y, color, opacity, additive = fals
   m.renderOrder = 2;
   return m;
 }
+const pickMeshes = [];   // 可点击查询的环段(userData.info = { title, sub })
 {
   // 外圈:当前电量(绿弧);内圈:本充电周期能耗构成(五色分段,与 2D 玻璃顶能量环同口径)
   const R = 3.62;   // 圆盘半径 4.0,外圈贴圆盘边缘内侧
@@ -151,16 +180,57 @@ function ellipseRibbon(rx, rz, t0, t1, width, y, color, opacity, additive = fals
   const tSoc = (DEMO.soc / 100) * Math.PI * 2;
   const arc = ellipseRibbon(R, R, 0, tSoc, 0.075, 0.03, 0x1baf7a, 0.95);
   const glow = ellipseRibbon(R, R, 0, tSoc, 0.26, 0.022, 0x1baf7a, 0.16, true);
+  const socInfo = { title: `当前电量 ${DEMO.soc}%`, sub: `续航约 ${DEMO.rangeKm} km` };
+  track.userData.info = socInfo;
+  arc.userData.info = socInfo;
+  pickMeshes.push(track, arc);
   scene.add(track, arc, glow);
   const RB = 3.28;  // 内圈:能耗构成
   let acc = 0;
-  for (const [, pct, color, opacity] of DEMO.bd) {
-    if (pct <= 0.05) continue;
+  for (const seg of DEMO.bd) {
+    if (seg.pct <= 0.05) continue;
     const t0 = (acc / 100) * Math.PI * 2;
-    acc += pct;
+    acc += seg.pct;
     const t1 = (acc / 100) * Math.PI * 2;
-    scene.add(ellipseRibbon(RB, RB, t0, t1, 0.1, 0.028, color, opacity));
+    const m = ellipseRibbon(RB, RB, t0, t1, 0.1, 0.028, seg.color, seg.opacity);
+    m.userData.info = {
+      title: `${seg.label} ${seg.pct}%`,
+      sub: seg.kwh ? `约 ${seg.kwh} kWh · 本充电周期` : '本充电周期',
+    };
+    pickMeshes.push(m);
+    scene.add(m);
   }
+}
+
+// ---------- 色块点击查询(位移 <8px 的抬起视为点击;拖动/捏合不触发) ----------
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const tipEl = document.getElementById('txov-tip');
+let tipTimer = 0;
+function hideTip() { tipEl.classList.remove('show'); clearTimeout(tipTimer); }
+function inspectRing(e) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1,
+          -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const hit = raycaster.intersectObjects(pickMeshes, false)[0];
+  if (!hit) return;
+  const info = hit.object.userData.info;
+  tipEl.textContent = '';
+  const b = document.createElement('b');
+  b.textContent = info.title;
+  tipEl.appendChild(b);
+  if (info.sub) {
+    const s = document.createElement('small');
+    s.textContent = info.sub;
+    tipEl.appendChild(s);
+  }
+  const px = (ndc.x * 0.5 + 0.5) * rect.width;
+  const py = (-ndc.y * 0.5 + 0.5) * rect.height;
+  tipEl.style.left = `${Math.min(rect.width - 80, Math.max(80, px))}px`;
+  tipEl.style.top = `${Math.max(64, py)}px`;
+  tipEl.classList.add('show');
+  tipTimer = setTimeout(hideTip, 4000);
 }
 
 // ---------- 加载用户车型(个人中心「3D 车模」偏好;后台校准 localStorage) ----------
@@ -171,6 +241,7 @@ fetch('/api/prefs').then((r) => r.json()).then((p) => {
   if (p.car_model && MODELS[p.car_model]) localStorage.setItem('ttv-carmodel', p.car_model);
 }).catch(() => {});
 let wheelAnchors = null;   // { fl/fr/rl/rr: Vector3 世界坐标 }
+let roofAnchor = null;     // 陪伴天数 chip 锚点:车顶中后部
 
 loader.load(cfg.url, (gltf) => {
   if (cfg.cybertruck) {
@@ -194,6 +265,9 @@ loader.load(cfg.url, (gltf) => {
     const arr = cls[k];
     wheelAnchors[k] = arr.reduce((s, v) => s.add(v), new THREE.Vector3()).multiplyScalar(1 / arr.length);
   }
+  // 陪伴天数贴在车顶中后段(任何车型都适用的锚点:包围盒顶 + 偏后)
+  b.setFromObject(gltf.scene);
+  roofAnchor = new THREE.Vector3(0, b.max.y + 0.05, 0.85);
   loadingEl.style.display = 'none';
   layout();
 }, undefined, (err) => {
@@ -212,18 +286,35 @@ function place(id, x, y) {
   el.style.top = `${y}px`;
 }
 
-// 固定卡片(电量/里程/温度):仅随尺寸布局,不随视角动
+// 固定卡片(电量/能耗/里程/温度):仅随尺寸布局,不随视角动
 function layout() {
   const W = stage.clientWidth, H = stage.clientHeight;
   place('txov-batt', W * 0.14, H * 0.24);
+  place('txov-eff', W * 0.14, H * 0.24 + 92);
   place('txov-odo', W * 0.5, H * 0.075);
   place('txov-tin', W * 0.87, H * 0.30);
   place('txov-tout', W * 0.85, H * 0.52);
 }
 
+// 平均能耗条:当前值在近期区间内的位置 + 官方值刻度(与 2D 效率条同口径)
+{
+  const { val, lo, hi, official } = DEMO.eff;
+  const pct = (x) => `${Math.min(100, Math.max(0, ((x - lo) / (hi - lo)) * 100)).toFixed(1)}%`;
+  document.querySelector('#txov-eff .fill').style.width = pct(val);
+  document.querySelector('#txov-eff .official').style.left = pct(official);
+  document.querySelector('#txov-eff b').textContent = `${val} Wh/km`;
+  document.querySelector('#txov-companion b').textContent = DEMO.companionDays;
+}
+
 // 胎压 chips:锚在四轮旁,每帧随视角重投影;侧视时背侧轮调淡
 const tpmsP = new THREE.Vector3();
 function layoutTpms() {
+  if (roofAnchor) {   // 陪伴天数:贴在车顶中后段,随视角重投影
+    const [cx, cy] = project(roofAnchor);
+    const el = document.getElementById('txov-companion');
+    el.style.left = `${cx}px`;
+    el.style.top = `${cy - 20}px`;
+  }
   if (!wheelAnchors) return;
   const camX = camera.position.x - target.x;
   const camZ = camera.position.z - target.z;
@@ -277,4 +368,6 @@ window.__txov = {
     if (phi !== undefined) orbit.phi = orbitGoal.phi = phi;
     if (r !== undefined) orbit.r = orbitGoal.r = r;
   },
+  // 世界坐标 → stage 像素(自动化点色块用)
+  screenOf(x, y, z) { return project(new THREE.Vector3(x, y, z)); },
 };

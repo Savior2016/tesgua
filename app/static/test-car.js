@@ -239,7 +239,9 @@ export function makeGhostParts(cfg, mats) {
       new THREE.Vector3(-0.66, 0, 0), new THREE.Vector3(0.66, 0, 0),
       new THREE.Vector3(0.60, 0, len), new THREE.Vector3(-0.60, 0, len),
     ], mats.paintMat);
-    frame.rotation.x = Math.PI / 2 - slope;          // 从水平放倒到斜面(局部 +z 沿斜面向下)
+    // 四边形建在水平面(局部 +z 沿车长向后),绕 x 转 slope 即贴上后倾斜面
+    // (此前误用 π/2 - slope 转了 68°,关门态竖插进舱内,开启时甩向错误方向)
+    frame.rotation.x = slope;
     frame.position.set(0, -0.025, 0.01);
     const glass = quad([
       new THREE.Vector3(-0.52, 0, 0.10), new THREE.Vector3(0.52, 0, 0.10),

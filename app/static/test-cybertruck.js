@@ -304,7 +304,7 @@ function addCybertruckTailBar(body, materials) {
     materials.set('cybertruck_tail_bar', material);
   }
   const bar = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.035, 0.018), material);
-  bar.position.set(0, 1.18, 2.72);
+  bar.position.set(0, 1.02, 2.81);   // 贴在尾门竖直段顶沿(实测该处表面 z≈2.80)
   bar.name = 'cybertruck_tail_bar';
   bar.userData.noPanel = true;
   bar.userData.mat = 'taillight_led';
@@ -376,8 +376,9 @@ export function prepareCybertruck(source) {
   });
   addCybertruckCabin(body, materials);
   articulate(body, panelSpecsCybertruck());
-  // 前备箱底衬(开机盖时不看穿)
+  // 前备箱底衬(开机盖时不看穿) + 货箱底(开尾门时不看穿)
   addBox(body, materials, 'frunk_tub', 'carpet', [0, 0.78, -1.85], [1.25, 0.16, 0.85], '#14161a', 0.92);
+  addBox(body, materials, 'bed_floor', 'carpet', [0, 0.7, 1.55], [1.5, 0.06, 1.5], '#14161a', 0.94);
   addCybertruckTailBar(body, materials);
   return { scene, body, paintCount: 0 };
 }
@@ -386,8 +387,8 @@ export function prepareCybertruck(source) {
 export function cybertruckMovers(body) {
   const g = (name) => body.getObjectByName(name);
   const movers = {};
-  if (g('hood')) movers.frunk = { pivot: g('hood'), axis: 'x', open: 0.5, cavities: [] };
-  if (g('tailgate')) movers.trunk = { pivot: g('tailgate'), axis: 'x', open: 0.85, cavities: [] };
+  if (g('hood')) movers.frunk = { pivot: g('hood'), axis: 'x', open: 0.75, cavities: [] };
+  if (g('tailgate')) movers.trunk = { pivot: g('tailgate'), axis: 'x', open: 1.25, cavities: [] };
   const doorList = [
     { pivot: g('door_fl'), sign: -1 },
     { pivot: g('door_fr'), sign: 1 },

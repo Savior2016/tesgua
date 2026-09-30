@@ -17,7 +17,7 @@ const hotEl = document.getElementById('tx3d-hot');
 const confirmEl = document.getElementById('tx3d-confirm');
 
 // ---------- 渲染基础 ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 stage.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
@@ -139,7 +139,9 @@ confirmEl.querySelector('.yes').addEventListener('click', () => {
     (canAnim ? '' : '<br>2021 款模型车门/舱盖与车身一体,无独立面板,无法演示开合动画');
 });
 
+let loadSeq = 0;   // 加载代际:慢模型(SwiftShader 下数十秒)未完成时切换车型,旧回调必须丢弃
 function loadModel(key) {
+  const seq = ++loadSeq;
   cfg = resolveCfg(key);
   // 车型 seg 高亮跟随(含偏好加载的初始车型)
   document.querySelectorAll('#tx3d-model button').forEach((b) =>
@@ -159,6 +161,10 @@ function loadModel(key) {
   for (const k of Object.keys(openT)) { openT[k] = 0; openTarget[k] = 0; }
 
   loader.load(cfg.url, (gltf) => {
+    if (seq !== loadSeq) {   // 已被更新的加载取代:释放几何,不入场景
+      gltf.scene.traverse((o) => { if (o.isMesh) o.geometry.dispose(); });
+      return;
+    }
     let paintCount;
     if (cfg.highland) {
       // Model 3 专用管线:归一化烘焙 + 逐面角色分类 + 真实铰链面板(车门/机盖/尾箱盖)
@@ -188,6 +194,7 @@ function loadModel(key) {
       (paintCount ? `(${paintCount} 个车漆网格可换色)` : '') +
       (cfg.note ? `。${cfg.note}` : '') + '。点击车上控制点或车身部位试试。';
   }, undefined, (err) => {
+    if (seq !== loadSeq) return;
     loadingEl.textContent = '模型加载失败:' + (err && (err.stack || err.message) || err);
   });
 }

@@ -165,15 +165,18 @@ export function panelSpecsCybertruck() {
     { ...doorSpec('door_rl', -1, 0.18, 1.28, 0.72, 1.48, 0.7, 0.9), glass: 'side', facingMin: 0.35, wheels: CYBERTRUCK_WHEELS },
     { ...doorSpec('door_rr', 1, 0.18, 1.28, 0.72, 1.48, 0.7, 0.9), glass: 'side', facingMin: 0.35, wheels: CYBERTRUCK_WHEELS },
     {
-      name: 'hood', pivot: [0, 1.22, -1.22], facing: 'up', glass: 'none',
+      // 前备箱盖:剖面实测(顶面 x=0:z -2.8→-1.12 斜面 y 1.32→1.59,风挡始于 z≈-1.1)
+      // 铰链在盖后缘(风挡下缘),不是体内低点
+      name: 'hood', pivot: [0, 1.58, -1.14], facing: 'up', glass: 'none',
       facingMin: 0.55, wheels: CYBERTRUCK_WHEELS,
-      clip: [above(0, -0.92), below(0, 0.92), above(1, 1.08), above(2, -2.55), below(2, -1.22)],
+      clip: [above(0, -0.86), below(0, 0.86), above(1, 1.05), above(2, -2.62), below(2, -1.14)],
     },
     {
-      // 底铰链:尾门向下折
-      name: 'tailgate', pivot: [0, 0.62, 2.55], facing: 'back', glass: 'none',
+      // 底铰链:尾门向下折。实测尾门≈竖直段(y 0.66..1.0, z≈2.78),
+      // 其上(y>1.1)是大幅前倾的货箱后壁,留在车身;铰链在尾门下沿(z≈2.77)
+      name: 'tailgate', pivot: [0, 0.66, 2.77], facing: 'back', glass: 'none',
       facingMin: 0.4, wheels: CYBERTRUCK_WHEELS,
-      clip: [above(0, -0.95), below(0, 0.95), above(1, 0.66), below(1, 1.32), above(2, 2.4)],
+      clip: [above(0, -0.95), below(0, 0.95), above(1, 0.6), below(1, 1.14), above(2, 2.5)],
     },
     {
       name: 'tonneau', pivot: [0, 1.52, 0.85], facing: 'up', glass: 'none',
