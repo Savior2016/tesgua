@@ -3972,9 +3972,12 @@
         // 回收效率:回收电量 ÷ 可回收机械能(刹车损耗动能 ½m·Δv² + 下坡势能 m·g·Δh,按车重估算)
         kvItem('回收效率', (r.regen_eff !== null && r.regen_eff !== undefined)
           ? `${fmtNum(r.regen_eff, 0)}%` : '—');
-        // 海拔功:爬坡耗的势能 / 下坡释放的势能(m·g·Δh,按车重估算)
-        kvItem('海拔功', (r.elev_climb_kwh !== null && r.elev_climb_kwh !== undefined)
-          ? `爬 ${fmtNum(r.elev_climb_kwh, 1)} · 降 ${fmtNum(r.elev_drop_kwh, 1)} kWh` : '—');
+        // 海拔功:爬坡耗的势能 / 下坡释放的势能(m·g·Δh,按车重估算;
+        // 拆两项短数值,合并成一项会在窄屏截断)
+        kvItem('爬坡耗功', (r.elev_climb_kwh !== null && r.elev_climb_kwh !== undefined)
+          ? `${fmtNum(r.elev_climb_kwh, r.elev_climb_kwh < 1 ? 2 : 1)} kWh` : '—');
+        kvItem('下坡释能', (r.elev_drop_kwh !== null && r.elev_drop_kwh !== undefined)
+          ? `${fmtNum(r.elev_drop_kwh, r.elev_drop_kwh < 1 ? 2 : 1)} kWh` : '—');
         kvItem('Δ理想续航', delta !== null ? `${fmtNum(delta, 1)} km` : '—');
         // 续航达成率 = 实际里程 / 消耗的理想续航(>100% 表示跑赢表显)
         const attain = (delta !== null && delta > 0 && r.distance)

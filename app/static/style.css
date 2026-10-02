@@ -3061,6 +3061,7 @@ button { touch-action: manipulation; }
   padding: 5px 10px;
   background: var(--tile-track);
   border-radius: 7px;
+  min-width: 0;   /* grid 项默认 min-width:auto,长数值会撑破列宽 */
 }
 
 .rt-kv-lab { color: var(--text-muted); white-space: nowrap; }
@@ -3069,6 +3070,8 @@ button { touch-action: manipulation; }
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;   /* 实在放不下时省略,不再把相邻列挤出屏幕 */
 }
 
 /* 行程详情:海拔高度图 */
