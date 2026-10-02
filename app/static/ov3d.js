@@ -1,6 +1,6 @@
 // 测试页面 · 方案③:总览 3D 全景(候选替代 2D 投影)
 // 固定 3/4 俯视机位的新款 Model Y L(与控制页共用 car3d.js 加载管线),
-// 数据直接叠在车模上:地面能量弧环=电量、四轮胎压、左列电量/续航、右列温度、上方里程。
+// 数据展示:地面能量弧环=电量,背景弧形墙两行=统计/胎压/能耗构成。
 import {
   THREE, MODELS, resolveCfg, makeLoader, setupStudio, makeMats, prepareModel,
 } from '/car3d.js';
@@ -279,7 +279,7 @@ function drawBackdrop(cv, d) {
   label(p(5), cy1 - 125, '车外温度');
   bigVal(p(5), cy1 + 10, d.tout == null ? '—' : `${d.tout}`, d.tout == null ? '' : '°', 170);
 
-  // 下排 ① 胎压(四轮 2×2,按与标准 2.9 bar 的偏差着色,与轮胎旁浮签同源)
+  // 下排 ① 胎压(四轮 2×2,按与标准 2.9 bar 的偏差着色)
   label(p(0), cy2 - 135, '胎压 bar');
   {
     const wheels = [['fl', -1, -1], ['fr', 1, -1], ['rl', -1, 1], ['rr', 1, 1]];
@@ -434,7 +434,6 @@ const cfg = resolveCfg(prefKey && MODELS[prefKey] ? prefKey : 'y-yl');
 fetch('/api/prefs').then((r) => r.json()).then((p) => {
   if (p.car_model && MODELS[p.car_model]) localStorage.setItem('ttv-carmodel', p.car_model);
 }).catch(() => {});
-let wheelAnchors = null;   // { fl/fr/rl/rr: Vector3 世界坐标 }
 
 loader.load(cfg.url, (gltf) => {
   if (cfg.cybertruck) {
@@ -446,19 +445,6 @@ loader.load(cfg.url, (gltf) => {
   }
   gltf.scene.scale.multiplyScalar(1.18);   // 放大车模:原比例相对圆台偏小
   scene.add(gltf.scene);
-  // 四轮锚点:按左(-X)/右、前(-Z)/后聚类轮网格包围盒中心
-  const cls = { fl: [], fr: [], rl: [], rr: [] };
-  const b = new THREE.Box3(); const c = new THREE.Vector3();
-  gltf.scene.traverse((o) => {
-    if (!o.isMesh || o.userData.zone !== 'wheel') return;
-    b.setFromObject(o); b.getCenter(c);
-    cls[c.x < 0 ? (c.z < 0 ? 'fl' : 'rl') : (c.z < 0 ? 'fr' : 'rr')].push(c.clone());
-  });
-  wheelAnchors = {};
-  for (const k of Object.keys(cls)) {
-    const arr = cls[k];
-    wheelAnchors[k] = arr.reduce((s, v) => s.add(v), new THREE.Vector3()).multiplyScalar(1 / arr.length);
-  }
   loadingEl.style.display = 'none';
 }, undefined, (err) => {
   loadingEl.textContent = '模型加载失败:' + (err && err.message || err);
@@ -471,28 +457,7 @@ function project(p) {   // 世界坐标 → stage 像素
   return [(v.x * 0.5 + 0.5) * stage.clientWidth, (-v.y * 0.5 + 0.5) * stage.clientHeight];
 }
 
-// 胎压 chips:锚在四轮旁,每帧随视角重投影;侧视时背侧轮调淡
-const tpmsP = new THREE.Vector3();
-function layoutTpms() {
-  if (!wheelAnchors) return;
-  const camX = camera.position.x - target.x;
-  const camZ = camera.position.z - target.z;
-  const lat = Math.hypot(camX, camZ) || 1;
-  for (const k of Object.keys(wheelAnchors)) {
-    const a = wheelAnchors[k];
-    // 沿水平径向往车外让出一小段,避免投影落在玻璃/车身上
-    tpmsP.set(a.x, 0, a.z - 0.1).normalize().multiplyScalar(0.28);
-    tpmsP.set(a.x + tpmsP.x, 0.05, a.z + tpmsP.z);
-    // 相机明显偏向一侧时,另一侧的轮为背侧(被车身挡住)→ 调淡;
-    // 前/后正视时两侧都可见,保持正常亮度
-    const dim = a.x * camX < 0 && Math.abs(camX) / lat > 0.45;
-    const [x, y] = project(tpmsP);
-    const el = document.getElementById(`txov-tpms-${k}`);
-    el.style.left = `${x}px`;
-    el.style.top = `${y - 26}px`;
-    el.classList.toggle('dim', dim);
-  }
-}
+// 胎压 chips 已移除:胎压改在背景弧形墙下排展示,不再锚在四轮旁
 
 function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
@@ -510,7 +475,6 @@ function frame() {
   orbit.phi += (orbitGoal.phi - orbit.phi) * 0.12;
   orbit.r += (orbitGoal.r - orbit.r) * 0.15;
   applyOrbit();
-  layoutTpms();
   if (!window.__txovPaused) renderer.render(scene, camera);
 }
 frame();
@@ -538,14 +502,6 @@ window.__txov = {
 function setData(d) {
   backdrop.redraw(d);
   buildRings(d);
-  if (d.tpms) {
-    for (const k of ['fl', 'fr', 'rl', 'rr']) {
-      const el = document.getElementById(`txov-tpms-${k}`);
-      if (!el) continue;
-      el.textContent = d.tpms[k] ?? '—';
-      el.style.color = (d.tpmsColors && d.tpmsColors[k]) || '';
-    }
-  }
 }
 window.Ov3D = {
   setData,
