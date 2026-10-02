@@ -1310,6 +1310,9 @@
     cv.style.display = is3d ? 'none' : '';   // 3D 模式整行让位(含两侧面板)
     dv.hidden = !isData;
     if (v3) v3.hidden = !is3d;
+    // 3D 模式去掉卡片外壳与火星背景:舞台直接落在页面上,避免框套框
+    const card = $('#car-card');
+    if (card) card.classList.toggle('ov3d', is3d);
     const effBar = $('#car-eff');
     if (effBar && is3d) effBar.hidden = true;   // 能耗已上圆柱背景,HTML 条收起
     if (is3d) {
@@ -1395,7 +1398,6 @@
       bd,
       tpms,
       tpmsColors,
-      statusText: STATE_LABEL[o.state] || o.state || '',
     });
   }
 

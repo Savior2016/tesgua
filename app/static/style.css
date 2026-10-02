@@ -1426,6 +1426,9 @@ button { touch-action: manipulation; }
 }
 
 /* ③ 3D 总览 */
+/* 3D 模式:卡片外壳与火星背景收起,舞台直接落在页面上(否则卡片框+舞台框嵌套太重) */
+#car-card.ov3d { background: none; border: none; box-shadow: none; padding: 0; }
+#car-card.ov3d .ov-bg { display: none; }
 .txov-stage {
   position: relative; height: 520px; border-radius: 12px; overflow: hidden; margin-top: 12px;
   background:
@@ -1448,13 +1451,6 @@ button { touch-action: manipulation; }
 .txov-tpms::after {
   content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 14px;
   background: color-mix(in srgb, var(--text-muted) 55%, transparent);
-}
-.txov-status {
-  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
-  font-size: 12px; color: var(--text-secondary);
-  background: color-mix(in srgb, var(--surface-1) 70%, transparent);
-  border: 1px solid var(--border); border-radius: 999px; padding: 5px 16px;
-  backdrop-filter: blur(8px); pointer-events: none; white-space: nowrap;
 }
 /* 色块点击浮层 */
 .txov-tip {

@@ -158,13 +158,6 @@
       content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 14px;
       background: color-mix(in srgb, var(--text-muted) 55%, transparent);
     }
-    .txov-status {
-      position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
-      font-size: 12px; color: var(--text-secondary);
-      background: color-mix(in srgb, var(--surface-1) 70%, transparent);
-      border: 1px solid var(--border); border-radius: 999px; padding: 5px 16px;
-      backdrop-filter: blur(8px); pointer-events: none; white-space: nowrap;
-    }
     /* 色块点击浮层 */
     .txov-tip {
       position: absolute; transform: translate(-50%, calc(-100% - 8px)); pointer-events: none;
@@ -475,6 +468,7 @@
       数据全部落在 3D 场景里:<b>车模后方一圈圆柱曲面背景</b> = 总里程 / 当前电量续航 / 平均能耗 / 陪伴天数 / 车内空调 / 车外温度
       (转动视角依次入画,不再有溢出画面的浮动卡片);<b>底盘圆台外圈 = 当前电量,内圈 = 本充电周期能耗构成</b>(与 2D 玻璃顶能量环同口径,
       <b>点击色块查看明细</b>),特斯拉红 T 车标贴在圆台侧壁朝向默认机位,
+      圆柱背景分两行:上排里程/电量/能耗/陪伴/温度,下排胎压 + 能耗构成比例;
       四轮旁胎压读数(随视角实时跟随,背面自动调淡)。对比上方 2D 投影方案。
     </p>
     <div class="txov-stage" id="txov-stage">
@@ -484,7 +478,6 @@
       <div class="txov-chip txov-tpms" id="txov-tpms-fr">2.9</div>
       <div class="txov-chip txov-tpms" id="txov-tpms-rl">2.9</div>
       <div class="txov-chip txov-tpms" id="txov-tpms-rr">3.0</div>
-      <div class="txov-status">已锁定 · 驻车 · 哨兵中</div>
     </div>
   </section>
 

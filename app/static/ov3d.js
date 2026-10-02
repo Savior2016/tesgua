@@ -18,7 +18,7 @@ const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
 setupStudio(renderer, scene);
 
 // ---------- 轨道视角(默认右前上方 3/4 俯视;拖动旋转 / 滚轮或双指缩放) ----------
-const target = new THREE.Vector3(0.35, 0.45, 0.1);   // 车偏右,左侧留给电量卡
+const target = new THREE.Vector3(0.35, 0.72, 0.1);   // 车偏右,左侧留给电量卡;抬高注视点→车在框内偏下
 const orbit = { theta: 2.557, phi: 1.139, r: 6.9 };  // 方向同旧固定机位,半径由 fitRadius 校准
 const orbitGoal = { ...orbit };
 let userZoomed = false;   // 用户手动缩放后不再随窗口尺寸重置
@@ -112,7 +112,7 @@ function fitRadius() {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 256, 256);
   const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(6.3, 3.3).rotateX(-Math.PI / 2),
+    new THREE.PlaneGeometry(7.0, 3.7).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
   shadow.position.y = 0.01;
   scene.add(shadow);
@@ -155,11 +155,14 @@ const DEMO = {
     { key: 'drive', label: '行驶', pct: 15, color: 0xeda100, opacity: 0.95, kwh: 4.5 },
     { key: 'remaining', label: '剩余电量', pct: 65, color: 0x3987e5, opacity: 0.95 },
   ],
+  tpms: { fl: '2.9', fr: '3.0', rl: '2.7', rr: '2.9' },
+  tpmsColors: { fl: '#1baf7a', fr: '#1baf7a', rl: '#eda100', rr: '#1baf7a' },
 };
 
 // ---------- 圆柱形数据背景 ----------
 // 车模后方一整圈 3D 曲面(相机在柱内,轨道旋转时各数据面板依次入画),
-// 里程/电量/陪伴天数/能耗/车内空调/车外温度全部画在柱面纹理上,不再用 HTML 浮动卡片
+// 上下两行:上排=里程/电量/能耗/陪伴/车内空调/车外温度,
+// 下排=胎压(四轮) + 本充电周期能耗构成比例(行驶/哨兵/驻车/未充/剩余,与底座内环同一份数据)
 function drawBackdrop(cv, d) {
   const W = cv.width, H = cv.height;
   const ctx = cv.getContext('2d');
@@ -167,8 +170,8 @@ function drawBackdrop(cv, d) {
   // 底色:中部实、上下淡出(融入舞台渐变背景)
   const bg = ctx.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, 'rgba(9,12,18,0)');
-  bg.addColorStop(0.14, 'rgba(9,12,18,0.9)');
-  bg.addColorStop(0.86, 'rgba(9,12,18,0.9)');
+  bg.addColorStop(0.12, 'rgba(9,12,18,0.9)');
+  bg.addColorStop(0.88, 'rgba(9,12,18,0.9)');
   bg.addColorStop(1, 'rgba(9,12,18,0)');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
@@ -177,34 +180,38 @@ function drawBackdrop(cv, d) {
   const TXT = 'rgba(236,241,249,1)';      // 主数值
   const GRN = '#1baf7a';
   const BLU = '#3987e5';
-  const N = 6;   // 面板数,均布一圈
+  const N = 6;   // 面板列数,均布一圈(每列上下两行)
   const pw = W / N;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // 面板分隔细线
+  // 面板分隔:竖线贯通两行,中部一横分开上下两排
   ctx.strokeStyle = 'rgba(255,255,255,0.07)';
   ctx.lineWidth = 3;
   for (let i = 1; i < N; i++) {
     ctx.beginPath();
-    ctx.moveTo(i * pw, H * 0.24);
-    ctx.lineTo(i * pw, H * 0.76);
+    ctx.moveTo(i * pw, H * 0.16);
+    ctx.lineTo(i * pw, H * 0.88);
     ctx.stroke();
   }
+  ctx.beginPath();
+  ctx.moveTo(0, H * 0.52);
+  ctx.lineTo(W, H * 0.52);
+  ctx.stroke();
 
   function rrect(x, y, w, h, r) {
     ctx.beginPath();
     ctx.roundRect(x, y, w, h, r);
   }
   // 数值 + 小单位 组合居中
-  function bigVal(cx, y, val, unit, size) {
+  function bigVal(cx, y, val, unit, size, color) {
     ctx.font = `700 ${size}px system-ui, sans-serif`;
     const wv = ctx.measureText(val).width;
     ctx.font = `600 ${size * 0.38}px system-ui, sans-serif`;
     const wu = unit ? ctx.measureText(unit).width : 0;
     const x0 = cx - (wv + wu) / 2;
     ctx.textAlign = 'left';
-    ctx.fillStyle = TXT;
+    ctx.fillStyle = color || TXT;
     ctx.font = `700 ${size}px system-ui, sans-serif`;
     ctx.fillText(val, x0, y);
     if (unit) {
@@ -216,12 +223,12 @@ function drawBackdrop(cv, d) {
   }
   function label(cx, y, s) {
     ctx.fillStyle = MUT;
-    ctx.font = '400 52px system-ui, sans-serif';
+    ctx.font = '400 50px system-ui, sans-serif';
     ctx.fillText(s, cx, y);
   }
   function sub(cx, y, s) {
     ctx.fillStyle = MUT;
-    ctx.font = '400 48px system-ui, sans-serif';
+    ctx.font = '400 46px system-ui, sans-serif';
     ctx.fillText(s, cx, y);
   }
   function bar(cx, y, w, pct, color, officialPct) {
@@ -239,41 +246,71 @@ function drawBackdrop(cv, d) {
     }
   }
 
-  const cy = H * 0.58;   // 文字带略低于柱面中线:默认俯视机位下面板正好落入视野中部
+  const cy1 = H * 0.30;   // 上排文字带
+  const cy2 = H * 0.75;   // 下排文字带
   const p = (i) => (i + 0.5) * pw;
   const dash = (v) => (v === null || v === undefined || v === '') ? '—' : `${v}`;
   const socT = d.soc === null || d.soc === undefined ? '—' : `${Math.round(d.soc)}`;
-  // ① 总里程
-  label(p(0), cy - 165, '总里程');
-  bigVal(p(0), cy + 8, dash(d.odoText), d.odoText ? ' km' : '', 190);
-  // ② 当前电量
-  label(p(1), cy - 165, '当前电量');
-  bigVal(p(1), cy - 2, socT, d.soc == null ? '' : ' %', 200);
-  sub(p(1), cy + 118, d.rangeKm == null ? '' : `续航约 ${d.rangeKm} km`);
-  if (d.soc != null) bar(p(1), cy + 192, 360, d.soc / 100, GRN);
-  // ③ 平均能耗
-  label(p(2), cy - 165, '平均能耗');
+  // 上排 ① 总里程
+  label(p(0), cy1 - 125, '总里程');
+  bigVal(p(0), cy1 + 10, dash(d.odoText), d.odoText ? ' km' : '', 165);
+  // 上排 ② 当前电量
+  label(p(1), cy1 - 125, '当前电量');
+  bigVal(p(1), cy1 - 2, socT, d.soc == null ? '' : ' %', 170);
+  sub(p(1), cy1 + 105, d.rangeKm == null ? '' : `续航约 ${d.rangeKm} km`);
+  if (d.soc != null) bar(p(1), cy1 + 165, 340, d.soc / 100, GRN);
+  // 上排 ③ 平均能耗
+  label(p(2), cy1 - 125, '平均能耗');
   if (d.eff && d.eff.val != null) {
-    bigVal(p(2), cy - 2, `${Math.round(d.eff.val)}`, ' Wh/km', 180);
-    sub(p(2), cy + 118, `官方 ${Math.round(d.eff.official)} · 刻度 ${d.eff.lo}–${d.eff.hi}`);
-    bar(p(2), cy + 192, 360, (d.eff.val - d.eff.lo) / (d.eff.hi - d.eff.lo), BLU,
+    bigVal(p(2), cy1 - 2, `${Math.round(d.eff.val)}`, ' Wh/km', 155);
+    sub(p(2), cy1 + 105, `官方 ${Math.round(d.eff.official)} · 刻度 ${d.eff.lo}–${d.eff.hi}`);
+    bar(p(2), cy1 + 165, 340, (d.eff.val - d.eff.lo) / (d.eff.hi - d.eff.lo), BLU,
         (d.eff.official - d.eff.lo) / (d.eff.hi - d.eff.lo));
   } else {
-    bigVal(p(2), cy + 8, '—', '', 200);
+    bigVal(p(2), cy1 + 10, '—', '', 170);
   }
-  // ④ 陪伴天数
-  label(p(3), cy - 165, '已陪伴');
-  bigVal(p(3), cy + 8, dash(d.companionDays), d.companionDays != null ? ' 天' : '', 200);
-  // ⑤ 车内空调
-  label(p(4), cy - 165, '车内空调');
-  bigVal(p(4), cy + 8, d.tin == null ? '—' : `${d.tin}`, d.tin == null ? '' : '°', 200);
-  // ⑥ 车外温度
-  label(p(5), cy - 165, '车外温度');
-  bigVal(p(5), cy + 8, d.tout == null ? '—' : `${d.tout}`, d.tout == null ? '' : '°', 200);
+  // 上排 ④ 陪伴天数
+  label(p(3), cy1 - 125, '已陪伴');
+  bigVal(p(3), cy1 + 10, dash(d.companionDays), d.companionDays != null ? ' 天' : '', 170);
+  // 上排 ⑤ 车内空调
+  label(p(4), cy1 - 125, '车内空调');
+  bigVal(p(4), cy1 + 10, d.tin == null ? '—' : `${d.tin}`, d.tin == null ? '' : '°', 170);
+  // 上排 ⑥ 车外温度
+  label(p(5), cy1 - 125, '车外温度');
+  bigVal(p(5), cy1 + 10, d.tout == null ? '—' : `${d.tout}`, d.tout == null ? '' : '°', 170);
+
+  // 下排 ① 胎压(四轮 2×2,按与标准 2.9 bar 的偏差着色,与轮胎旁浮签同源)
+  label(p(0), cy2 - 135, '胎压 bar');
+  {
+    const wheels = [['fl', -1, -1], ['fr', 1, -1], ['rl', -1, 1], ['rr', 1, 1]];
+    ctx.font = '700 84px system-ui, sans-serif';
+    for (const [k, sx, sy] of wheels) {
+      const v = d.tpms && d.tpms[k] != null ? `${d.tpms[k]}` : '—';
+      ctx.fillStyle = (d.tpmsColors && d.tpmsColors[k]) || TXT;
+      ctx.fillText(v, p(0) + sx * 105, cy2 + sy * 62);
+    }
+  }
+  // 下排 ②–⑥ 能耗构成比例(本充电周期:行驶/哨兵/驻车耗电/未充/剩余)
+  {
+    const bdMap = {};
+    (d.bd || []).forEach((s) => { bdMap[s.key] = s; });
+    const css = (c) => `#${c.toString(16).padStart(6, '0')}`;
+    ['drive', 'sentry', 'idle', 'uncharged', 'remaining'].forEach((k, j) => {
+      const s = bdMap[k];
+      const cx = p(j + 1);
+      label(cx, cy2 - 135, s ? s.label : '—');
+      if (s) {
+        bigVal(cx, cy2 - 8, `${Math.round(s.pct * 10) / 10}`, ' %', 130, css(s.color));
+        if (s.kwh) sub(cx, cy2 + 78, `≈ ${Math.round(s.kwh * 10) / 10} kWh`);
+      } else {
+        bigVal(cx, cy2 + 10, '—', '', 130);
+      }
+    });
+  }
 }
 const backdrop = (() => {
   const cv = document.createElement('canvas');
-  cv.width = 4096; cv.height = 1024;
+  cv.width = 4096; cv.height = 1152;
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = renderer.capabilities.getMaxAnisotropy();   // 斜角柱面上文字保持锐利
@@ -281,12 +318,12 @@ const backdrop = (() => {
   tex.wrapS = THREE.RepeatWrapping;
   tex.repeat.x = -1;
   const wall = new THREE.Mesh(
-    new THREE.CylinderGeometry(5.4, 5.4, 4.2, 96, 1, true),   // 贴近圆台(原 6.5 → 5.4)
+    new THREE.CylinderGeometry(5.4, 5.4, 5.0, 96, 1, true),   // 两行数据,柱面加高(原 4.2)
     new THREE.MeshBasicMaterial({
       map: tex, transparent: true, side: THREE.BackSide,
       depthWrite: false, toneMapped: false,
     }));
-  wall.position.y = 2.1;
+  wall.position.y = 2.08;
   wall.renderOrder = -1;   // 永远垫底
   scene.add(wall);
   return { canvas: cv, tex, redraw(d) { drawBackdrop(cv, d); tex.needsUpdate = true; } };
@@ -407,6 +444,7 @@ loader.load(cfg.url, (gltf) => {
   } else {
     prepareModel(gltf.scene, cfg, makeMats());
   }
+  gltf.scene.scale.multiplyScalar(1.18);   // 放大车模:原比例相对圆台偏小
   scene.add(gltf.scene);
   // 四轮锚点:按左(-X)/右、前(-Z)/后聚类轮网格包围盒中心
   const cls = { fl: [], fr: [], rl: [], rr: [] };
@@ -496,8 +534,7 @@ window.__txov = {
 // d = { soc, rangeKm, odoText, tin, tout, companionDays,
 //       eff: { val, lo, hi, official } | null,
 //       bd: [{ key, label, pct, color, opacity, kwh? }],
-//       tpms: { fl, fr, rl, rr }, tpmsColors?: { fl..rr: css色 },
-//       statusText }
+//       tpms: { fl, fr, rl, rr }, tpmsColors?: { fl..rr: css色 } }
 function setData(d) {
   backdrop.redraw(d);
   buildRings(d);
@@ -508,10 +545,6 @@ function setData(d) {
       el.textContent = d.tpms[k] ?? '—';
       el.style.color = (d.tpmsColors && d.tpmsColors[k]) || '';
     }
-  }
-  if (d.statusText !== undefined) {
-    const el = stage.querySelector('.txov-status');
-    if (el) { el.textContent = d.statusText; el.style.display = d.statusText ? '' : 'none'; }
   }
 }
 window.Ov3D = {
