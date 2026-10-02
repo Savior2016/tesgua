@@ -3821,16 +3821,20 @@
       p[3] !== null && p[3] !== undefined && p[4] !== null && p[4] !== undefined);
     if (pts.length < 5) return;
     const cum = routeCumKm(pts).map((v) => Number(v.toFixed(3)));
-    const speed = pts.map((p, i) => [cum[i], p[3]]);
-    const raw = pts.map((p) => (p[3] >= 8 ? (p[4] * 1000) / p[3] : null));
-    const energy = raw.map((v, i) => {
-      if (v === null) return [cum[i], null];
+    // 曲线光滑:速度与瞬时能耗都先做居中滑动平均(±5 点)抑制采样抖动,再交给 smooth 贝塞尔
+    const smoothWin = (arr, w) => arr.map((v, i) => {
+      if (v === null) return null;
       let s = 0, n = 0;
-      for (let j = Math.max(0, i - 3); j <= Math.min(raw.length - 1, i + 3); j++) {
-        if (raw[j] !== null) { s += raw[j]; n++; }
+      for (let j = Math.max(0, i - w); j <= Math.min(arr.length - 1, i + w); j++) {
+        if (arr[j] !== null) { s += arr[j]; n++; }
       }
-      return [cum[i], Math.round(Math.max(-500, Math.min(999, s / n)))];
+      return s / n;
     });
+    const smSpeed = smoothWin(pts.map((p) => p[3]), 5);
+    const speed = pts.map((p, i) => [cum[i], Math.round(smSpeed[i] * 10) / 10]);
+    const raw = pts.map((p) => (p[3] >= 8 ? (p[4] * 1000) / p[3] : null));
+    const energy = smoothWin(raw, 5).map((v, i) =>
+      [cum[i], v === null ? null : Math.round(Math.max(-500, Math.min(999, v)))]);
     const cSpd = cssVar('--seq-blue-300');
     const cEng = cssVar('--cat-charge');
     const chart = echarts.init(box);
@@ -3965,6 +3969,12 @@
         // 动能回收:后端对行程内负功率按时间梯形积分(/api/routes regen_kwh)
         kvItem('动能回收', (r.regen_kwh !== null && r.regen_kwh !== undefined)
           ? `${fmtNum(r.regen_kwh, r.regen_kwh < 1 ? 2 : 1)} kWh` : '—');
+        // 回收效率:回收电量 ÷ 可回收机械能(刹车损耗动能 ½m·Δv² + 下坡势能 m·g·Δh,按车重估算)
+        kvItem('回收效率', (r.regen_eff !== null && r.regen_eff !== undefined)
+          ? `${fmtNum(r.regen_eff, 0)}%` : '—');
+        // 海拔功:爬坡耗的势能 / 下坡释放的势能(m·g·Δh,按车重估算)
+        kvItem('海拔功', (r.elev_climb_kwh !== null && r.elev_climb_kwh !== undefined)
+          ? `爬 ${fmtNum(r.elev_climb_kwh, 1)} · 降 ${fmtNum(r.elev_drop_kwh, 1)} kWh` : '—');
         kvItem('Δ理想续航', delta !== null ? `${fmtNum(delta, 1)} km` : '—');
         // 续航达成率 = 实际里程 / 消耗的理想续航(>100% 表示跑赢表显)
         const attain = (delta !== null && delta > 0 && r.distance)

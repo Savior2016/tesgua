@@ -1390,10 +1390,14 @@ def routes(car_id: int | None = Query(default=None),
     # 轨迹点:[纬度, 经度, 海拔(可空), 速度 km/h(可空), 功率 kW(可空)]
     # ——海拔供行程详情的高度图用,速度供详情小地图按车速变色绘制,
     #   速度+功率供详情「速度 × 能耗」对比曲线(瞬时能耗 = 功率÷速度),
-    #   负功率(动能回收)按时间梯形积分得每段行程回收电量
+    #   负功率(动能回收)按时间梯形积分得每段行程回收电量;
+    #   海拔序列算势能功(m·g·Δh),速度序列算刹车损耗动能(½m·Δv²),
+    #   二者合计为可回收机械能,与回收电量相除得回收效率
     by_id: dict[int, list[list[float]]] = {}
     speed_seq: dict[int, list[tuple[int, float]]] = {}  # 堵车/红灯分析用全分辨率速度序列
     pwr_seq: dict[int, list[tuple[datetime, float]]] = {}  # 动能回收积分用功率序列
+    elev_seq: dict[int, list[tuple[datetime, float]]] = {}  # 势能功用海拔序列
+    spd_seq: dict[int, list[tuple[datetime, float]]] = {}  # 刹车动能用速度序列
     for p in pts:
         did = int(p["drive_id"])
         by_id.setdefault(did, []).append(
@@ -1404,14 +1408,31 @@ def routes(car_id: int | None = Query(default=None),
         if p["speed"] is not None:
             speed_seq.setdefault(did, []).append(
                 (_utc_ms(p["date"]), float(p["speed"])))
+            spd_seq.setdefault(did, []).append((p["date"], float(p["speed"])))
         if p["power"] is not None:
             pwr_seq.setdefault(did, []).append((p["date"], float(p["power"])))
+        if p["elevation"] is not None:
+            elev_seq.setdefault(did, []).append((p["date"], float(p["elevation"])))
+    mass_kg = _car_mass_kg(
+        (q("SELECT model FROM cars WHERE id = %s", (cid,)) or [{}])[0].get("model"))
     out = []
     for d in drives:
         points = by_id.get(d["id"], [])
         d["traffic"] = _drive_traffic(speed_seq.get(d["id"], []))
         d["regen_kwh"] = (round(_regen_kwh(pwr_seq[d["id"]]), 2)
                           if d["id"] in pwr_seq else None)
+        # 海拔势能功:爬坡耗功 / 下坡释能(车重 × g × 累计高差)
+        if d["id"] in elev_seq:
+            climb, drop = _elevation_work_kwh(elev_seq[d["id"]], mass_kg)
+            d["elev_climb_kwh"] = round(climb, 2)
+            d["elev_drop_kwh"] = round(drop, 2)
+        else:
+            d["elev_climb_kwh"] = d["elev_drop_kwh"] = None
+        # 回收效率 = 回收电量 / 可回收机械能(刹车损耗动能 + 下坡释能);
+        # 其余部分被风阻/滚阻耗散,故效率恒 <100%(数据噪音时截断到 100)
+        recoverable = _brake_kwh(spd_seq.get(d["id"], []), mass_kg) + (drop if d["id"] in elev_seq else 0.0)
+        d["regen_eff"] = (round(min(d["regen_kwh"] / recoverable, 1.0) * 100)
+                          if d["regen_kwh"] and recoverable > 0.05 else None)
         if len(points) > 220:
             keep = max(1, len(points) // 220)
             points = points[::keep]
@@ -1440,6 +1461,62 @@ def _regen_kwh(samples: list[tuple[datetime, float]]) -> float:
                 total -= (min(pw, 0.0) + min(prev[1], 0.0)) / 2 * gap / 3600
         prev = (ts, pw)
     return total
+
+
+def _car_mass_kg(model: str | None) -> float:
+    """车型整备质量 kg(估算势能/动能用;取常见双电机版本口径,几个百分点的误差可接受)。"""
+    m = (model or "").lower()
+    if "cyber" in m:
+        return 3100.0
+    if "3" in m:
+        return 1840.0
+    if "y" in m:
+        return 1990.0
+    if "s" in m:
+        return 2100.0
+    if "x" in m:
+        return 2350.0
+    return 1990.0
+
+
+def _elevation_work_kwh(samples: list[tuple[datetime, float]], mass_kg: float,
+                        band_m: float = 3.0) -> tuple[float, float]:
+    """海拔势能功 kWh:(时间, 海拔m) 序列 → (爬坡耗功, 下坡释能),E = m·g·Δh。
+    GPS 海拔有数米抖动:3m 滞后带确认一次变化才累计;间隔 >60s 视为断流,重新锚定。"""
+    climb = drop = 0.0
+    anchor: float | None = None
+    prev_ts: datetime | None = None
+    for ts, h in samples:
+        if anchor is None or (ts - prev_ts).total_seconds() > 60:
+            anchor, prev_ts = h, ts
+            continue
+        dh = h - anchor
+        if abs(dh) >= band_m:
+            if dh > 0:
+                climb += dh
+            else:
+                drop -= dh
+            anchor = h
+        prev_ts = ts
+    k = mass_kg * 9.80665 / 3.6e6   # m → kWh
+    return climb * k, drop * k
+
+
+def _brake_kwh(samples: list[tuple[datetime, float]], mass_kg: float) -> float:
+    """刹车损耗的动能 kWh:(时间, 速度km/h) 序列累计每次减速的 ½m·Δv²。
+    整公里时速读数有 ±1 抖动:先 3 点滑动平均再差分;间隔 >60s 不累计。"""
+    if len(samples) < 2:
+        return 0.0
+    n = len(samples)
+    sm = [(samples[i - 1][1] + samples[i][1] + samples[i + 1][1]) / 3
+          if 0 < i < n - 1 else samples[i][1] for i in range(n)]
+    loss = 0.0
+    prev: tuple[datetime, float] | None = None
+    for (ts, _), v in zip(samples, sm):
+        if prev is not None and 0 < (ts - prev[0]).total_seconds() <= 60 and v < prev[1]:
+            loss += 0.5 * mass_kg * (prev[1] ** 2 - v ** 2) / 12.96   # (km/h)² → (m/s)²
+        prev = (ts, v)
+    return loss / 3.6e6
 
 
 def _utc_ms(dt: datetime) -> int:

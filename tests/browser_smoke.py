@@ -25,7 +25,7 @@ BASE = {
  "charging/curve":{"charge_id":7,
    "points":[[NOW-7200000+i*60000, 10 if i%2 else 11, 228, 16, 1 if 10<=i<=20 else 0] for i in range(60)],
    "heater_spans":[[NOW-7200000+600000, NOW-7200000+1260000]]},
- "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"speed_max":80,"start_ideal_range_km":400,"end_ideal_range_km":388,"start_name":XSS,"end_name":"合成终点","regen_kwh":1.2,"points":[[0,0,50,0],[0.005,0.005,65,35],[0.01,0.01,80,125]]}]},
+ "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"speed_max":80,"start_ideal_range_km":400,"end_ideal_range_km":388,"start_name":XSS,"end_name":"合成终点","regen_kwh":1.2,"regen_eff":42,"elev_climb_kwh":0.3,"elev_drop_kwh":0.1,"points":[[0,0,50,0],[0.005,0.005,65,35],[0.01,0.01,80,125]]}]},
  "activity":{"days":7,"battery":[[NOW-3600000,80],[NOW,75]],"drives":[],"charges":[],
    "sentry":[{"s":NOW-6*3600000,"e":NOW-5*3600000,"s_lvl":76,"e_lvl":75,"delta":-1,"dur_min":60,"kind":"sentry","real":True,"rate_pct_h":-1.0,"energy_kwh":0.75,"cost_yuan":0.38}],
    "idle":[{"s":NOW-4*3600000,"e":NOW-3*3600000,"s_lvl":74,"e_lvl":73,"delta":-1,"dur_min":60,"kind":"occupied","has_climate":True,"energy_kwh":0.75,"cost_yuan":0.38}],
@@ -175,10 +175,15 @@ def run():
                 page.locator('#routes-list .day-head').first.click();page.wait_for_timeout(100)
             page.locator('.rt-row').first.click()
             page.wait_for_timeout(150)
-            assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==11
+            assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==13
             # 动能回收数据项(mock 给了 1.2 kWh)
             assert '动能回收' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
             assert '1.2 kWh' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
+            # 回收效率 + 海拔功(mock 42% / 爬 0.3 · 降 0.1 kWh)
+            assert '回收效率' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
+            assert '42%' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
+            assert '海拔功' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
+            assert '爬 0.3' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
             # 续航达成率 = 里程 / Δ理想续航(mock 10 km / (400-388) km = 83%)
             assert '续航达成率' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
             assert '83%' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
