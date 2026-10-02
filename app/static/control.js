@@ -404,7 +404,7 @@
   }
   function open(name){
     const s=model.states||{};const body=$('ctl-dialog-body');body.textContent='';$('ctl-dialog-message').textContent='';napDialogSlide=null;
-    const titles={climate:'空调温度',charge:'充电控制',lights:'车灯与鸣笛',nap:'午休模式',nav:'导航推送',lock:'车锁',sentry:'哨兵模式',windows:'车窗',chargeport:'充电口',frunk:'前备箱',trunk:'后备箱'};
+    const titles={climate:'空调温度',charge:'充电控制',lights:'车灯与鸣笛',nap:'午休模式',lock:'车锁',sentry:'哨兵模式',windows:'车窗',chargeport:'充电口',frunk:'前备箱',trunk:'后备箱'};
     $('ctl-dialog-title').textContent=titles[name]||'车辆操作';
     const stateText=canWrite()?'':(model.role==='viewer'?'只读账号，仅可查看状态。':'请先在个人中心完成控制配置。');
     $('ctl-dialog-state').textContent=stateText;$('ctl-dialog-state').hidden=!stateText;
@@ -433,12 +433,6 @@
       addButtons([btn('设置电流','set_charging_amps')]);
       slideRow('充电','',s.charging===true,flipCmd(['charge_start',{}],['charge_stop',{}]),'charge','var(--cat-charge)',['滑动开始充电','充电中']);
       renderChargeSchedules(s);
-    }else if(name==='nav'){
-      const l=document.createElement('label');l.textContent='推送目的地到车机导航';
-      const i=document.createElement('input');i.id='ctl-nav-input';i.type='text';i.maxLength=500;i.autocomplete='off';i.placeholder='地址、商户名或经纬度';
-      l.appendChild(i);$('ctl-dialog-body').appendChild(l);
-      addButtons([btn('推送到车机','share')]);
-      tip('推送后目的地会出现在车机导航中；车辆休眠时会先自动唤醒。');
     }else if(name==='lights'){
       addButtons([btn('闪灯一次','flash_lights'),btn('鸣笛一次','honk_horn')]);
       const segLabel=document.createElement('p');segLabel.className='ctl-tip';segLabel.textContent='连续闪灯时长';$('ctl-dialog-body').appendChild(segLabel);
@@ -513,7 +507,6 @@
     set_temps:['ctl-temp-input',v=>({driver_temp:Number(v)})],
     set_charge_limit:['ctl-limit-input',v=>({percent:Number(v)})],
     set_charging_amps:['ctl-amps-input',v=>({charging_amps:Number(v)})],
-    share:['ctl-nav-input',v=>({value:v})],
   };
   async function command(item){
     if(busy||!canWrite())return null;
@@ -664,17 +657,26 @@
   });
   document.querySelectorAll('.ctl-module-open').forEach(b=>{
     const name=b.closest('.ctl-module').dataset.panel;
+    if(name==='nav')return;  // 「导航」瓦片(含齿轮)整片打开全屏导航浮层,见下方 navTile 绑定
     b.addEventListener('click',e=>{e.stopPropagation();open(name);});
   });
+  /* 「导航」模块:整瓦片点击打开全屏导航浮层(路线规划/沿途充电/推送车机),不走滑层详情 */
+  const navTile=document.querySelector('.ctl-module[data-panel="nav"]');
+  if(navTile){
+    const openNav=()=>window.TTNavPage?.open();
+    navTile.addEventListener('click',openNav);
+    navTile.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openNav();}});
+  }
   document.querySelectorAll('.ctl-car .ctl-zone').forEach(z=>{
     const show=()=>open(['flash','honk'].includes(z.dataset.zone)?'lights':z.dataset.zone);
     z.addEventListener('click',show);z.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show();}});
   });
   $('ctl-dialog-close').addEventListener('click',hideSheet);
   $('ctl-sheet-back').addEventListener('click',()=>showSheet('home'));
-  /* Esc:详情退回模块网格,网格退回车模 */
+  /* Esc:详情退回模块网格,网格退回车模(导航浮层打开时不响应,由浮层自己关) */
   document.addEventListener('keydown',e=>{
     if(e.key!=='Escape'||!sheetOpen)return;
+    if(window.TTNavPage?.isOpen())return;
     if(confirmDlg.open||auditDlg.open)return;
     if(!sheetDetail.hidden)showSheet('home');else hideSheet();
   });

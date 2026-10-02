@@ -72,7 +72,8 @@ with sync_playwright() as pw:
             else:
                 page.locator('[data-panel="climate"] .ctl-slide').press('Enter')
                 page.wait_for_function("document.querySelector('#ctl-operation-message').textContent.includes('只读')")
-            for name in ['climate','charge','lights','nap','nav']:
+            # 导航模块不再打开控制弹层(改为全屏导航浮层,见 browser_smoke),只测前四张
+            for name in ['climate','charge','lights','nap']:
                 page.locator('[data-panel="'+name+'"] .ctl-module-open').click()
                 assert page.locator('#ctl-sheet.open #ctl-sheet-detail').is_visible()
                 box=page.locator('#ctl-sheet').bounding_box();assert box['x']>=0 and box['x']+box['width']<=width
@@ -100,13 +101,6 @@ with sync_playwright() as pw:
                         page.locator('#ctl-amps-input').fill('10')
                         page.get_by_role('button',name='设置电流',exact=True).click()
                         page.wait_for_function("document.querySelector('#ctl-dialog-message').textContent.includes('指令已接受')")
-                if name=='nav':
-                    if role=='admin':
-                        page.locator('#ctl-nav-input').fill('公司')
-                        page.get_by_role('button',name='推送到车机',exact=True).click()
-                        page.wait_for_function("document.querySelector('#ctl-dialog-message').textContent.includes('指令已接受')")
-                    else:
-                        assert page.get_by_role('button',name='推送到车机',exact=True).is_disabled()
                 if name=='nap' and role=='admin':
                     nap_switch=page.locator('#ctl-dialog-body .ctl-slide-row .ctl-slide')
                     nap_switch.press('Enter')
@@ -132,10 +126,9 @@ with sync_playwright() as pw:
                 assert ('control/command',{'cmd':'auto_conditioning_stop','args':{}}) in commands
                 assert ('control/command',{'cmd':'remote_seat_heater_request','args':{'heater':0,'level':2}}) in commands
                 assert ('control/command',{'cmd':'set_charging_amps','args':{'charging_amps':10}}) in commands
-                assert ('control/command',{'cmd':'share','args':{'value':'公司'}}) in commands
                 assert ('control/command',{'cmd':'actuate_trunk','args':{'which_trunk':'front'}}) in commands
                 # 指令成功后的延迟状态刷新(control/refresh)是否落在断言前取决于时序,剔除再计数
-                assert len([c for c in commands if c[0]!='control/refresh'])==8
+                assert len([c for c in commands if c[0]!='control/refresh'])==7
             else:assert not commands
             # No configuration: show one tidy link; a partially configured user returns via account settings.
             state.update(configured=False,ever_configured=False)

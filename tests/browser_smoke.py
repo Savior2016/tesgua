@@ -25,7 +25,7 @@ BASE = {
  "charging/curve":{"charge_id":7,
    "points":[[NOW-7200000+i*60000, 10 if i%2 else 11, 228, 16, 1 if 10<=i<=20 else 0] for i in range(60)],
    "heater_spans":[[NOW-7200000+600000, NOW-7200000+1260000]]},
- "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"speed_max":80,"start_ideal_range_km":400,"end_ideal_range_km":388,"start_name":XSS,"end_name":"合成终点","points":[[0,0,50,0],[0.005,0.005,65,35],[0.01,0.01,80,125]]}]},
+ "routes":{"routes":[{"id":1,"start_date_ts":NOW-3600000,"end_date_ts":NOW,"distance":10,"duration_min":30,"speed_max":80,"start_ideal_range_km":400,"end_ideal_range_km":388,"start_name":XSS,"end_name":"合成终点","regen_kwh":1.2,"points":[[0,0,50,0],[0.005,0.005,65,35],[0.01,0.01,80,125]]}]},
  "activity":{"days":7,"battery":[[NOW-3600000,80],[NOW,75]],"drives":[],"charges":[],
    "sentry":[{"s":NOW-6*3600000,"e":NOW-5*3600000,"s_lvl":76,"e_lvl":75,"delta":-1,"dur_min":60,"kind":"sentry","real":True,"rate_pct_h":-1.0,"energy_kwh":0.75,"cost_yuan":0.38}],
    "idle":[{"s":NOW-4*3600000,"e":NOW-3*3600000,"s_lvl":74,"e_lvl":73,"delta":-1,"dur_min":60,"kind":"occupied","has_climate":True,"energy_kwh":0.75,"cost_yuan":0.38}],
@@ -48,7 +48,7 @@ BASE = {
  "energy/cycles":{"cycles":[]},
  "temp/trend":{"inside":[[NOW-3600000,22],[NOW,24]],"outside":[[NOW-3600000,18],[NOW,20]]},
  "parking/fees":{"fees":[],"month_total":0,"total":0},"vehicle/delivery":{"date":"2026-01-01"},
- "vehicle/lifetime":{"car_id":1,"total_km":10000,"drive_km":2000,"since":NOW-40*86400000,"drive_kwh":300,"parked_kwh":40,"total_kwh":340,"total_cost":250.5,"sessions":10,"priced_sessions":9,"rate_yuan_kwh":0.65,"charged_kwh":410,"nominal_kwh":85.4,"cycles":4.8},
+ "vehicle/lifetime":{"car_id":1,"total_km":10000,"drive_km":2000,"since":NOW-40*86400000,"drive_kwh":300,"parked_kwh":40,"total_kwh":340,"regen_kwh":85.6,"total_cost":250.5,"sessions":10,"priced_sessions":9,"rate_yuan_kwh":0.65,"charged_kwh":410,"nominal_kwh":85.4,"cycles":4.8},
  "charging/reminder":{"ready":True,"overridden":False,"reason":"",
    "home":{"label":XSS,"address_ids":[1],"visits":20,"nights":15,"days":2},
    "work":{"label":"合成公司","address_ids":[8],"visits":18,"nights":1,"days":14},
@@ -128,30 +128,41 @@ def run():
             page.locator('.tab[data-page="vehicle"]').click()
             page.wait_for_selector('#page-vehicle .life-card', timeout=4000)
             assert page.locator('#page-vehicle .life-card').count()==1
+            # 生涯卡动能回收项(mock 85.6 kWh,按生涯均耗折算 ≈ 多跑 571 km)
+            assert page.locator('#life-regen').text_content()=='86'
+            assert '多跑' in page.locator('#life-regen-sub').text_content()
             assert page.locator('#page-vehicle #tpms-wheels').count()==1
             assert page.locator('#page-vehicle #chart-temp').count()==1
             assert page.locator('#page-vehicle #chart-monthly').count()==1
             assert page.locator('.dtab[data-sub="vehicle"]').count()==0  # 数据页二级导航已无车况
             assert page.locator('.tab[data-page="dash"]').count()==0      # 仪表盘分页已移除
             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-            page.locator('.tab[data-page="nav"]').click();page.wait_for_timeout(800)
-            # 导航页:起点/终点/途经点三输入框 + 充电站筛选 + 地图容器;离线 mock 下(nav/config 无 key)提示去个人中心
+            # 导航已从底栏移入控制页功能模块,点击模块打开全屏浮层
+            assert page.locator('.tab[data-page="nav"]').count()==0        # 底栏已无导航分页
+            page.locator('.tab[data-page="control"]').click();page.wait_for_timeout(400)
+            page.evaluate('document.querySelector(\'.ctl-module[data-panel="nav"]\').click()');page.wait_for_timeout(800)
+            assert page.evaluate("!document.querySelector('#nav-overlay').hidden")
+            # 导航浮层:起点/终点/途经点三输入框 + 充电站筛选 + 地图容器;离线 mock 下(nav/config 无 key)提示去个人中心
             assert page.locator('#nav-origin-inp').count()==1
             assert page.locator('#nav-dest-inp').count()==1
             assert page.locator('#nav-via-inp').count()==1
             assert page.locator('#nav-via-chg').count()==1
             assert page.locator('#nav-map').count()==1
             assert '个人中心' in page.locator('#nav-msg').inner_text()
-            page.locator('.tab[data-page="data"]').click();page.wait_for_timeout(120)
-            assert page.locator('.dtab[data-sub="charging"].on').count()==1
+            page.locator('#nav-overlay-back').click();page.wait_for_timeout(400)
+            assert page.evaluate("document.querySelector('#nav-overlay').hidden")
+            # 充电已从数据页子页提为顶级分页
+            assert page.locator('.dtab[data-sub="charging"]').count()==0
+            page.locator('.tab[data-page="charging"]').click()
+            page.wait_for_selector('#page-charging.active', timeout=4000)
             assert page.locator('#page-charging.active').count()==1
             for width in [320,390,1440]:
                 page.set_viewport_size({"width":width,"height":900})
-                for tab in ['overview','vehicle','nav','data','control']:
+                for tab in ['overview','vehicle','charging','data','control']:
                     page.locator('.tab[data-page="'+tab+'"]').click();page.wait_for_timeout(80)
                     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (role,width,tab)
                     if tab == 'data':
-                        for sub in ['charging','drives','activity']:
+                        for sub in ['drives','activity']:
                             page.locator('.dtab[data-sub="'+sub+'"]').click();page.wait_for_timeout(60)
                             assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), (role,width,tab,sub)
             page.set_viewport_size({"width":390,"height":844})
@@ -164,7 +175,10 @@ def run():
                 page.locator('#routes-list .day-head').first.click();page.wait_for_timeout(100)
             page.locator('.rt-row').first.click()
             page.wait_for_timeout(150)
-            assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==9
+            assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==10
+            # 动能回收数据项(mock 给了 1.2 kWh)
+            assert '动能回收' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
+            assert '1.2 kWh' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
             assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
             assert page.locator('.rt-map.maplibregl-map').count()==1  # 详情小地图
             assert page.locator('.rt-speed-legend').count()==1  # 轨迹按车速变色 + 色带图例
@@ -186,7 +200,7 @@ def run():
             assert page.locator('.rt-map.maplibregl-map').count()==1
             assert '落差' in page.locator('.rt-elev-title').inner_text()
             # 家充设置卡:总开关 + 地点行;管理员可见添加行与开关,viewer 全部只读
-            page.locator('.dtab[data-sub="charging"]').click()
+            page.locator('.tab[data-page="charging"]').click()
             page.wait_for_timeout(100)
             page.locator('#hc-head').click()
             page.wait_for_timeout(80)
@@ -222,6 +236,8 @@ def run():
             page.locator('.cs-curve-toggle').first.click()
             page.wait_for_timeout(80)
             assert page.evaluate("!echarts.getInstanceByDom(document.querySelector('.cs-curve-chart'))")
+            page.locator('.tab[data-page="data"]').click()
+            page.wait_for_timeout(100)
             page.locator('.dtab[data-sub="activity"]').click()
             page.wait_for_timeout(100)
             page.locator('#chart-efficiency').scroll_into_view_if_needed()

@@ -146,10 +146,10 @@
   }
 
   /* ---------- 分页切换:与正式面板同一套 TTVPageTurn 动效 ---------- */
-  const PAGE_IDS = ['overview', 'vehicle', 'nav', 'data', 'control'];
+  const PAGE_IDS = ['overview', 'vehicle', 'charging', 'data', 'control'];
   // 「数据」主 Tab 下的二级子页(与正式面板同构,不持久化)
-  const DATA_SUBS = ['charging', 'drives', 'activity'];
-  let dataSub = 'charging';
+  const DATA_SUBS = ['drives', 'activity'];
+  let dataSub = 'drives';
   let tabSeq = 0;
 
   function contentSection(name) {
@@ -169,7 +169,7 @@
   }
 
   function switchDataTab(sub) {
-    if (!DATA_SUBS.includes(sub)) sub = 'charging';
+    if (!DATA_SUBS.includes(sub)) sub = 'drives';
     dataSub = sub;
     setDataTabs();
     requestAnimationFrame(() => ensureCharts(sub));

@@ -7,8 +7,8 @@
   <title>TESLA Home</title>
   <link rel="stylesheet" href="/maplibre-gl.css">
   <link rel="stylesheet" href="/style.css">
-  <link rel="stylesheet" href="/control.css?v=14">
-  <link rel="stylesheet" href="/nav.css?v=4">
+  <link rel="stylesheet" href="/control.css?v=15">
+  <link rel="stylesheet" href="/nav.css?v=5">
 </head>
 <body>
 <!-- 过冲(overscroll)露出的顶部背景中央:小圆圈 + 星舰徽标,平时被顶栏遮住 -->
@@ -242,6 +242,10 @@
           <div class="life-lab">总耗电量<i id="life-kwh-sub"></i></div>
         </div>
         <div class="life-item">
+          <div class="life-val"><b id="life-regen">—</b><span>kWh</span></div>
+          <div class="life-lab">动能回收<i id="life-regen-sub"></i></div>
+        </div>
+        <div class="life-item">
           <div class="life-val"><span>¥</span><b id="life-cost">—</b></div>
           <div class="life-lab">充电总费用<i id="life-cost-sub"></i></div>
         </div>
@@ -310,8 +314,13 @@
   </div>
   </section>
 
-  <!-- ===== 分页 3:导航(路线规划 / 沿途服务区 / 超充电量规划 / 推送车机与高德) ===== -->
-  <section class="page" id="page-nav">
+  <!-- ===== 导航浮层:由「控制 → 导航」模块全屏打开(路线规划 / 沿途服务区 / 超充电量规划 / 推送车机与高德) ===== -->
+  <div class="nav-overlay" id="nav-overlay" hidden>
+  <div class="nav-overlay-head">
+    <button class="nav-overlay-back" id="nav-overlay-back" type="button" aria-label="返回控制页"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.4 5.4 14 4l-8 8 8 8 1.4-1.4L8.8 12z"/></svg></button>
+    <h2>导航</h2>
+  </div>
+  <div class="nav-overlay-body">
   <div class="nav-layout">
     <div class="nav-side">
       <div class="card nav-card">
@@ -370,16 +379,11 @@
     </div>
     <div class="card nav-map-card"><div id="nav-map"></div></div>
   </div>
-  </section>
+  </div>
+  </div>
 
-  <!-- ===== 分页 4:数据(充电 / 行程 / 活动 二级导航) ===== -->
-  <section class="page" id="page-data">
-  <nav class="data-tabs" id="data-tabs" role="tablist" aria-label="数据分类">
-    <button class="dtab" role="tab" data-sub="charging" aria-selected="false">充电</button>
-    <button class="dtab" role="tab" data-sub="drives" aria-selected="false">行程</button>
-    <button class="dtab" role="tab" data-sub="activity" aria-selected="false">活动</button>
-  </nav>
-  <section class="subpage" id="page-charging">
+  <!-- ===== 分页 3:充电(提醒 / 充电详情 / 充电桩 / 电池估算 / 停车费 / 家充设置) ===== -->
+  <section class="page" id="page-charging">
   <div class="grid">
     <!-- 充电提醒:按家⇄公司通勤与停放耗电推算还能用几天、在哪充;地点自动识别可纠正 -->
     <div class="card col-12" id="rm-card">
@@ -464,6 +468,13 @@
     </div>
   </div>
   </section>
+
+  <!-- ===== 分页 4:数据(行程 / 活动 二级导航) ===== -->
+  <section class="page" id="page-data">
+  <nav class="data-tabs" id="data-tabs" role="tablist" aria-label="数据分类">
+    <button class="dtab" role="tab" data-sub="drives" aria-selected="false">行程</button>
+    <button class="dtab" role="tab" data-sub="activity" aria-selected="false">活动</button>
+  </nav>
 
   <!-- ===== 数据子页:活动 ===== -->
   <section class="subpage" id="page-activity">
@@ -725,10 +736,10 @@
                       <button class="ctl-module-open" type="button" aria-label="午休详细设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
                       <b id="ctl-module-nap">定时露营</b>
                     </div>
-                    <div class="ctl-module ctl-module-wide" data-panel="nav" style="--mc:var(--seq-blue-300)">
-                      <span>导航推送</span>
-                      <button class="ctl-module-open" type="button" aria-label="导航推送设置"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"/></svg></button>
-                      <b id="ctl-module-nav">地址发送到车机</b>
+                    <div class="ctl-module ctl-module-wide" data-panel="nav" style="--mc:var(--seq-blue-300)" role="button" tabindex="0" title="打开导航页面">
+                      <span>导航</span>
+                      <button class="ctl-module-open" type="button" aria-label="打开导航页面"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z"/></svg></button>
+                      <b id="ctl-module-nav">路线规划 · 推送车机</b>
                     </div>
                   </div>
                   <div class="ctl-foot-actions">
@@ -824,16 +835,16 @@
   </footer>
 </div>
 
-<!-- 底部分页导航:液态玻璃浮动栏(车况 / 导航 / 总览·主页居中 / 数据 / 控制) -->
+<!-- 底部分页导航:液态玻璃浮动栏(车况 / 充电 / 总览·主页居中 / 数据 / 控制) -->
 <nav class="tabbar" id="tabbar" role="tablist" aria-label="功能分页">
   <i class="tab-bubble no-anim" id="tab-bubble" aria-hidden="true"></i>
   <button class="tab" role="tab" data-page="vehicle" aria-selected="false">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
     <span>车况</span>
   </button>
-  <button class="tab" role="tab" data-page="nav" aria-selected="false">
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l7 19-7-4-7 4z"/></svg>
-    <span>导航</span>
+  <button class="tab" role="tab" data-page="charging" aria-selected="false">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 2 4.5 13.5h5.7L9.4 22l8.5-11.5h-5.7L13 2z"/></svg>
+    <span>充电</span>
   </button>
   <button class="tab tab-home" role="tab" data-page="overview" aria-selected="false">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362l-.004.002H12v-.002zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.349c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46v.003z"/></svg>
@@ -864,8 +875,8 @@
 <script src="/echarts.min.js"></script>
 <script src="/maplibre-gl-csp.js"></script>
 <script src="/pmtiles.js"></script>
-<script src="/control.js?v=14"></script>
-<script src="/nav.js?v=4"></script>
+<script src="/control.js?v=15"></script>
+<script src="/nav.js?v=5"></script>
 <script src="/pageturn.js"></script>
 <script src="/app.js"></script>
 </body>

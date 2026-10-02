@@ -22,6 +22,7 @@
 
   const charts = {};
   const routeElev = {};  // 行程详情海拔图(行程 id → ECharts 实例),收起/重渲染时销毁
+  const routeEng = {};   // 行程详情速度×能耗曲线,同上
   const csCurveCharts = {};  // 充电会话曲线(charge id → ECharts 实例),收起/重渲染时销毁
   const csCurveOpen = new Set();  // 展开的充电曲线(按 charge id),重渲染后保持展开
   const csCurveCache = {};  // charge id → /api/charging/curve 数据(懒加载缓存)
@@ -1010,6 +1011,13 @@
     $('#life-km-sub').textContent = `自统计起行驶 ${fmtNum(d.drive_km, 0)} km`;
     $('#life-kwh-sub').textContent =
       `行驶 ${fmtNum(d.drive_kwh, 0)} · 驻车 ${fmtNum(d.parked_kwh, 0)}`;
+    // 动能回收:按生涯平均能耗折算「≈ 多跑里程」,直观体现回收价值
+    $('#life-regen').textContent = (d.regen_kwh !== null && d.regen_kwh !== undefined)
+      ? fmtNum(d.regen_kwh, 0) : '—';
+    $('#life-regen-sub').textContent =
+      (d.regen_kwh > 0 && d.drive_kwh > 0 && d.drive_km > 0)
+        ? `≈ 多跑 ${fmtNum(d.regen_kwh * d.drive_km / d.drive_kwh, 0)} km`
+        : '自统计起累计';
     const miss = (d.sessions || 0) - (d.priced_sessions || 0);
     $('#life-cost-sub').textContent =
       `${d.priced_sessions || 0} 次充电` +
@@ -3724,22 +3732,27 @@
     });
   }
 
+  /* 相邻轨迹点 haversine 累加出行程里程(海拔图 / 速度×能耗曲线共用 x 轴) */
+  function routeCumKm(pts) {
+    const R = 6371.0088, rad = Math.PI / 180;
+    const cum = [0];
+    for (let i = 1; i < pts.length; i++) {
+      const dLat = (pts[i][0] - pts[i - 1][0]) * rad, dLng = (pts[i][1] - pts[i - 1][1]) * rad;
+      const h = Math.sin(dLat / 2) ** 2 +
+        Math.cos(pts[i - 1][0] * rad) * Math.cos(pts[i][0] * rad) * Math.sin(dLng / 2) ** 2;
+      cum.push(cum[i - 1] + 2 * R * Math.asin(Math.sqrt(h)));
+    }
+    return cum;
+  }
+
   /* 行程详情:海拔高度图(x = 累计里程 km,y = 海拔 m,平滑曲线 + 渐变填充) */
   function renderRouteElev(r, box) {
     if (routeElev[r.id]) { routeElev[r.id].resize(); return; }
     const pts = (r.points || []).filter((p) => p.length >= 3 && p[2] !== null && p[2] !== undefined);
     if (pts.length < 2) return;
-    // 相邻轨迹点 haversine 累加出行程里程
-    const R = 6371.0088, rad = Math.PI / 180;
-    let cum = 0;
+    const cum = routeCumKm(pts);
     const data = [[0, pts[0][2]]];
-    for (let i = 1; i < pts.length; i++) {
-      const dLat = (pts[i][0] - pts[i - 1][0]) * rad, dLng = (pts[i][1] - pts[i - 1][1]) * rad;
-      const h = Math.sin(dLat / 2) ** 2 +
-        Math.cos(pts[i - 1][0] * rad) * Math.cos(pts[i][0] * rad) * Math.sin(dLng / 2) ** 2;
-      cum += 2 * R * Math.asin(Math.sqrt(h));
-      data.push([Number(cum.toFixed(3)), pts[i][2]]);
-    }
+    for (let i = 1; i < pts.length; i++) data.push([Number(cum[i].toFixed(3)), pts[i][2]]);
     const c = cssVar('--series-1');
     // hex → rgba(供渐变填充用,同平均能耗图)
     const hx = c.replace('#', '');
@@ -3797,12 +3810,73 @@
     }), { notMerge: true });
   }
 
+  /* 行程详情:速度 × 能耗对比曲线(x = 累计里程 km;左轴速度 km/h,右轴能耗 Wh/km)
+     能耗 = 瞬时功率÷速度(Wh/km):低速(<8 km/h)发散置空成断点,±3 点滚动平均平滑,限幅 [-500, 999] */
+  function renderRouteEng(r, box) {
+    if (routeEng[r.id]) { routeEng[r.id].resize(); return; }
+    const pts = (r.points || []).filter((p) => p.length >= 5 &&
+      p[3] !== null && p[3] !== undefined && p[4] !== null && p[4] !== undefined);
+    if (pts.length < 5) return;
+    const cum = routeCumKm(pts).map((v) => Number(v.toFixed(3)));
+    const speed = pts.map((p, i) => [cum[i], p[3]]);
+    const raw = pts.map((p) => (p[3] >= 8 ? (p[4] * 1000) / p[3] : null));
+    const energy = raw.map((v, i) => {
+      if (v === null) return [cum[i], null];
+      let s = 0, n = 0;
+      for (let j = Math.max(0, i - 3); j <= Math.min(raw.length - 1, i + 3); j++) {
+        if (raw[j] !== null) { s += raw[j]; n++; }
+      }
+      return [cum[i], Math.round(Math.max(-500, Math.min(999, s / n)))];
+    });
+    const cSpd = cssVar('--seq-blue-300');
+    const cEng = cssVar('--cat-charge');
+    const chart = echarts.init(box);
+    routeEng[r.id] = chart;
+    chart.setOption(Object.assign({}, chartTheme(), {
+      tooltip: tooltipAxis({ '速度': 'km/h', '能耗': 'Wh/km' }, (v) => fmtNum(Number(v), 1) + ' km'),
+      grid: { left: 58, right: 62, top: 14, bottom: 24 },
+      xAxis: Object.assign(axisCommon(), {
+        type: 'value', min: 0, max: cum[cum.length - 1],
+        axisLabel: { color: cssVar('--text-muted'), fontSize: 11, formatter: '{value} km', showMaxLabel: false },
+      }),
+      yAxis: [
+        Object.assign(axisCommon(), {
+          type: 'value', scale: true,
+          // 注意:此轴标签须用无回退列表的字体。echarts 5.6 在部分渲染环境下
+          // 用多字体回退列表(system-ui 栈)绘制该轴标签时会把所有刻度画成首个刻度文本
+          axisLabel: { color: cSpd, fontSize: 11, formatter: '{value} km/h', fontFamily: 'sans-serif' },
+          splitLine: { show: false },
+        }),
+        Object.assign(axisCommon(), {
+          type: 'value', scale: true,
+          axisLabel: { color: cEng, fontSize: 11, formatter: '{value}' },
+          splitLine: { show: false },
+        }),
+      ],
+      series: [
+        Object.assign(lineSeries('速度', speed, cSpd), {
+          yAxisIndex: 0, smooth: true, endLabel: { show: false },
+        }),
+        Object.assign(lineSeries('能耗', energy, cEng), {
+          yAxisIndex: 1, smooth: true, connectNulls: true, endLabel: { show: false },
+          markLine: {  // 0 轴:以下为动能回收
+            silent: true, symbol: 'none', animation: false,
+            lineStyle: { color: cssVar('--baseline'), width: 1, type: 'dashed' },
+            label: { show: false },
+            data: [{ yAxis: 0 }],
+          },
+        }),
+      ],
+    }), { notMerge: true });
+  }
+
   function disposeRouteElev(id) {
     if (id === undefined) {  // 全部销毁(列表重渲染前)
       Object.keys(routeElev).forEach((k) => disposeRouteElev(Number(k)));
       return;
     }
     if (routeElev[id]) { routeElev[id].dispose(); delete routeElev[id]; }
+    if (routeEng[id]) { routeEng[id].dispose(); delete routeEng[id]; }
     disposeRouteMap(id);
   }
 
@@ -3836,7 +3910,10 @@
       head.appendChild(el('span', 'date', dayLabel(Number(rs[0].start_date_ts))));
       const sum = el('span', 'summary');
       const km = rs.reduce((s, r) => s + Number(r.distance || 0), 0);
-      sum.appendChild(el('span', 'chip', `${rs.length} 条轨迹 · ${fmtNum(km, 1)} km`));
+      const rg = rs.reduce((s, r) => s + (Number(r.regen_kwh) || 0), 0);
+      sum.appendChild(el('span', 'chip',
+        `${rs.length} 条轨迹 · ${fmtNum(km, 1)} km` +
+        (rg > 0 ? ` · 回收 ${fmtNum(rg, 1)} kWh` : '')));
       head.appendChild(sum);
       if (rs.some((r) => (r.points || []).length >= 2)) {  // 右侧:当日全部轨迹的地图缩略图
         const thumb = el('span', 'rt-day-thumb');
@@ -3878,6 +3955,9 @@
         kvItem('能耗', eff !== null ? `${fmtNum(eff, 0)} Wh/km` : '—');
         kvItem('耗电', (a && a.energy_kwh !== null && a.energy_kwh !== undefined)
           ? `${fmtNum(a.energy_kwh, 1)} kWh` : '—');
+        // 动能回收:后端对行程内负功率按时间梯形积分(/api/routes regen_kwh)
+        kvItem('动能回收', (r.regen_kwh !== null && r.regen_kwh !== undefined)
+          ? `${fmtNum(r.regen_kwh, r.regen_kwh < 1 ? 2 : 1)} kWh` : '—');
         kvItem('Δ理想续航', delta !== null ? `${fmtNum(delta, 1)} km` : '—');
         kvItem('电费', (a && a.cost_yuan !== null && a.cost_yuan !== undefined)
           ? `¥${fmtNum(a.cost_yuan, 2)}` +
@@ -3918,6 +3998,16 @@
           wrap.appendChild(elevBox);
           detail.appendChild(wrap);
         }
+        let engBox = null;
+        const engPts = (r.points || []).filter((p) => p.length >= 5 &&
+          p[3] !== null && p[3] !== undefined && p[4] !== null && p[4] !== undefined);
+        if (engPts.length >= 5) {
+          const wrap = el('div', 'rt-elev-wrap');
+          wrap.appendChild(el('div', 'rt-elev-title', '速度 × 能耗(右轴为滚动平均,0 以下=动能回收)'));
+          engBox = el('div', 'rt-elev');
+          wrap.appendChild(engBox);
+          detail.appendChild(wrap);
+        }
         row.addEventListener('click', () => {
           const open = row.classList.toggle('open');
           if (open) {
@@ -3926,6 +4016,7 @@
             requestAnimationFrame(() => {
               if (mapBox) renderRouteMap(r, mapBox);
               if (elevBox) renderRouteElev(r, elevBox);
+              if (engBox) renderRouteEng(r, engBox);
             });
           } else {
             openRouteIds.delete(r.id);
@@ -4060,12 +4151,14 @@
     renderEfficiency(); renderParked(); renderMonthly(); renderTpms(); renderCar(); renderSessions(); renderChargers(); renderCsBatt(); renderTemp(); renderParking(); renderReminder(); renderHomeCharge(); renderLifetime(); renderTraffic();
   }
 
-  /* ---------- 功能分页(底部液态玻璃 Tab 栏:总览/车况/导航/数据/控制) ---------- */
+  /* ---------- 功能分页(底部液态玻璃 Tab 栏:总览/车况/充电/数据/控制;导航改为控制页模块打开的浮层) ---------- */
 
-  const PAGE_IDS = ['overview', 'vehicle', 'nav', 'data', 'control'];
+  const PAGE_IDS = ['overview', 'vehicle', 'charging', 'data', 'control'];
   // 「数据」主 Tab 下的二级子页(保留原 section id,图表 resize/地图逻辑沿用)
-  const DATA_SUBS = ['charging', 'drives', 'activity'];
-  let dataSub = localStorage.getItem('ttv-data-tab') || 'charging';
+  const DATA_SUBS = ['drives', 'activity'];
+  // 旧记忆值可能是 'charging'(已从二级子页升为顶级 Tab),非法值一律回退到「行程」
+  let dataSub = localStorage.getItem('ttv-data-tab');
+  if (!DATA_SUBS.includes(dataSub)) dataSub = 'drives';
   let mapShown = false;  // 行程子页首次显示时需 resize + 重新 fitBounds
 
   // 选中气泡跟随当前 Tab:用户切页时走 TTVPageTurn 拉伸滑动,首次定位/resize 直接落位
@@ -4111,6 +4204,9 @@
     Object.values(routeElev).forEach((c) => {
       if (c && sec.contains(c.getDom())) c.resize();
     });
+    Object.values(routeEng).forEach((c) => {
+      if (c && sec.contains(c.getDom())) c.resize();
+    });
     Object.values(csCurveCharts).forEach((c) => {
       if (c && sec.contains(c.getDom())) c.resize();
     });
@@ -4128,7 +4224,7 @@
   }
 
   function switchDataTab(sub, save) {
-    if (!DATA_SUBS.includes(sub)) sub = 'charging';
+    if (!DATA_SUBS.includes(sub)) sub = 'drives';
     dataSub = sub;
     if (save !== false) localStorage.setItem('ttv-data-tab', sub);
     setDataTabs();
@@ -4138,12 +4234,12 @@
   let tabSeq = 0;  // 快速连点时作废旧切换的离场动画结果
 
   function switchTab(name, save) {
-    if (DATA_SUBS.includes(name)) {  // 旧版「充电/行程/活动/车况」主 Tab 记忆值兼容迁移
+    if (DATA_SUBS.includes(name)) {  // 旧版「行程/活动」主 Tab 记忆值兼容迁移(充电已升为顶级 Tab)
       dataSub = name;
       name = 'data';
     }
     if (!PAGE_IDS.includes(name)) name = 'overview';
-    if (name === 'data' && !DATA_SUBS.includes(dataSub)) dataSub = 'charging';
+    if (name === 'data' && !DATA_SUBS.includes(dataSub)) dataSub = 'drives';
     if (save !== false) localStorage.setItem('ttv-tab', name);
     // 任何切页调用都递增序号——即使目标是当前页(cur===nxt 短路),
     // 也要作废仍在飞行中的旧离场回调,防止它晚到后把页面切回旧 Tab
@@ -4163,7 +4259,6 @@
     const afterShow = () => requestAnimationFrame(() => {
       resizeSection(contentSection(name));
       if (name === 'overview') renderCar();  // 俯视图标注随舞台尺寸定位,重算一次
-      if (name === 'nav') window.TTNav?.enter();     // 导航页:惰性建图 + 读车辆位置
     });
     // 动画路径:Tab 态与气泡滑动先行(手感即时),旧页模块从四周退出,再切页、新页模块从四周进入
     // 「数据」页的动画目标委托给当前激活子页(pageturn 只认 :scope > .grid > .card)
@@ -4188,6 +4283,26 @@
     placeTabBubble(false);
     afterShow();
   }
+
+  /* ---------- 导航浮层:控制页「导航」模块全屏打开,进入时惰性建图(nav.js TTNav.enter) ---------- */
+  const navOverlay = $('#nav-overlay');
+  let navOverlayOpen = false;
+  function navPageOpen() {
+    if (!navOverlay || navOverlayOpen) return;
+    navOverlayOpen = true;
+    navOverlay.hidden = false;
+    requestAnimationFrame(() => {
+      navOverlay.classList.add('in');
+      window.TTNav?.enter();  // 显示后再建图/resize,地图容器才有尺寸
+    });
+  }
+  function navPageClose() {
+    if (!navOverlay || !navOverlayOpen) return;
+    navOverlayOpen = false;
+    navOverlay.classList.remove('in');
+    navOverlay.hidden = true;
+  }
+  window.TTNavPage = { open: navPageOpen, close: navPageClose, isOpen: () => navOverlayOpen };
 
   /* Control UI is isolated so changes do not affect telemetry pages. */
   function renderCtlState() { window.TeslaControl?.overview(S.overview); }
@@ -4235,12 +4350,17 @@
       const b = e.target.closest('.dtab');
       if (b) switchDataTab(b.dataset.sub);
     });
+    // 导航浮层:返回按钮 + Esc 关闭(打开入口在控制页「导航」模块,见 control.js)
+    $('#nav-overlay-back')?.addEventListener('click', navPageClose);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && navOverlayOpen) navPageClose();
+    });
     // #control 深链(配置流程返回)只生效一次:清掉 hash,否则之后每次刷新都会被它拉回控制页
     if (location.hash === '#control') {
       switchTab('control');
       history.replaceState(null, '', location.pathname + location.search);
     } else {
-      // 旧版主 Tab 记忆值(充电/行程/活动/车况)由 switchTab 自动迁移到「数据」页对应子页
+      // 旧版主 Tab 记忆值(行程/活动)由 switchTab 自动迁移到「数据」页对应子页;「充电」已升为顶级 Tab
       switchTab(localStorage.getItem('ttv-tab') || 'overview', false);
     }
 

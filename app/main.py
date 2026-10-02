@@ -1379,7 +1379,7 @@ def routes(car_id: int | None = Query(default=None),
     )
     pts = q(
         """
-        SELECT drive_id, date, latitude, longitude, elevation, speed
+        SELECT drive_id, date, latitude, longitude, elevation, speed, power
         FROM positions
         WHERE car_id = %s AND drive_id IS NOT NULL AND latitude IS NOT NULL
           AND date >= now() - make_interval(days => %s)
@@ -1387,23 +1387,31 @@ def routes(car_id: int | None = Query(default=None),
         """,
         (cid, days),
     )
-    # 轨迹点:[纬度, 经度, 海拔(可空), 速度 km/h(可空)]
-    # ——海拔供行程详情的高度图用,速度供详情小地图按车速变色绘制
+    # 轨迹点:[纬度, 经度, 海拔(可空), 速度 km/h(可空), 功率 kW(可空)]
+    # ——海拔供行程详情的高度图用,速度供详情小地图按车速变色绘制,
+    #   速度+功率供详情「速度 × 能耗」对比曲线(瞬时能耗 = 功率÷速度),
+    #   负功率(动能回收)按时间梯形积分得每段行程回收电量
     by_id: dict[int, list[list[float]]] = {}
     speed_seq: dict[int, list[tuple[int, float]]] = {}  # 堵车/红灯分析用全分辨率速度序列
+    pwr_seq: dict[int, list[tuple[datetime, float]]] = {}  # 动能回收积分用功率序列
     for p in pts:
         did = int(p["drive_id"])
         by_id.setdefault(did, []).append(
             [float(p["latitude"]), float(p["longitude"]),
              float(p["elevation"]) if p["elevation"] is not None else None,
-             float(p["speed"]) if p["speed"] is not None else None])
+             float(p["speed"]) if p["speed"] is not None else None,
+             float(p["power"]) if p["power"] is not None else None])
         if p["speed"] is not None:
             speed_seq.setdefault(did, []).append(
                 (_utc_ms(p["date"]), float(p["speed"])))
+        if p["power"] is not None:
+            pwr_seq.setdefault(did, []).append((p["date"], float(p["power"])))
     out = []
     for d in drives:
         points = by_id.get(d["id"], [])
         d["traffic"] = _drive_traffic(speed_seq.get(d["id"], []))
+        d["regen_kwh"] = (round(_regen_kwh(pwr_seq[d["id"]]), 2)
+                          if d["id"] in pwr_seq else None)
         if len(points) > 220:
             keep = max(1, len(points) // 220)
             points = points[::keep]
@@ -1418,6 +1426,20 @@ def routes(car_id: int | None = Query(default=None),
 AWAKE_GAP_MS = 75 * 60 * 1000
 # 驻车清醒持续达到该时长才判定为哨兵开启(短暂唤醒如 App 查看不算)
 SENTRY_MIN_DURATION_MS = 30 * 60 * 1000
+
+
+def _regen_kwh(samples: list[tuple[datetime, float]]) -> float:
+    """动能回收电量 kWh:(时间, 功率) 序列中负功率按时间梯形积分。
+    相邻采样间隔 >60s 不积分(断流/休眠,避免把功率当成持续存在)。"""
+    total = 0.0
+    prev: tuple[datetime, float] | None = None
+    for ts, pw in samples:
+        if prev is not None:
+            gap = (ts - prev[0]).total_seconds()
+            if 0 < gap <= 60:
+                total -= (min(pw, 0.0) + min(prev[1], 0.0)) / 2 * gap / 3600
+        prev = (ts, pw)
+    return total
 
 
 def _utc_ms(dt: datetime) -> int:
@@ -2204,16 +2226,21 @@ def vehicle_lifetime(car_id: int | None = Query(default=None)):
         (cid,),
     )[0]["mins"]
     tseq: dict[int, list[tuple[int, float]]] = {}
+    pwr_seq: dict[int, list[tuple[datetime, float]]] = {}  # 动能回收积分用(口径同 /api/routes)
     for r in q(
         """
-        SELECT drive_id, date, speed FROM positions
+        SELECT drive_id, date, speed, power FROM positions
         WHERE car_id = %s AND drive_id IS NOT NULL AND speed IS NOT NULL
         ORDER BY drive_id, date
         """,
         (cid,),
     ):
-        tseq.setdefault(int(r["drive_id"]), []).append(
+        did = int(r["drive_id"])
+        tseq.setdefault(did, []).append(
             (_utc_ms(r["date"]), float(r["speed"])))
+        if r["power"] is not None:
+            pwr_seq.setdefault(did, []).append((r["date"], float(r["power"])))
+    regen_total = sum(_regen_kwh(seq) for seq in pwr_seq.values())
     traffic = {"light_n": 0, "light_s": 0, "jam_s": 0, "jam_km": 0.0,
                "drive_min": round(float(drv_min), 1)}
     for seq in tseq.values():
@@ -2232,6 +2259,7 @@ def vehicle_lifetime(car_id: int | None = Query(default=None)):
         "drive_kwh": round(drive_kwh, 1),
         "parked_kwh": round(parked_kwh, 1),
         "total_kwh": round(drive_kwh + parked_kwh, 1),
+        "regen_kwh": round(regen_total, 1),
         "traffic": traffic,
         "total_cost": round(total_cost, 2),
         "sessions": len(rows),

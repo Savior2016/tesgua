@@ -94,13 +94,15 @@ function fitRadius() {
   }, { passive: false });
 }
 
-// 地面圆盘 + 柔和投影(与②同款)
+// 展示圆台(有厚度的展台,侧壁可见)+ 台面柔和投影;特斯拉红 T 车标贴在圆台侧壁正前方
 {
-  const disc = new THREE.Mesh(
-    new THREE.CircleGeometry(4.0, 48).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color: 0x5a6270, transparent: true, opacity: 0.12 }));
-  disc.position.y = 0.001;
-  scene.add(disc);
+  const ped = new THREE.Mesh(
+    new THREE.CylinderGeometry(4.0, 4.0, 0.5, 72),
+    [new THREE.MeshBasicMaterial({ color: 0x0b0e14 }),    // 侧壁
+     new THREE.MeshBasicMaterial({ color: 0x171c26 }),    // 台面
+     new THREE.MeshBasicMaterial({ color: 0x0b0e14 })]);  // 底面(不可见)
+  ped.position.y = -0.249;   // 台面与旧圆盘同高(y≈0.001),台体向下延伸出厚度
+  scene.add(ped);
   const cv = document.createElement('canvas');
   cv.width = cv.height = 256;
   const ctx = cv.getContext('2d');
@@ -115,22 +117,24 @@ function fitRadius() {
   shadow.position.y = 0.01;
   scene.add(shadow);
 
-  // 圆盘正中心的特斯拉红 T 型车标(与 2D 总览车标同一路径,纹理顶边朝车头 -Z)
-  // 尺寸贴近圆盘但不伸进圆环带:T 横臂端点是径向最远点(≈0.627×边长),
-  // 边长 5.0 → 端点径向 3.13m < 内环内沿 3.2m
+  // 侧壁车标:贴合柱面的弧形贴片(与圆台同心、略大一圈防 z-fighting),
+  // 正对车头方向(-Z),默认右前俯视机位下清晰可见;特斯拉红 #E82127
   const lc = document.createElement('canvas');
   lc.width = lc.height = 512;
   const lctx = lc.getContext('2d');
-  lctx.translate(56, 56);
-  lctx.scale(400 / 24, 400 / 24);
-  lctx.fillStyle = 'rgba(232,33,39,0.62)';   // 特斯拉红 #E82127
+  lctx.translate(66, 76);
+  lctx.scale(380 / 24, 380 / 24);
+  lctx.fillStyle = 'rgba(232,33,39,0.92)';
   lctx.fill(new Path2D('M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362l-.004.002H12v-.002zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.349c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46v.003z'));
   const logoTex = new THREE.CanvasTexture(lc);
   logoTex.colorSpace = THREE.SRGBColorSpace;
+  logoTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  // 朝向默认机位方位角(orbit.theta=2.557,车头右前方):正前 -Z 会被透视挤到圆台右缘
+  const LOGO_R = 4.012, LOGO_H = 0.42, LOGO_ARC = 0.62 / LOGO_R;  // 弧长 0.62m
   const logo = new THREE.Mesh(
-    new THREE.PlaneGeometry(5.0, 5.0).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, depthWrite: false }));
-  logo.position.set(0, 0.006, 0);
+    new THREE.CylinderGeometry(LOGO_R, LOGO_R, LOGO_H, 24, 1, true, 2.557 - LOGO_ARC / 2, LOGO_ARC),
+    new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, depthWrite: false, toneMapped: false }));
+  logo.position.y = -0.19;   // 偏圆台上沿:高位俯视下侧壁被压扁,贴下沿会看不清
   logo.renderOrder = 1;
   scene.add(logo);
 }
@@ -163,14 +167,14 @@ function drawBackdrop(cv, d) {
   // 底色:中部实、上下淡出(融入舞台渐变背景)
   const bg = ctx.createLinearGradient(0, 0, 0, H);
   bg.addColorStop(0, 'rgba(9,12,18,0)');
-  bg.addColorStop(0.16, 'rgba(9,12,18,0.86)');
-  bg.addColorStop(0.84, 'rgba(9,12,18,0.86)');
+  bg.addColorStop(0.14, 'rgba(9,12,18,0.9)');
+  bg.addColorStop(0.86, 'rgba(9,12,18,0.9)');
   bg.addColorStop(1, 'rgba(9,12,18,0)');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
-  const MUT = 'rgba(148,158,176,0.92)';   // 次级文字
-  const TXT = 'rgba(236,241,249,0.97)';   // 主数值
+  const MUT = 'rgba(148,158,176,0.95)';   // 次级文字
+  const TXT = 'rgba(236,241,249,1)';      // 主数值
   const GRN = '#1baf7a';
   const BLU = '#3987e5';
   const N = 6;   // 面板数,均布一圈
@@ -212,12 +216,12 @@ function drawBackdrop(cv, d) {
   }
   function label(cx, y, s) {
     ctx.fillStyle = MUT;
-    ctx.font = '400 46px system-ui, sans-serif';
+    ctx.font = '400 52px system-ui, sans-serif';
     ctx.fillText(s, cx, y);
   }
   function sub(cx, y, s) {
     ctx.fillStyle = MUT;
-    ctx.font = '400 42px system-ui, sans-serif';
+    ctx.font = '400 48px system-ui, sans-serif';
     ctx.fillText(s, cx, y);
   }
   function bar(cx, y, w, pct, color, officialPct) {
@@ -240,48 +244,49 @@ function drawBackdrop(cv, d) {
   const dash = (v) => (v === null || v === undefined || v === '') ? '—' : `${v}`;
   const socT = d.soc === null || d.soc === undefined ? '—' : `${Math.round(d.soc)}`;
   // ① 总里程
-  label(p(0), cy - 150, '总里程');
-  bigVal(p(0), cy + 6, dash(d.odoText), d.odoText ? ' km' : '', 168);
+  label(p(0), cy - 165, '总里程');
+  bigVal(p(0), cy + 8, dash(d.odoText), d.odoText ? ' km' : '', 190);
   // ② 当前电量
-  label(p(1), cy - 150, '当前电量');
-  bigVal(p(1), cy - 2, socT, d.soc == null ? '' : ' %', 176);
-  sub(p(1), cy + 108, d.rangeKm == null ? '' : `续航约 ${d.rangeKm} km`);
-  if (d.soc != null) bar(p(1), cy + 176, 360, d.soc / 100, GRN);
+  label(p(1), cy - 165, '当前电量');
+  bigVal(p(1), cy - 2, socT, d.soc == null ? '' : ' %', 200);
+  sub(p(1), cy + 118, d.rangeKm == null ? '' : `续航约 ${d.rangeKm} km`);
+  if (d.soc != null) bar(p(1), cy + 192, 360, d.soc / 100, GRN);
   // ③ 平均能耗
-  label(p(2), cy - 150, '平均能耗');
+  label(p(2), cy - 165, '平均能耗');
   if (d.eff && d.eff.val != null) {
-    bigVal(p(2), cy - 2, `${Math.round(d.eff.val)}`, ' Wh/km', 156);
-    sub(p(2), cy + 108, `官方 ${Math.round(d.eff.official)} · 刻度 ${d.eff.lo}–${d.eff.hi}`);
-    bar(p(2), cy + 176, 360, (d.eff.val - d.eff.lo) / (d.eff.hi - d.eff.lo), BLU,
+    bigVal(p(2), cy - 2, `${Math.round(d.eff.val)}`, ' Wh/km', 180);
+    sub(p(2), cy + 118, `官方 ${Math.round(d.eff.official)} · 刻度 ${d.eff.lo}–${d.eff.hi}`);
+    bar(p(2), cy + 192, 360, (d.eff.val - d.eff.lo) / (d.eff.hi - d.eff.lo), BLU,
         (d.eff.official - d.eff.lo) / (d.eff.hi - d.eff.lo));
   } else {
-    bigVal(p(2), cy + 6, '—', '', 176);
+    bigVal(p(2), cy + 8, '—', '', 200);
   }
   // ④ 陪伴天数
-  label(p(3), cy - 150, '已陪伴');
-  bigVal(p(3), cy + 6, dash(d.companionDays), d.companionDays != null ? ' 天' : '', 176);
+  label(p(3), cy - 165, '已陪伴');
+  bigVal(p(3), cy + 8, dash(d.companionDays), d.companionDays != null ? ' 天' : '', 200);
   // ⑤ 车内空调
-  label(p(4), cy - 150, '车内空调');
-  bigVal(p(4), cy + 6, d.tin == null ? '—' : `${d.tin}`, d.tin == null ? '' : '°', 176);
+  label(p(4), cy - 165, '车内空调');
+  bigVal(p(4), cy + 8, d.tin == null ? '—' : `${d.tin}`, d.tin == null ? '' : '°', 200);
   // ⑥ 车外温度
-  label(p(5), cy - 150, '车外温度');
-  bigVal(p(5), cy + 6, d.tout == null ? '—' : `${d.tout}`, d.tout == null ? '' : '°', 176);
+  label(p(5), cy - 165, '车外温度');
+  bigVal(p(5), cy + 8, d.tout == null ? '—' : `${d.tout}`, d.tout == null ? '' : '°', 200);
 }
 const backdrop = (() => {
   const cv = document.createElement('canvas');
   cv.width = 4096; cv.height = 1024;
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();   // 斜角柱面上文字保持锐利
   // 从柱内看 BackSide 纹理左右镜像 → 水平翻转补偿
   tex.wrapS = THREE.RepeatWrapping;
   tex.repeat.x = -1;
   const wall = new THREE.Mesh(
-    new THREE.CylinderGeometry(6.5, 6.5, 3.6, 96, 1, true),
+    new THREE.CylinderGeometry(5.4, 5.4, 4.2, 96, 1, true),   // 贴近圆台(原 6.5 → 5.4)
     new THREE.MeshBasicMaterial({
       map: tex, transparent: true, side: THREE.BackSide,
       depthWrite: false, toneMapped: false,
     }));
-  wall.position.y = 1.8;
+  wall.position.y = 2.1;
   wall.renderOrder = -1;   // 永远垫底
   scene.add(wall);
   return { canvas: cv, tex, redraw(d) { drawBackdrop(cv, d); tex.needsUpdate = true; } };
@@ -476,6 +481,7 @@ frame();
 window.__txov = {
   pause() { window.__txovPaused = true; },
   resume() { window.__txovPaused = false; },
+  getOrbit() { return { ...orbit, camY: camera.position.y }; },
   // 立即切到指定轨道视角(跳过插值):__txov.setOrbit(theta, phi, r)
   setOrbit(theta, phi, r) {
     if (theta !== undefined) orbit.theta = orbitGoal.theta = theta;

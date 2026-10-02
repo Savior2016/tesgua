@@ -152,3 +152,37 @@
   .nav-layout { grid-template-columns: 1fr; }
   .nav-map-card { position: static; height: 46dvh; min-height: 300px; order: -1; }
 }
+
+/* ===== 导航浮层:控制页「导航」模块全屏打开(压过底部 Tab 栏 z-index 1200) ===== */
+.nav-overlay {
+  position: fixed; inset: 0; z-index: 1300;
+  background: var(--page);
+  display: flex; flex-direction: column;
+  opacity: 0; transform: translateY(16px);
+  transition: opacity .22s ease-out, transform .22s ease-out;
+}
+.nav-overlay[hidden] { display: none; }
+.nav-overlay.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .nav-overlay { transition: none; transform: none; }
+}
+.nav-overlay-head {
+  flex: none;
+  display: flex; align-items: center; gap: 10px;
+  max-width: 1320px; width: 100%; margin: 0 auto; box-sizing: border-box;
+  padding: calc(env(safe-area-inset-top) + 12px) 20px 10px;
+}
+.nav-overlay-head h2 { margin: 0; font-size: 17px; font-weight: 600; }
+.nav-overlay-back {
+  width: 34px; height: 34px; flex: none; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--card-bg, transparent);
+  color: var(--text-secondary); display: grid; place-items: center;
+  cursor: pointer; padding: 0; transition: background .2s ease, color .2s ease;
+}
+.nav-overlay-back svg { width: 15px; height: 15px; }
+.nav-overlay-back:hover { background: var(--series-1); color: #fff; border-color: transparent; }
+.nav-overlay-body {
+  flex: 1; overflow-y: auto;
+  max-width: 1320px; width: 100%; margin: 0 auto; box-sizing: border-box;
+  padding: 4px 20px 28px;
+}

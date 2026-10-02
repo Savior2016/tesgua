@@ -3,6 +3,7 @@ import json
 import os
 import tarfile
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi.testclient import TestClient
@@ -218,7 +219,15 @@ def test_list_marks_backup_state(env):
     r = client.get("/api/backup/monthly")
     assert r.status_code == 200
     months = r.json()["months"]
-    assert [m["month"] for m in months] == ["2026-09", "2026-08"]
+    # 月份列表 = mock 数据起点 2026-08 至当前月(上海时区),新→旧
+    now = datetime.now(ZoneInfo("Asia/Shanghai"))
+    expected = []
+    y, m = 2026, 8
+    while (y, m) <= (now.year, now.month):
+        expected.append(f"{y:04d}-{m:02d}")
+        y, m = (y + (m == 12), m % 12 + 1)
+    expected.reverse()
+    assert [m["month"] for m in months] == expected
     assert months[0]["is_current"] is True and months[0]["backup"] is None
     client.post("/api/backup/monthly", json={"month": "2026-08"})
     months = client.get("/api/backup/monthly").json()["months"]
