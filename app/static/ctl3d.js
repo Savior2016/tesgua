@@ -25,6 +25,7 @@ setupStudio(renderer, scene);
 
 // ---------- 车模 ----------
 const car = new THREE.Group();
+car.scale.setScalar(1.15);   // 放大车模:原比例相对舞台圆盘偏小(热点锚点是 car 子节点,随组同步缩放)
 scene.add(car);
 const mats = makeMats();
 const paintMat = mats.paintMat;
@@ -224,7 +225,7 @@ function loadModel(key) {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, 256, 256);
   const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(6.1, 3.1).rotateX(-Math.PI / 2),
+    new THREE.PlaneGeometry(7.0, 3.6).rotateX(-Math.PI / 2),
     new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
   shadow.position.y = 0.01;
   scene.add(shadow);

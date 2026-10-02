@@ -175,10 +175,13 @@ def run():
                 page.locator('#routes-list .day-head').first.click();page.wait_for_timeout(100)
             page.locator('.rt-row').first.click()
             page.wait_for_timeout(150)
-            assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==10
+            assert page.locator('.rt-row.open + .rt-detail .rt-kv-item').count()==11
             # 动能回收数据项(mock 给了 1.2 kWh)
             assert '动能回收' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
             assert '1.2 kWh' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
+            # 续航达成率 = 里程 / Δ理想续航(mock 10 km / (400-388) km = 83%)
+            assert '续航达成率' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
+            assert '83%' in page.locator('.rt-row.open + .rt-detail .rt-kv').inner_text()
             assert page.evaluate("!!echarts.getInstanceByDom(document.querySelector('.rt-elev'))")
             assert page.locator('.rt-map.maplibregl-map').count()==1  # 详情小地图
             assert page.locator('.rt-speed-legend').count()==1  # 轨迹按车速变色 + 色带图例

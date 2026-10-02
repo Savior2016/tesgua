@@ -18,7 +18,7 @@ const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
 setupStudio(renderer, scene);
 
 // ---------- 轨道视角(默认右前上方 3/4 俯视;拖动旋转 / 滚轮或双指缩放) ----------
-const target = new THREE.Vector3(0.35, 0.72, 0.1);   // 车偏右,左侧留给电量卡;抬高注视点→车在框内偏下
+const target = new THREE.Vector3(0, 0.72, 0);   // 注视点抬高→车在框内偏下;数据在背景墙,车居中
 const orbit = { theta: 2.557, phi: 1.139, r: 6.9 };  // 方向同旧固定机位,半径由 fitRadius 校准
 const orbitGoal = { ...orbit };
 let userZoomed = false;   // 用户手动缩放后不再随窗口尺寸重置

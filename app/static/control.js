@@ -90,6 +90,8 @@
     const is3d=m==='3d';
     const svg=document.querySelector('.ctl-car');
     const stage=$('tx3d-stage'),bar=$('ctl3d-bar');
+    const carbox=document.querySelector('.ctl-carbox');
+    if(carbox)carbox.classList.toggle('ctl3d',is3d);   // 3D 时去掉车框玻璃嵌套,舞台直接落卡片里
     if(svg)svg.style.display=is3d?'none':'';
     if(stage)stage.hidden=!is3d;
     if(bar)bar.hidden=!is3d;

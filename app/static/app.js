@@ -29,6 +29,7 @@
   const routeMaps = {};  // 行程 id → 详情小地图实例,同上
   const routeRows = {};  // 行程 id → 列表行 DOM(地图点选轨迹时定位展开用)
   const openRouteIds = new Set();  // 已展开的行程 id,60s 刷新重渲染后恢复展开状态
+  const dayOpenState = new Map();  // 日分组手动展开/折叠状态(dayKey → bool),刷新后恢复;未手动操作过默认今天展开
   let map = null;
   let mapFit = false;
   let mapInitPromise = null;
@@ -3906,7 +3907,8 @@
 
     groups.forEach((rs, key) => {
       const isToday = key === dayKey(Date.now());
-      const grp = el('div', 'day-group' + (isToday ? ' open' : ''));
+      // 手动展开/折叠过的组按记录恢复,不再被定时刷新折回;未操作过默认今天展开
+      const grp = el('div', 'day-group' + ((dayOpenState.has(key) ? dayOpenState.get(key) : isToday) ? ' open' : ''));
       const head = el('button', 'day-head');
       head.type = 'button';
       head.appendChild(el('span', 'date', dayLabel(Number(rs[0].start_date_ts))));
@@ -3923,7 +3925,10 @@
         head.appendChild(thumb);
       }
       head.appendChild(el('span', 'chev', '▾'));
-      head.addEventListener('click', () => grp.classList.toggle('open'));
+      head.addEventListener('click', () => {
+        const open = grp.classList.toggle('open');
+        dayOpenState.set(key, open);
+      });
       grp.appendChild(head);
 
       const body = el('div', 'day-body');
@@ -3961,6 +3966,10 @@
         kvItem('动能回收', (r.regen_kwh !== null && r.regen_kwh !== undefined)
           ? `${fmtNum(r.regen_kwh, r.regen_kwh < 1 ? 2 : 1)} kWh` : '—');
         kvItem('Δ理想续航', delta !== null ? `${fmtNum(delta, 1)} km` : '—');
+        // 续航达成率 = 实际里程 / 消耗的理想续航(>100% 表示跑赢表显)
+        const attain = (delta !== null && delta > 0 && r.distance)
+          ? r.distance / delta * 100 : null;
+        kvItem('续航达成率', attain !== null ? `${fmtNum(attain, 0)}%` : '—');
         kvItem('电费', (a && a.cost_yuan !== null && a.cost_yuan !== undefined)
           ? `¥${fmtNum(a.cost_yuan, 2)}` +
             (a.cost_per_km_yuan !== null && a.cost_per_km_yuan !== undefined

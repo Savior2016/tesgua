@@ -3465,6 +3465,12 @@ footer a { color: var(--text-muted); }
 }
 .ctl-car { width: 100%; max-width: 330px; height: auto; display: block; }
 
+/* 3D 车模模式:去掉车框玻璃嵌套,舞台直接落在卡片里(与总览 3D 同款处理) */
+.ctl-carbox.ctl3d {
+  border: none; background: none; box-shadow: none; padding: 0;
+  backdrop-filter: none; -webkit-backdrop-filter: none;
+}
+
 /* 车身部位 = 异形按钮;--zc 为该部位主题色。
    按钮边界与车身钣金缝/玻璃边共享曲线,默认不描边——边框由车身自身缝线统一刻画 */
 .ctl-zone { cursor: pointer; -webkit-tap-highlight-color: transparent; outline: none; }
