@@ -22,6 +22,8 @@ const target = new THREE.Vector3(0, 0.72, 0);   // 注视点抬高→车在框�
 const orbit = { theta: 2.557, phi: 1.139, r: 6.9 };  // 方向同旧固定机位,半径由 fitRadius 校准
 const orbitGoal = { ...orbit };
 let userZoomed = false;   // 用户手动缩放后不再随窗口尺寸重置
+// 展示台缓转:加载后自动旋转,用户一上手(拖动/捏合/滚轮)即停,尊重系统减少动态设置
+let autoSpin = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 function applyOrbit() {
   const { theta, phi, r } = orbit;
   camera.position.set(
@@ -48,6 +50,7 @@ function fitRadius() {
   let tap = null;   // 单击候选:抬起时位移 <8px → 查询色块信息
   el.addEventListener('pointerdown', (e) => {
     hideTip();
+    autoSpin = false;   // 用户接管,停止自动旋转
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     el.setPointerCapture(e.pointerId);
     if (pointers.size === 2) {
@@ -89,6 +92,7 @@ function fitRadius() {
   el.addEventListener('pointercancel', release);
   el.addEventListener('wheel', (e) => {
     e.preventDefault();
+    autoSpin = false;
     userZoomed = true;
     orbitGoal.r = Math.min(20, Math.max(3.2, orbitGoal.r * (1 + e.deltaY * 0.001)));
   }, { passive: false });
@@ -471,6 +475,7 @@ resize();
 
 function frame() {
   requestAnimationFrame(frame);
+  if (autoSpin) orbitGoal.theta += 0.0012;   // 展台缓转(比控制页略慢)
   orbit.theta += (orbitGoal.theta - orbit.theta) * 0.12;
   orbit.phi += (orbitGoal.phi - orbit.phi) * 0.12;
   orbit.r += (orbitGoal.r - orbit.r) * 0.15;
@@ -481,7 +486,7 @@ frame();
 
 // 调试钩子(自动化截图用)
 window.__txov = {
-  pause() { window.__txovPaused = true; },
+  pause() { window.__txovPaused = true; autoSpin = false; },
   resume() { window.__txovPaused = false; },
   getOrbit() { return { ...orbit, camY: camera.position.y }; },
   // 立即切到指定轨道视角(跳过插值):__txov.setOrbit(theta, phi, r)

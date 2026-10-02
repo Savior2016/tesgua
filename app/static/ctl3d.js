@@ -243,6 +243,7 @@ const VIEWS = {
 };
 let autoSpin = !matchMedia('(prefers-reduced-motion: reduce)').matches;
 let downAt = null;
+let spinVel = 0;            // 松手后的惯性角速度(rad/帧):甩动后车像转盘一样滑行衰减
 let userZoomed = false;   // 滚轮缩放过 → 不再随舞台尺寸自适应
 let viewR = 6.5;          // 视角按钮设定的基准半径(自适应只在其上兜底)
 
@@ -268,18 +269,23 @@ function applyOrbit() {
 const el = renderer.domElement;
 el.addEventListener('pointerdown', (e) => {
   autoSpin = false;
-  downAt = { x: e.clientX, y: e.clientY, theta: orbit.theta, phi: orbit.phi, moved: 0 };
+  spinVel = 0;   // 重新按住即刹停惯性
+  downAt = { x: e.clientX, y: e.clientY, theta: orbitGoal.theta, phi: orbitGoal.phi, moved: 0, vel: 0 };
   el.setPointerCapture(e.pointerId);
 });
 el.addEventListener('pointermove', (e) => {
   if (!downAt) return;
   const dx = e.clientX - downAt.x, dy = e.clientY - downAt.y;
   downAt.moved = Math.max(downAt.moved, Math.abs(dx) + Math.abs(dy));
-  orbitGoal.theta = orbit.theta = downAt.theta - dx * 0.006;
-  orbitGoal.phi = orbit.phi = Math.min(1.45, Math.max(0.12, downAt.phi - dy * 0.005));
+  // 只写目标值,由帧循环以高跟随系数插值:事件抖动被抹平,拖动依然跟手
+  const theta = downAt.theta - dx * 0.006;
+  downAt.vel = downAt.vel * 0.7 + (theta - orbitGoal.theta) * 0.3;   // 平滑的瞬时角速度
+  orbitGoal.theta = theta;
+  orbitGoal.phi = Math.min(1.45, Math.max(0.12, downAt.phi - dy * 0.005));
 });
 el.addEventListener('pointerup', (e) => {
   const wasClick = downAt && downAt.moved < 6;
+  if (downAt && downAt.moved >= 6) spinVel = Math.max(-0.06, Math.min(0.06, downAt.vel));
   downAt = null;
   if (wasClick) pick(e);
 });
@@ -304,6 +310,7 @@ if (viewBar) viewBar.addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-view]');
   if (!btn) return;
   autoSpin = false;
+  spinVel = 0;
   userZoomed = false;   // 选视角后恢复画幅自适应
   Object.assign(orbitGoal, VIEWS[btn.dataset.view]);
   viewR = VIEWS[btn.dataset.view].r;
@@ -425,8 +432,14 @@ function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.1);
   if (autoSpin) orbitGoal.theta += 0.0016;
-  orbit.theta += (orbitGoal.theta - orbit.theta) * 0.08;
-  orbit.phi += (orbitGoal.phi - orbit.phi) * 0.08;
+  else if (!downAt && Math.abs(spinVel) > 0.0002) {   // 松手惯性滑行,摩擦衰减
+    orbitGoal.theta += spinVel;
+    spinVel *= 0.94;
+  }
+  // 拖动中用高跟随系数(直接手感、抹平事件抖动),松开后回到柔和阻尼
+  const follow = downAt ? 0.4 : 0.08;
+  orbit.theta += (orbitGoal.theta - orbit.theta) * follow;
+  orbit.phi += (orbitGoal.phi - orbit.phi) * follow;
   orbit.r += (orbitGoal.r - orbit.r) * 0.12;
   applyOrbit();
   // 开合动画补间
@@ -480,12 +493,13 @@ fetch('/api/prefs').then((r) => r.json()).then((p) => {
 window.__THREE = THREE;
 window.__tx3d = {
   car,
-  pause() { window.__tx3dPaused = true; },
+  pause() { window.__tx3dPaused = true; autoSpin = false; },
   resume() { window.__tx3dPaused = false; },
   // 立即切到目标视角(跳过插值,低速渲染环境下截图用)
   setView(name) {
     if (VIEWS[name]) {
       autoSpin = false;
+      spinVel = 0;
       Object.assign(orbit, VIEWS[name]);
       Object.assign(orbitGoal, VIEWS[name]);
     }
