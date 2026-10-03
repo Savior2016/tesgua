@@ -122,7 +122,7 @@ function fitRadius() {
   scene.add(shadow);
 
   // 侧壁车标:贴合柱面的弧形贴片(与圆台同心、略大一圈防 z-fighting),
-  // 正对车头方向(-Z),默认右前俯视机位下清晰可见;特斯拉红 #E82127
+  // 对齐车头(-Z);特斯拉红 #E82127
   const lc = document.createElement('canvas');
   lc.width = lc.height = 512;
   const lctx = lc.getContext('2d');
@@ -133,10 +133,10 @@ function fitRadius() {
   const logoTex = new THREE.CanvasTexture(lc);
   logoTex.colorSpace = THREE.SRGBColorSpace;
   logoTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  // 朝向默认机位方位角(orbit.theta=2.557,车头右前方):正前 -Z 会被透视挤到圆台右缘
+  // 对齐车头方向(-Z):CylinderGeometry theta 自 +Z 起算,车头 = θ=π
   const LOGO_R = 4.012, LOGO_H = 0.42, LOGO_ARC = 0.62 / LOGO_R;  // 弧长 0.62m
   const logo = new THREE.Mesh(
-    new THREE.CylinderGeometry(LOGO_R, LOGO_R, LOGO_H, 24, 1, true, 2.557 - LOGO_ARC / 2, LOGO_ARC),
+    new THREE.CylinderGeometry(LOGO_R, LOGO_R, LOGO_H, 24, 1, true, Math.PI - LOGO_ARC / 2, LOGO_ARC),
     new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, depthWrite: false, toneMapped: false }));
   logo.position.y = -0.19;   // 偏圆台上沿:高位俯视下侧壁被压扁,贴下沿会看不清
   logo.renderOrder = 1;
