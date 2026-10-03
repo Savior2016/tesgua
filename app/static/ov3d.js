@@ -152,6 +152,9 @@ const DEMO = {
   tout: 18,                   // 车外温度
   companionDays: 532,         // 陪伴天数(正式页来自 /api/vehicle/delivery)
   eff: { val: 152, lo: 120, hi: 210, official: 129 },   // 平均能耗 Wh/km + 近期区间 + 官方值
+  bh: { pct: 98.2, kwh: 83.8 },   // 电池健康 %(= 最新估算满电 ÷ 历史最高)+ 最新估算满电 kWh
+  monthKm: 1234,              // 本月里程
+  weekKm: 210,                // 本周里程(周一起算)
   bd: [
     { key: 'uncharged', label: '未充(充至 90%)', pct: 10, color: 0x5a6270, opacity: 0.5 },
     { key: 'idle', label: '驻车耗电', pct: 4, color: 0x4a3aa7, opacity: 0.95, kwh: 1.2 },
@@ -165,8 +168,8 @@ const DEMO = {
 
 // ---------- 圆柱形数据背景 ----------
 // 车模后方一整圈 3D 曲面(相机在柱内,轨道旋转时各数据面板依次入画),
-// 上下两行:上排=里程/电量/能耗/陪伴/车内空调/车外温度,
-// 下排=胎压(四轮) + 本充电周期能耗构成比例(行驶/哨兵/驻车/未充/剩余,与底座内环同一份数据)
+// 上下两行:上排=里程/电量/电池健康/能耗/陪伴/车内空调/车外温度,
+// 下排=胎压(四轮) + 本充电周期能耗构成比例(行驶/哨兵/驻车/未充/剩余,与底座内环同一份数据) + 本月里程
 function drawBackdrop(cv, d) {
   const W = cv.width, H = cv.height;
   const ctx = cv.getContext('2d');
@@ -184,7 +187,7 @@ function drawBackdrop(cv, d) {
   const TXT = 'rgba(236,241,249,1)';      // 主数值
   const GRN = '#1baf7a';
   const BLU = '#3987e5';
-  const N = 6;   // 面板列数,均布一圈(每列上下两行)
+  const N = 7;   // 面板列数,均布一圈(每列上下两行)
   const pw = W / N;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -257,31 +260,41 @@ function drawBackdrop(cv, d) {
   const socT = d.soc === null || d.soc === undefined ? '—' : `${Math.round(d.soc)}`;
   // 上排 ① 总里程
   label(p(0), cy1 - 125, '总里程');
-  bigVal(p(0), cy1 + 10, dash(d.odoText), d.odoText ? ' km' : '', 165);
+  bigVal(p(0), cy1 + 10, dash(d.odoText), d.odoText ? ' km' : '', 145);
   // 上排 ② 当前电量
   label(p(1), cy1 - 125, '当前电量');
-  bigVal(p(1), cy1 - 2, socT, d.soc == null ? '' : ' %', 170);
+  bigVal(p(1), cy1 - 2, socT, d.soc == null ? '' : ' %', 155);
   sub(p(1), cy1 + 105, d.rangeKm == null ? '' : `续航约 ${d.rangeKm} km`);
   if (d.soc != null) bar(p(1), cy1 + 165, 340, d.soc / 100, GRN);
-  // 上排 ③ 平均能耗
-  label(p(2), cy1 - 125, '平均能耗');
+  // 上排 ③ 电池健康(最新估算满电 ÷ 历史最高;≥97 绿/≥90 黄/否则红,同 2D 口径)
+  label(p(2), cy1 - 125, '电池健康');
+  if (d.bh && d.bh.pct != null) {
+    const bhC = d.bh.pct >= 97 ? GRN : d.bh.pct >= 90 ? '#fab219' : '#d03b3b';
+    bigVal(p(2), cy1 - 2, `${Math.round(d.bh.pct * 10) / 10}`, ' %', 155, bhC);
+    if (d.bh.kwh != null) sub(p(2), cy1 + 105, `满电约 ${Math.round(d.bh.kwh * 10) / 10} kWh`);
+    bar(p(2), cy1 + 165, 340, d.bh.pct / 100, bhC);
+  } else {
+    bigVal(p(2), cy1 + 10, '—', '', 155);
+  }
+  // 上排 ④ 平均能耗
+  label(p(3), cy1 - 125, '平均能耗');
   if (d.eff && d.eff.val != null) {
-    bigVal(p(2), cy1 - 2, `${Math.round(d.eff.val)}`, ' Wh/km', 155);
-    sub(p(2), cy1 + 105, `官方 ${Math.round(d.eff.official)} · 刻度 ${d.eff.lo}–${d.eff.hi}`);
-    bar(p(2), cy1 + 165, 340, (d.eff.val - d.eff.lo) / (d.eff.hi - d.eff.lo), BLU,
+    bigVal(p(3), cy1 - 2, `${Math.round(d.eff.val)}`, ' Wh/km', 140);
+    sub(p(3), cy1 + 105, `官方 ${Math.round(d.eff.official)} · 刻度 ${d.eff.lo}–${d.eff.hi}`);
+    bar(p(3), cy1 + 165, 340, (d.eff.val - d.eff.lo) / (d.eff.hi - d.eff.lo), BLU,
         (d.eff.official - d.eff.lo) / (d.eff.hi - d.eff.lo));
   } else {
-    bigVal(p(2), cy1 + 10, '—', '', 170);
+    bigVal(p(3), cy1 + 10, '—', '', 155);
   }
-  // 上排 ④ 陪伴天数
-  label(p(3), cy1 - 125, '已陪伴');
-  bigVal(p(3), cy1 + 10, dash(d.companionDays), d.companionDays != null ? ' 天' : '', 170);
-  // 上排 ⑤ 车内空调
-  label(p(4), cy1 - 125, '车内空调');
-  bigVal(p(4), cy1 + 10, d.tin == null ? '—' : `${d.tin}`, d.tin == null ? '' : '°', 170);
-  // 上排 ⑥ 车外温度
-  label(p(5), cy1 - 125, '车外温度');
-  bigVal(p(5), cy1 + 10, d.tout == null ? '—' : `${d.tout}`, d.tout == null ? '' : '°', 170);
+  // 上排 ⑤ 陪伴天数
+  label(p(4), cy1 - 125, '已陪伴');
+  bigVal(p(4), cy1 + 10, dash(d.companionDays), d.companionDays != null ? ' 天' : '', 155);
+  // 上排 ⑥ 车内空调
+  label(p(5), cy1 - 125, '车内空调');
+  bigVal(p(5), cy1 + 10, d.tin == null ? '—' : `${d.tin}`, d.tin == null ? '' : '°', 155);
+  // 上排 ⑦ 车外温度
+  label(p(6), cy1 - 125, '车外温度');
+  bigVal(p(6), cy1 + 10, d.tout == null ? '—' : `${d.tout}`, d.tout == null ? '' : '°', 155);
 
   // 下排 ① 胎压(四轮 2×2,按与标准 2.9 bar 的偏差着色)
   label(p(0), cy2 - 135, '胎压 bar');
@@ -310,6 +323,11 @@ function drawBackdrop(cv, d) {
         bigVal(cx, cy2 + 10, '—', '', 130);
       }
     });
+    // 下排 ⑦ 本月里程(副标=本周里程)
+    label(p(6), cy2 - 135, '本月里程');
+    bigVal(p(6), cy2 - 8, d.monthKm == null ? '—' : `${Math.round(d.monthKm)}`,
+           d.monthKm == null ? '' : ' km', 130);
+    if (d.weekKm != null) sub(p(6), cy2 + 78, `本周 ${Math.round(d.weekKm)} km`);
   }
 }
 const backdrop = (() => {
@@ -502,6 +520,8 @@ window.__txov = {
 // ---------- 数据注入(测试页传演示数据;正式页 ovMode=3d 时由 app.js 喂真实数据) ----------
 // d = { soc, rangeKm, odoText, tin, tout, companionDays,
 //       eff: { val, lo, hi, official } | null,
+//       bh: { pct, kwh } | null,   // 电池健康 % + 最新估算满电 kWh
+//       monthKm, weekKm,           // 本月/本周里程
 //       bd: [{ key, label, pct, color, opacity, kwh? }],
 //       tpms: { fl, fr, rl, rr }, tpmsColors?: { fl..rr: css色 } }
 function setData(d) {

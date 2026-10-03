@@ -1396,6 +1396,14 @@
       tout: outT === null ? null : fmtNum(outT, 1),
       companionDays: companionDays(),
       eff,
+      bh: (() => {   // 电池健康:与 2D 左列/数据模式同一口径(S.health)
+        const bh = S.health;
+        if (!bh || bh.health_pct === null || bh.health_pct === undefined) return null;
+        return { pct: Number(bh.health_pct),
+                 kwh: bh.current_kwh == null ? null : Number(bh.current_kwh) };
+      })(),
+      monthKm: o.totals && o.totals.month_km != null ? Number(o.totals.month_km) : null,
+      weekKm: o.totals && o.totals.week_km != null ? Number(o.totals.week_km) : null,
       bd,
       tpms,
       tpmsColors,
