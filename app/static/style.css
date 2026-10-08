@@ -1350,18 +1350,49 @@ button { touch-action: manipulation; }
   white-space: nowrap;
 }
 
-/* 个人中心 3D 车模选择(控制页/总览):独占一行竖排布局,按钮均分自动换行,
-   窄屏不再溢出;趣味模型前有细分隔线 */
+/* 个人中心 3D 车模选择(控制页/总览):网格卡片式选项,等宽对齐自动换行;
+   趣味模型前有一条通栏细分隔线 */
 .model-pref-row { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
 .model-pref-label { font-size: 13px; color: var(--text-secondary); }
 .model-pref-hint { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
-.seg.model-seg { display: flex; flex-wrap: wrap; max-width: 100%; row-gap: 4px; }
+.seg.model-seg {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 8px;
+  max-width: 100%;
+  background: none; border: 0; padding: 0; box-shadow: none;
+}
 .model-seg button {
-  flex: 1 1 auto; white-space: nowrap; text-align: center;
-  padding: 6px 12px;
+  position: relative;
+  white-space: nowrap; text-align: center;
+  padding: 10px 8px;
+  border: 1px solid var(--glass-edge);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--page) 55%, transparent);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.model-seg button:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--series-1) 55%, var(--glass-edge));
+  color: var(--text-primary);
+}
+.model-seg button.on {
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--series-1) 88%, #fff),
+    var(--series-1));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--series-1) 45%, transparent),
+              inset 0 1px 0 rgba(255, 255, 255, 0.38);
+}
+.model-seg button.on::after {
+  content: '✓';
+  position: absolute; top: 3px; right: 7px;
+  font-size: 10px; opacity: 0.85;
 }
 .model-seg-divider {
-  flex: 0 0 1px; align-self: stretch; margin: 5px 4px;
+  grid-column: 1 / -1;
+  height: 1px; margin: 2px 0;
   background: var(--glass-edge);
 }
 
