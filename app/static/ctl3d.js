@@ -480,10 +480,11 @@ function frame() {
 }
 frame();
 
-// 默认加载用户车型(个人中心「3D 车模」偏好;localStorage 秒开,服务端后台校准)
+// 默认加载用户车型(个人中心「控制页 3D 车模」偏好;localStorage 秒开,服务端后台校准)
+// 趣味模型(raw,无车身热点)仅供总览:控制页落到默认车模
 function preferredModel() {
   const m = localStorage.getItem('ttv-carmodel');
-  return (m && MODELS[m]) ? m : 'y-yl';
+  return (m && MODELS[m] && !MODELS[m].raw) ? m : 'y-yl';
 }
 loadModel(preferredModel());
 fetch('/api/prefs').then((r) => r.json()).then((p) => {

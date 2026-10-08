@@ -2,13 +2,13 @@
 """趣味 3D 模型归一化与拼装 —— 生成 app/static/models/fun/ 下的展示模型。
 
 统一约定(与 car3d.js 注册表一致):车头/正面 = -Z,地面 = y=0,XZ 居中。
-源模型均为 draco 压缩 GLB(需 DracoPy),导出为未压缩 GLB(面板 GLTFLoader
-只挂了 MeshoptDecoder,没有 DRACOLoader,不能直接服源码)。
+导出为未压缩 GLB(压缩交给 gltf-transform CLI;面板 GLTFLoader 只挂了
+MeshoptDecoder,没有 DRACOLoader)。
 
-产出:
-  sanbengzi.glb  三蹦子  —— Street Vendor Cart(Alan Zimmerman @ poly.pizza, CC-BY 3.0)
-  mars-rover.glb 火星车  —— Mars 2020 Perseverance Rover(NASA, 3D Resources)
-  yaoyao.glb     摇摇车  —— Quaternius "Car"(CC0)+ 程序化弹簧底座拼装
+产出(写实风格):
+  sanbengzi.glb  三蹦子  —— Autorickshaw(iGauravRajput @ Sketchfab, CC-BY 4.0)
+  mars-rover.glb 火星车  —— Perseverance 工作构型(NASA science 站,机械臂展开)
+  yaoyao.glb     摇摇车  —— Khronos ToyCar(CC0, 写实 PBR)+ 程序化弹簧底座
 """
 import numpy as np
 import trimesh
@@ -60,30 +60,28 @@ def export(scene, path):
 
 
 def make_sanbengzi():
-    """三轮售货车:长度轴为 x,车头(摩托头)= 较轻的前半。转正到 -Z。"""
-    sc = trimesh.load(f"{SRC}/vendor-cart.glb", force="scene")
-    meshes = dump_meshes(sc)
-    # 灯笼串弧线太高(y≈1.84 起,归一化后会顶到背景弧形墙),裁掉只留雨棚
-    meshes = [m for m in meshes if m.bounds[0][1] <= 1.83]
-    sc = trimesh.Scene(meshes)
-    verts = np.vstack([m.vertices for m in meshes])
-    b = sc.bounds
-    mid_x = (b[0][0] + b[1][0]) / 2
-    front_pos_x = (verts[:, 0] > mid_x).sum() < (verts[:, 0] <= mid_x).sum()  # 轻半=车头
-    # rotY(+90): +x → -z;车头在 +x 时直接转,否则转 -90
-    deg = 90 if front_pos_x else -90
-    sc.apply_transform(rot_y(deg))
-    normalize(sc, 4.6)
-    print(f"sanbengzi: front_pos_x={front_pos_x} rot={deg}")
+    """三轮摩托(突突车):长度轴为 x,车头(风挡/单前轮)= +x(截图核实)。
+    rotY(+90): +x → -z。归一化到 2.6m 长。
+    Tripo 导出缺 metallicFactor(glTF 默认 1.0 → 无环境贴图下全黑),强制归零。"""
+    sc = trimesh.load(f"{SRC}/rickshaw/rickshaw.glb", force="scene")
+    for m in sc.geometry.values():
+        mat = getattr(m.visual, "material", None)
+        if mat is not None and hasattr(mat, "metallicFactor"):
+            mat.metallicFactor = 0.0
+    sc.apply_transform(rot_y(90))
+    normalize(sc, 2.6)
+    print("sanbengzi: rickshaw front=+X rot=90")
     export(sc, f"{OUT}/sanbengzi.glb")
 
 
 def make_mars_rover():
-    """毅力号:长度轴已是 z,地面已对齐,车头(桅杆端)原生朝 -Z(截图核实)。
-    减面交给 gltf-transform CLI(trimesh 减面会丢 UV → 贴图全白),这里只归一化。"""
-    sc = trimesh.load(f"{SRC}/perseverance.glb", force="scene")
+    """毅力号工作构型(NASA science 站版本,机械臂已展开触地):
+    桅杆/钻头和机械臂在 +z(节点位置核实),rotY(180) 转正。
+    减面压缩交给 gltf-transform CLI(trimesh 减面会丢 UV → 贴图全白),这里只归一化。"""
+    sc = trimesh.load(f"{SRC}/perseverance-science.glb", force="scene")
+    sc.apply_transform(rot_y(180))
     normalize(sc, 4.2)
-    print("mars-rover: no rotation (front = -Z natively)")
+    print("mars-rover: science deployed pose, front=+Z rot=180")
     export(sc, f"{OUT}/mars-rover.glb")
 
 
@@ -102,30 +100,17 @@ def torus(major, minor, y):
 
 
 def make_yaoyao():
-    """摇摇车 = 卡通小车(Quaternius Car 重新上色)+ 大弹簧 + 投币底座。"""
-    car = trimesh.load(f"{SRC}/quaternius-car.glb", force="scene")
-    # 卡通车转正:楔形车头 = 斜面更长的一端。沿 z 质量分布:车头低扁(顶点少),车尾高(顶点多)
-    cm = dump_meshes(car)
-    cverts = np.vstack([m.vertices for m in cm])
-    cb = car.bounds
-    mid_z = (cb[0][2] + cb[1][2]) / 2
-    front_pos_z = (cverts[:, 2] > mid_z).sum() < (cverts[:, 2] <= mid_z).sum()
-    if front_pos_z:
-        car.apply_transform(rot_y(180))
-    # 上色:车身糖果黄,塑料质感。注意必须改 scene.geometry 里的原网格——
-    # dump() 返回的是副本,改副本会被丢弃
-    for m in car.geometry.values():
-        name = getattr(getattr(m.visual, "material", None), "name", "") or ""
-        if name == "Main":
-            m.visual = trimesh.visual.TextureVisuals(material=pbr([0.97, 0.68, 0.08], 0.05, 0.45, "Main"))
-        else:
-            base = getattr(getattr(m.visual, "material", None), "baseColorFactor", None)
-            if base is None:
-                base = [0.2, 0.2, 0.2, 1]
-            base = list(base[:3])
-            if max(base) > 1:   # trimesh 有时把 0-255 整型颜色原样塞进 factor
-                base = [c / 255 for c in base]
-            m.visual = trimesh.visual.TextureVisuals(material=pbr(base, 0.05, 0.5, name or "trim"))
+    """摇摇车 = Khronos ToyCar(写实 PBR 玩具车,CC0)+ 大弹簧 + 投币底座。
+    裁掉展示绒布(Fabric)和相机节点;车头(格栅/大灯)= +z(截图核实),rotY(180) 转正。
+    保留原车漆/火焰贴花,不重上色。"""
+    car = trimesh.load(f"{SRC}/toycar.glb", force="scene")
+    drop = set()
+    for node in car.graph.nodes_geometry:
+        _, geom = car.graph.get(node)
+        if 'fabric' in node.lower() or 'camera' in node.lower():
+            drop.add(geom)
+    car.delete_geometry(list(drop))
+    car.apply_transform(rot_y(180))
     # 小车缩放到 1.9m 长
     b = car.bounds
     s_car = 1.9 / (b[1][2] - b[0][2])
@@ -174,7 +159,7 @@ def make_yaoyao():
     b = sc.bounds
     sc.apply_transform(trimesh.transformations.translation_matrix(
         [-(b[0][0] + b[1][0]) / 2, -b[0][1], -(b[0][2] + b[1][2]) / 2]))
-    print(f"yaoyao: front_pos_z={front_pos_z} pivotY={pivot_y * s_all:.3f}")
+    print(f"yaoyao: toycar composite pivotY={pivot_y * s_all:.3f}")
     export(sc, f"{OUT}/yaoyao.glb")
 
 

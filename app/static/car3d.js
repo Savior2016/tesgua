@@ -73,20 +73,20 @@ export const MODELS = {
   },
   // ---------- 趣味模型(仅总览 3D;raw=保留原材质不换漆,hotspots=[] 控制页不建热点) ----------
   'sanbengzi': {
-    label: '三蹦子', url: '/models/fun/sanbengzi.glb', sizeMB: 0.35,
-    meshopt: true, raw: true, noLogo: true, hotspots: [], wheelRe: null, halfLen: 2.3,
-    note: '三轮售货摩托(Alan Zimmerman @ poly.pizza,CC-BY 3.0);仅供娱乐,无车身交互',
+    label: '三蹦子', url: '/models/fun/sanbengzi.glb', sizeMB: 3.9,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 1.3,
+    note: '三轮摩托(Autorickshaw,iGauravRajput @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
   },
   'mars-rover': {
-    label: '火星车 · 毅力号', url: '/models/fun/mars-rover.glb', sizeMB: 1.3,
-    meshopt: true, raw: true, noLogo: true, hotspots: [], wheelRe: null, halfLen: 2.1,
-    note: 'NASA 官方 3D 模型(Mars 2020 Perseverance);仅供娱乐,无车身交互',
+    label: '火星车 · 毅力号', url: '/models/fun/mars-rover.glb', sizeMB: 2.2,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 2.1,
+    note: 'NASA 官方 3D 模型(Perseverance 工作构型,机械臂展开);仅供娱乐,无车身交互',
   },
   'yaoyao': {
-    label: '摇摇车', url: '/models/fun/yaoyao.glb', sizeMB: 0.21,
-    meshopt: true, raw: true, noLogo: true, hotspots: [], wheelRe: null, halfLen: 1.8,
+    label: '摇摇车', url: '/models/fun/yaoyao.glb', sizeMB: 0.82,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 1.8,
     rock: true, rockPivotY: 0.360,   // 绕底座顶面铰链缓摇(总览 3D,尊重减少动态)
-    note: '卡通小车(Quaternius,CC0)+ 程序化弹簧投币底座;仅供娱乐,无车身交互',
+    note: '写实玩具车(Khronos ToyCar,CC0)+ 程序化弹簧投币底座;仅供娱乐,无车身交互',
   },
 };
 

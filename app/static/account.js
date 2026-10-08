@@ -305,9 +305,9 @@
       msg($('days-msg'), err.message, false);
     }
   });
-  /* 3D 车模选择:test 页 3D 注册表键(POST 合并语义,只发 car_model) */
+  /* 控制页 3D 车模选择:仅特斯拉车模(POST 合并语义,只发 car_model) */
   const cmSeg = $('carmodel-seg');
-  const CAR_MODELS = ['y-yl', 'y-juniper', 'model-3', 'cybertruck', 'y-legacy', 'sanbengzi', 'mars-rover', 'yaoyao'];
+  const CAR_MODELS = ['y-yl', 'y-juniper', 'model-3', 'cybertruck', 'y-legacy'];
   function markCarModel(m) {
     cmSeg.querySelectorAll('button').forEach((b) =>
       b.classList.toggle('on', b.dataset.cm === m));
@@ -329,6 +329,30 @@
       msg($('days-msg'), err.message, false);
     }
   });
+  /* 总览 3D 模型选择:特斯拉车模 + 趣味模型,与控制页独立(POST 合并语义,只发 ov_car_model) */
+  const ocmSeg = $('ovcarmodel-seg');
+  const OV_CAR_MODELS = [...CAR_MODELS, 'sanbengzi', 'mars-rover', 'yaoyao'];
+  function markOvCarModel(m) {
+    ocmSeg.querySelectorAll('button').forEach((b) =>
+      b.classList.toggle('on', b.dataset.ocm === m));
+  }
+  ocmSeg.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const m = btn.dataset.ocm;
+    markOvCarModel(m);
+    localStorage.setItem('ttv-ovcarmodel', m);  // 面板下次打开即刻生效
+    try {
+      await api('/api/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ov_car_model: m }),
+      });
+      msg($('days-msg'), '已保存', true);
+    } catch (err) {
+      msg($('days-msg'), err.message, false);
+    }
+  });
   (async () => {
     try {
       const p = await api('/api/prefs');
@@ -344,6 +368,9 @@
       const cm = CAR_MODELS.includes(p.car_model) ? p.car_model : 'y-yl';
       markCarModel(cm);
       localStorage.setItem('ttv-carmodel', cm);
+      const ocm = OV_CAR_MODELS.includes(p.ov_car_model) ? p.ov_car_model : cm;
+      markOvCarModel(ocm);
+      localStorage.setItem('ttv-ovcarmodel', ocm);
     } catch (e) {
       msg($('days-msg'), e.message, false);
     }

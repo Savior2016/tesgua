@@ -10,9 +10,9 @@ import { prepareHighland } from '/highland3d.js';
 const stage = document.getElementById('txov-stage');
 const loadingEl = document.getElementById('txov-loading');
 
-// 用户车型(个人中心「3D 车模」偏好;localStorage 秒开,后台 /api/prefs 校准)
+// 总览 3D 模型(个人中心「总览 3D 模型」偏好,与控制页车模相互独立;localStorage 秒开,后台 /api/prefs 校准)
 const loader = makeLoader();
-const prefKey = localStorage.getItem('ttv-carmodel');
+const prefKey = localStorage.getItem('ttv-ovcarmodel');
 const cfg = resolveCfg(prefKey && MODELS[prefKey] ? prefKey : 'y-yl');
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
@@ -127,8 +127,8 @@ function fitRadius() {
   scene.add(shadow);
 
   // 侧壁车标:贴合柱面的弧形贴片(与圆台同心、略大一圈防 z-fighting),
-  // 对齐车头(-Z);特斯拉红 #E82127。趣味模型(noLogo)不贴车标
-  if (!cfg.noLogo) {
+  // 对齐车头(-Z);特斯拉红 #E82127 T 字徽章(图形标,所有模型都显示)
+  {
   const lc = document.createElement('canvas');
   lc.width = lc.height = 512;
   const lctx = lc.getContext('2d');
@@ -142,7 +142,7 @@ function fitRadius() {
   // 对齐车头方向(-Z):CylinderGeometry theta 自 +Z 起算,车头 = θ=π
   const LOGO_R = 4.012, LOGO_H = 0.42, LOGO_ARC = 0.62 / LOGO_R;  // 弧长 0.62m
   const logo = new THREE.Mesh(
-    new THREE.CylinderGeometry(LOGO_R, LOGO_R, LOGO_H, 24, 1, true, Math.PI - LOGO_ARC / 2, LOGO_ARC),
+    new THREE.CylinderGeometry(LOGO_R, LOGO_R, LOGO_H, 64, 1, true, Math.PI - LOGO_ARC / 2, LOGO_ARC),
     new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, depthWrite: false, toneMapped: false }));
   logo.position.y = -0.19;   // 偏圆台上沿:高位俯视下侧壁被压扁,贴下沿会看不清
   logo.renderOrder = 1;
@@ -458,7 +458,7 @@ function inspectRing(e) {
 
 // ---------- 加载用户车型 ----------
 fetch('/api/prefs').then((r) => r.json()).then((p) => {
-  if (p.car_model && MODELS[p.car_model]) localStorage.setItem('ttv-carmodel', p.car_model);
+  if (p.ov_car_model && MODELS[p.ov_car_model]) localStorage.setItem('ttv-ovcarmodel', p.ov_car_model);
 }).catch(() => {});
 
 let rockPivot = null;   // 摇摇车:绕底座顶面铰链的缓摇组(尊重 prefers-reduced-motion)

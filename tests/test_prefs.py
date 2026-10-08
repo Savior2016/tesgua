@@ -103,7 +103,8 @@ def test_merge_semantics(env):
     client.post("/api/prefs", json={"overview_mode": "data"})
     assert prefs["owner"] == {"days": 30, "overview_mode": "data"}
     got = client.get("/api/prefs").json()
-    assert got == {"days": 30, "overview_mode": "data", "control_mode": "2d", "car_model": "y-yl"}
+    assert got == {"days": 30, "overview_mode": "data", "control_mode": "2d",
+                   "car_model": "y-yl", "ov_car_model": "y-yl"}
     client.post("/api/prefs", json={"days": 1})
     assert prefs["owner"] == {"days": 1, "overview_mode": "data"}
 
@@ -148,6 +149,46 @@ def test_invalid_car_model(env):
     client, _ = env
     login(client)
     assert client.post("/api/prefs", json={"car_model": "model-s"}).status_code == 422
+
+
+def test_control_car_model_rejects_fun_models(env):
+    """控制页车模只接受特斯拉车模;趣味模型是总览专属。"""
+    client, _ = env
+    login(client)
+    assert client.post("/api/prefs", json={"car_model": "sanbengzi"}).status_code == 422
+
+
+def test_ov_car_model(env):
+    """总览 3D 模型:独立偏好,接受趣味模型,与控制页互不影响。"""
+    client, prefs = env
+    login(client)
+    r = client.post("/api/prefs", json={"ov_car_model": "mars-rover"})
+    assert r.status_code == 200 and r.json()["ov_car_model"] == "mars-rover"
+    assert r.json()["car_model"] == "y-yl"
+    assert prefs["owner"] == {"ov_car_model": "mars-rover"}
+
+
+def test_ov_car_model_defaults_to_car_model(env):
+    """总览模型未单独设置时跟随控制页车模(老账号无缝迁移)。"""
+    client, _ = env
+    login(client)
+    client.post("/api/prefs", json={"car_model": "cybertruck"})
+    assert client.get("/api/prefs").json()["ov_car_model"] == "cybertruck"
+
+
+def test_fun_car_model_migrates_to_ov(env):
+    """旧并集名单时代存了趣味模型的账号:迁移为总览模型选择,控制页回默认。"""
+    client, prefs = env
+    login(client)
+    prefs["owner"] = {"car_model": "yaoyao"}
+    got = client.get("/api/prefs").json()
+    assert got["car_model"] == "y-yl" and got["ov_car_model"] == "yaoyao"
+
+
+def test_invalid_ov_car_model(env):
+    client, _ = env
+    login(client)
+    assert client.post("/api/prefs", json={"ov_car_model": "model-s"}).status_code == 422
 
 
 def test_invalid_overview_mode(env):
