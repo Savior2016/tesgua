@@ -148,6 +148,27 @@ function fitRadius() {
   logo.renderOrder = 1;
   scene.add(logo);
   }
+
+  // 侧壁文字标:与图形标正对的一侧(θ=0,车尾方向 +Z),TESLA 红色字标。
+  // SVG 含嵌套变换,Path2D 直译会画飞,故整图 base64 内嵌走 Image 绘制
+  {
+  const wc = document.createElement('canvas');
+  wc.width = 1024; wc.height = 136;   // 与 SVG viewBox 1236×161 同比例
+  const wctx = wc.getContext('2d');
+  const wordTex = new THREE.CanvasTexture(wc);
+  wordTex.colorSpace = THREE.SRGBColorSpace;
+  wordTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  const wimg = new Image();
+  wimg.onload = () => { wctx.drawImage(wimg, 0, 0, 1024, 136); wordTex.needsUpdate = true; };
+  wimg.src = 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiIHN0YW5kYWxvbmU9Im5vIj8+CjxzdmcKICAgeG1sbnM6ZGM9Imh0dHA6Ly9wdXJsLm9yZy9kYy9lbGVtZW50cy8xLjEvIgogICB4bWxuczpjYz0iaHR0cDovL2NyZWF0aXZlY29tbW9ucy5vcmcvbnMjIgogICB4bWxuczpyZGY9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkvMDIvMjItcmRmLXN5bnRheC1ucyMiCiAgIHhtbG5zOnN2Zz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciCiAgIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIKICAgdmVyc2lvbj0iMS4xIgogICBpZD0ic3ZnMTEwMzgiCiAgIHZpZXdCb3g9IjAgMCAxMjM2LjAwODcgMTYxLjEzMDE1IgogICBoZWlnaHQ9IjQ1LjQ3NDUxbW0iCiAgIHdpZHRoPSIzNDguODI5MTNtbSI+CiAgPGRlZnMKICAgICBpZD0iZGVmczExMDQwIiAvPgogIDxtZXRhZGF0YQogICAgIGlkPSJtZXRhZGF0YTExMDQzIj4KICAgIDxyZGY6UkRGPgogICAgICA8Y2M6V29yawogICAgICAgICByZGY6YWJvdXQ9IiI+CiAgICAgICAgPGRjOmZvcm1hdD5pbWFnZS9zdmcreG1sPC9kYzpmb3JtYXQ+CiAgICAgICAgPGRjOnR5cGUKICAgICAgICAgICByZGY6cmVzb3VyY2U9Imh0dHA6Ly9wdXJsLm9yZy9kYy9kY21pdHlwZS9TdGlsbEltYWdlIiAvPgogICAgICAgIDxkYzp0aXRsZT48L2RjOnRpdGxlPgogICAgICA8L2NjOldvcms+CiAgICA8L3JkZjpSREY+CiAgPC9tZXRhZGF0YT4KICA8ZwogICAgIHRyYW5zZm9ybT0idHJhbnNsYXRlKDg1OC4wMDQzOCwtMTkzLjEyMjEyKSIKICAgICBpZD0ibGF5ZXIxIj4KICAgIDxnCiAgICAgICBpZD0iZzExNTk0Ij4KICAgICAgPGcKICAgICAgICAgaWQ9ImcxMDQ4MiIKICAgICAgICAgdHJhbnNmb3JtPSJtYXRyaXgoMjAuMzI2NzUxLDAsMCwtMjAuMzI2NzUxLC04Ljc1MjcyMTksMTkzLjMyNTM5KSI+CiAgICAgICAgPHBhdGgKICAgICAgICAgICBkPSJtIDAsMCAtMS41NDEsLTAuMDA0IDAsLTcuOTA3IDcuMDY3LDAgYyAwLjc3MywwLjMyOCAxLjE4NywwLjg5NSAxLjM0NywxLjU1NyBsIC02Ljg3NywwIEwgMCwwIFogbSAxMS41MzIsLTEuNTggNS44OTUsMCBjIDAuODE5LDAuMTYyIDEuNDI5LDAuODg1IDEuNiwxLjU4NCBsIC05LjA5NiwwIGMgMC4xNywtMC42OTkgMC43ODksLTEuNDIyIDEuNjAxLC0xLjU4NCBtIC0xOS4wOTEsMC4wMjIgYyAwLjgxOSwwLjIzOCAxLjUwOSwwLjg2MyAxLjY3NywxLjU1NiBsIC04LjY1LDAgMCwtNC42NzIgNy4wOCwwIDAsLTEuNjQgLTUuNTUzLC0wLjAwNSBjIC0wLjg3MSwtMC4yNDIgLTEuNjA3LC0wLjgyNiAtMS45NzYsLTEuNTk4IGwgMC40NDksMC4wMDggOC42MDIsMCAwLDQuNzg4IC03LjA3NSwwIDAsMS41NjMgNS40NDYsMCB6IG0gMTcuNzI4LC02LjM1MSAxLjUzMywwIDAsMy4xODMgNS41ODEsMCAwLC0zLjE4MyAxLjUzMiwwIDAsNC43NzQgLTguNjQ2LDAuMDA4IDAsLTQuNzgyIHogbSAtMzYuNjE1LDYuMzM0IDUuODk0LDAgYyAwLjgyLDAuMTYzIDEuNDI5LDAuODg2IDEuNiwxLjU4NSBsIC05LjA5NSwwIGMgMC4xNywtMC42OTkgMC43ODgsLTEuNDIyIDEuNjAxLC0xLjU4NSBtIC0xNS4zMzQsMS41NjcgYyAwLjE3NywtMC42OTIgMC43NzYsLTEuMzk3IDEuNTk3LC0xLjU3NSBsIDIuNDgxLDAgMC4xMjYsLTAuMDUgMCwtNi4yNiAxLjU1LDAgMCw2LjI2IDAuMTQsMC4wNSAyLjQ4NCwwIGMgMC44MjksMC4yMTQgMS40MTUsMC44ODMgMS41OSwxLjU3NSBsIDAsMC4wMTUgLTkuOTY4LDAgMCwtMC4wMTUgeiBtIDE1LjMzNCwtNy45MDIgNS44OTQsMCBjIDAuODIsMC4xNjQgMS40MjksMC44ODUgMS42LDEuNTg1IGwgLTkuMDk1LDAgYyAwLjE3LC0wLjcgMC43ODgsLTEuNDIxIDEuNjAxLC0xLjU4NSBtIDAsMy4yMSA1Ljg5NCwwIGMgMC44MiwwLjE2MiAxLjQyOSwwLjg4NSAxLjYsMS41ODQgbCAtOS4wOTUsMCBjIDAuMTcsLTAuNjk5IDAuNzg4LC0xLjQyMiAxLjYwMSwtMS41ODQiCiAgICAgICAgICAgc3R5bGU9ImZpbGw6I2U4MjEyNztmaWxsLW9wYWNpdHk6MTtmaWxsLXJ1bGU6bm9uemVybztzdHJva2U6bm9uZSIKICAgICAgICAgICBpZD0icGF0aDEwNDg0IiAvPgogICAgICA8L2c+CiAgICA8L2c+CiAgPC9nPgo8L3N2Zz4K';
+  const WORD_ARC = 2.4 / 4.012;   // 弧长 2.4m:字标宽高比大,弧长相应放宽
+  const word = new THREE.Mesh(
+    new THREE.CylinderGeometry(4.012, 4.012, 0.32, 64, 1, true, -WORD_ARC / 2, WORD_ARC),
+    new THREE.MeshBasicMaterial({ map: wordTex, transparent: true, depthWrite: false, toneMapped: false }));
+  word.position.y = -0.19;
+  word.renderOrder = 1;
+  scene.add(word);
+  }
 }
 
 // ---------- 演示数据(与 2D 方案同源;bd = 本充电周期能耗构成,自车头起顺时针) ----------
