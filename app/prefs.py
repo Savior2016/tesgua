@@ -14,11 +14,13 @@ _KIND = "prefs"
 _DAYS = (1, 7, 30)
 _DEFAULT_DAYS = 7
 _OV_MODES = ("car", "data", "3d")  # 总览样式:车模模式 / 数据模式 / 3D 全景
-_DEFAULT_OV_MODE = "car"
+_DEFAULT_OV_MODE = "3d"
 _CTL_MODES = ("2d", "3d")  # 控制样式:2D 车身俯视图 / 3D 车模
 _DEFAULT_CTL_MODE = "2d"
-# 车模显示(test 页 3D 注册表键;y-yl 暂无真模型,占位方案随注册表实现)
-_CAR_MODELS = ("y-yl", "y-juniper", "model-3", "cybertruck", "y-legacy")
+# 车模显示(test 页 3D 注册表键;y-yl 暂无真模型,占位方案随注册表实现;
+# sanbengzi/mars-rover/yaoyao 为趣味模型,仅总览 3D,无车身热点)
+_CAR_MODELS = ("y-yl", "y-juniper", "model-3", "cybertruck", "y-legacy",
+               "sanbengzi", "mars-rover", "yaoyao")
 _DEFAULT_CAR_MODEL = "y-yl"
 
 

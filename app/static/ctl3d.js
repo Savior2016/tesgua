@@ -190,6 +190,10 @@ function loadModel(key) {
       gltf.scene = built.scene;
       ghosts = { movers: cybertruckMovers(built.body) };
       currentRoot = built.scene;
+    } else if (cfg.raw) {
+      // 趣味模型:保留原配色,不换漆、不做幽灵开合件、无车身热点(hotspots=[])
+      paintCount = 0;
+      currentRoot = gltf.scene;
     } else {
       paintCount = prepareModel(gltf.scene, cfg, mats).paintCount;
       ghosts = makeGhostParts(cfg, mats);

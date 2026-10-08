@@ -307,7 +307,7 @@
   });
   /* 3D 车模选择:test 页 3D 注册表键(POST 合并语义,只发 car_model) */
   const cmSeg = $('carmodel-seg');
-  const CAR_MODELS = ['y-yl', 'y-juniper', 'model-3', 'cybertruck', 'y-legacy'];
+  const CAR_MODELS = ['y-yl', 'y-juniper', 'model-3', 'cybertruck', 'y-legacy', 'sanbengzi', 'mars-rover', 'yaoyao'];
   function markCarModel(m) {
     cmSeg.querySelectorAll('button').forEach((b) =>
       b.classList.toggle('on', b.dataset.cm === m));
@@ -335,7 +335,7 @@
       const d = DAYS.includes(p.days) ? p.days : 7;
       markDays(d);
       localStorage.setItem('ttv-days', String(d));
-      const m = OV_MODES.includes(p.overview_mode) ? p.overview_mode : 'car';
+      const m = OV_MODES.includes(p.overview_mode) ? p.overview_mode : '3d';
       markOvMode(m);
       localStorage.setItem('ttv-ovmode', m);
       const ctm = CTL_MODES.includes(p.control_mode) ? p.control_mode : '2d';

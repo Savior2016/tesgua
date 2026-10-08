@@ -394,7 +394,7 @@ async def auth_and_headers(request: Request, call_next):
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; "
+        "img-src 'self' data: blob:; font-src 'self'; connect-src 'self' blob:; "
         "object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
     if path.startswith("/api/") and not path.startswith("/api/map/"):
         response.headers["Cache-Control"] = "no-store"

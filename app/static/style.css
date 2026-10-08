@@ -3350,20 +3350,8 @@ footer a { color: var(--text-muted); }
   transition: color 0.18s ease, transform 0.12s ease;
 }
 .tabbar .tab svg { width: 21px; height: 21px; display: block; }
-/* 主页(总览)居中特殊标识:两侧分隔细线 + 特斯拉 T 徽标略放大 */
-.tabbar .tab-home::before,
-.tabbar .tab-home::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 1px;
-  height: 30px;
-  background: linear-gradient(transparent, var(--border), transparent);
-  z-index: 0;
-}
-.tabbar .tab-home::before { left: -5px; }
-.tabbar .tab-home::after { right: -5px; }
+/* 主页(总览)居中特殊标识:不加硬分隔线,靠两侧留白与特斯拉 T 徽标略放大区分 */
+.tabbar .tab-home { margin: 0 7px; }
 .tabbar .tab-home svg { width: 23px; height: 23px; }
 .tabbar .tab-home span { letter-spacing: 0.06em; }
 .tabbar .tab:hover { color: var(--text-primary); }

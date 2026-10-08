@@ -9,7 +9,7 @@
     battMode: localStorage.getItem('ttv-batt-mode') || 'pct',
     carMode: localStorage.getItem('ttv-car-mode') || 'pct',
     ovMode: ['car', 'data', '3d'].includes(localStorage.getItem('ttv-ovmode'))
-      ? localStorage.getItem('ttv-ovmode') : 'car',  // 总览样式:车模 / 数据 / 3D 全景
+      ? localStorage.getItem('ttv-ovmode') : '3d',  // 总览样式:车模 / 数据 / 3D 全景(默认 3D)
     overview: null,
     health: null,
     cycles: null,

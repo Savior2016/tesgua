@@ -10,6 +10,11 @@ import { prepareHighland } from '/highland3d.js';
 const stage = document.getElementById('txov-stage');
 const loadingEl = document.getElementById('txov-loading');
 
+// 用户车型(个人中心「3D 车模」偏好;localStorage 秒开,后台 /api/prefs 校准)
+const loader = makeLoader();
+const prefKey = localStorage.getItem('ttv-carmodel');
+const cfg = resolveCfg(prefKey && MODELS[prefKey] ? prefKey : 'y-yl');
+
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 stage.prepend(renderer.domElement);   // canvas 垫底,数据 chips 在其上
 
@@ -122,7 +127,8 @@ function fitRadius() {
   scene.add(shadow);
 
   // 侧壁车标:贴合柱面的弧形贴片(与圆台同心、略大一圈防 z-fighting),
-  // 对齐车头(-Z);特斯拉红 #E82127
+  // 对齐车头(-Z);特斯拉红 #E82127。趣味模型(noLogo)不贴车标
+  if (!cfg.noLogo) {
   const lc = document.createElement('canvas');
   lc.width = lc.height = 512;
   const lctx = lc.getContext('2d');
@@ -141,6 +147,7 @@ function fitRadius() {
   logo.position.y = -0.19;   // 偏圆台上沿:高位俯视下侧壁被压扁,贴下沿会看不清
   logo.renderOrder = 1;
   scene.add(logo);
+  }
 }
 
 // ---------- 演示数据(与 2D 方案同源;bd = 本充电周期能耗构成,自车头起顺时针) ----------
@@ -449,24 +456,31 @@ function inspectRing(e) {
   tipTimer = setTimeout(hideTip, 4000);
 }
 
-// ---------- 加载用户车型(个人中心「3D 车模」偏好;后台校准 localStorage) ----------
-const loader = makeLoader();
-const prefKey = localStorage.getItem('ttv-carmodel');
-const cfg = resolveCfg(prefKey && MODELS[prefKey] ? prefKey : 'y-yl');
+// ---------- 加载用户车型 ----------
 fetch('/api/prefs').then((r) => r.json()).then((p) => {
   if (p.car_model && MODELS[p.car_model]) localStorage.setItem('ttv-carmodel', p.car_model);
 }).catch(() => {});
 
+let rockPivot = null;   // 摇摇车:绕底座顶面铰链的缓摇组(尊重 prefers-reduced-motion)
 loader.load(cfg.url, (gltf) => {
   if (cfg.cybertruck) {
     gltf.scene = prepareCybertruck(gltf.scene).scene;
   } else if (cfg.highland) {
     gltf.scene = prepareHighland(gltf.scene, makeMats()).scene;
-  } else {
+  } else if (!cfg.raw) {
     prepareModel(gltf.scene, cfg, makeMats());
-  }
+  }   // raw:趣味模型保留原配色,不做换漆/玻璃重映射
   gltf.scene.scale.multiplyScalar(1.18);   // 放大车模:原比例相对圆台偏小
-  scene.add(gltf.scene);
+  let root = gltf.scene;
+  if (cfg.rock && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    const py = (cfg.rockPivotY || 0) * 1.18;   // 铰链高度换算到缩放后的世界坐标
+    rockPivot = new THREE.Group();
+    gltf.scene.position.y = -py;
+    rockPivot.position.y = py;
+    rockPivot.add(gltf.scene);
+    root = rockPivot;
+  }
+  scene.add(root);
   loadingEl.style.display = 'none';
 }, undefined, (err) => {
   loadingEl.textContent = '模型加载失败:' + (err && err.message || err);
@@ -494,6 +508,7 @@ resize();
 function frame() {
   requestAnimationFrame(frame);
   if (autoSpin) orbitGoal.theta += 0.0012;   // 展台缓转(比控制页略慢)
+  if (rockPivot) rockPivot.rotation.x = Math.sin(performance.now() * 0.0022) * 0.05;  // 摇摇车缓摇
   orbit.theta += (orbitGoal.theta - orbit.theta) * 0.12;
   orbit.phi += (orbitGoal.phi - orbit.phi) * 0.12;
   orbit.r += (orbitGoal.r - orbit.r) * 0.15;
@@ -515,6 +530,8 @@ window.__txov = {
   },
   // 世界坐标 → stage 像素(自动化点色块用)
   screenOf(x, y, z) { return project(new THREE.Vector3(x, y, z)); },
+  // 材质/贴图状态检查(自动化排障用)
+  THREE, scene,
 };
 
 // ---------- 数据注入(测试页传演示数据;正式页 ovMode=3d 时由 app.js 喂真实数据) ----------

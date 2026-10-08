@@ -83,7 +83,7 @@ def test_unauthenticated(env):
 def test_default_overview_mode(env):
     client, _ = env
     login(client)
-    assert client.get("/api/prefs").json()["overview_mode"] == "car"
+    assert client.get("/api/prefs").json()["overview_mode"] == "3d"
 
 
 def test_set_overview_mode(env):
