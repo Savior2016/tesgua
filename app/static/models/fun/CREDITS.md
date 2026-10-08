@@ -23,3 +23,12 @@
 - License: [CC0](https://creativecommons.org/publicdomain/zero/1.0/)
 - 处理:裁掉展示绒布与相机节点,写实 PBR 玩具车(墨绿火焰涂装)拼装程序化
   大弹簧 + 投币底座(`scripts/make-fun-models.py`),总览 3D 中绕底座铰链缓摇。
+
+## ironman.glb —— 钢铁侠(Mark 85,站姿)
+
+- Author: [LLIypuk](https://sketchfab.com/LLIypuk)
+- Source: [Iron Man Mark 85](https://sketchfab.com/3d-models/iron-man-mark-85-8da781aa74024366844b36444c650d69)(GitHub 镜像:tryanimeshpanda/portfolio)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 说明:钢铁侠形象版权属 Marvel;此模型为社区作者作品,仅作个人面板娱乐展示。
+- 处理:转正(-Z 正面)、落地、按身高归一化至 2.4m,减面 50%、纹理转 1024px
+  WebP、meshopt 压缩(101MB → 6.6MB)。

@@ -1385,11 +1385,6 @@ button { touch-action: manipulation; }
   box-shadow: 0 2px 8px color-mix(in srgb, var(--series-1) 45%, transparent),
               inset 0 1px 0 rgba(255, 255, 255, 0.38);
 }
-.model-seg button.on::after {
-  content: '✓';
-  position: absolute; top: 3px; right: 7px;
-  font-size: 10px; opacity: 0.85;
-}
 .model-seg-divider {
   grid-column: 1 / -1;
   height: 1px; margin: 2px 0;

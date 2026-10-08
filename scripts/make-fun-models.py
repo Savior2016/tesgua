@@ -163,9 +163,26 @@ def make_yaoyao():
     export(sc, f"{OUT}/yaoyao.glb")
 
 
+def make_ironman():
+    """钢铁侠 Mark 85(LLIypuk @ Sketchfab, CC-BY 4.0):站姿人形,已落地 y=0。
+    面朝 +Z(截图核实),rotY(180) 转正为正面 -Z。按身高归一化到 2.4m(展示感,圆盘为车尺度):
+    normalize() 按水平轴缩放不适合人形,这里直接用高度。"""
+    sc = trimesh.load(f"{SRC}/ironman/scene.gltf", force="scene")
+    sc.apply_transform(rot_y(180))
+    b = sc.bounds
+    s = 2.4 / (b[1][1] - b[0][1])
+    sc.apply_transform(trimesh.transformations.scale_matrix(s))
+    b = sc.bounds
+    sc.apply_transform(trimesh.transformations.translation_matrix(
+        [-(b[0][0] + b[1][0]) / 2, -b[0][1], -(b[0][2] + b[1][2]) / 2]))
+    print("ironman: mark85 standing, front=+Z rot=180, height=2.4")
+    export(sc, f"{OUT}/ironman.glb")
+
+
 if __name__ == "__main__":
     import os
     os.makedirs(OUT, exist_ok=True)
     make_sanbengzi()
     make_mars_rover()
     make_yaoyao()
+    make_ironman()

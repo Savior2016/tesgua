@@ -21,8 +21,8 @@ _CTL_MODES = ("2d", "3d")  # 控制样式:2D 车身俯视图 / 3D 车模
 _DEFAULT_CTL_MODE = "2d"
 # 车模显示(test 页 3D 注册表键;y-yl 暂无真模型,占位方案随注册表实现)
 _CTL_CAR_MODELS = ("y-yl", "y-juniper", "model-3", "cybertruck", "y-legacy")
-# 总览 3D 模型:特斯拉车模 + 趣味模型(sanbengzi/mars-rover/yaoyao 仅总览,无车身热点)
-_OV_CAR_MODELS = _CTL_CAR_MODELS + ("sanbengzi", "mars-rover", "yaoyao")
+# 总览 3D 模型:特斯拉车模 + 趣味模型(sanbengzi/mars-rover/yaoyao/ironman 仅总览,无车身热点)
+_OV_CAR_MODELS = _CTL_CAR_MODELS + ("sanbengzi", "mars-rover", "yaoyao", "ironman")
 _CAR_MODELS = _OV_CAR_MODELS  # 兼容:旧代码/测试里的并集名单
 _DEFAULT_CAR_MODEL = "y-yl"
 
@@ -61,7 +61,7 @@ class PrefsIn(BaseModel):
     overview_mode: str | None = None  # 总览样式:car(车模)/ data(数据)/ 3d(3D 全景)
     control_mode: str | None = None  # 控制样式:2d(2D 车身)/ 3d(3D 车模)
     car_model: str | None = None  # 控制页 3D 车模:y-yl / y-juniper / model-3 / cybertruck / y-legacy
-    ov_car_model: str | None = None  # 总览 3D 模型:特斯拉车模 + 趣味模型(sanbengzi/mars-rover/yaoyao)
+    ov_car_model: str | None = None  # 总览 3D 模型:特斯拉车模 + 趣味模型(sanbengzi/mars-rover/yaoyao/ironman)
     car_color: str | None = None  # 车身颜色 #rrggbb;空串 = 清除(跟随车辆自动识别)
 
 
