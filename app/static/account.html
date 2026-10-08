@@ -156,30 +156,48 @@
       </div>
       <span style="font-size:12px;color:var(--text-muted)">控制页车模展示方式,操作项完全一致</span>
     </div>
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px">
-      <span style="font-size:13px;color:var(--text-secondary)">控制页 3D 车模</span>
-      <div class="seg" id="carmodel-seg" role="group" aria-label="控制页 3D 车模">
+    <div class="model-pref-row">
+      <span class="model-pref-label">控制页 3D 车模</span>
+      <div class="seg model-seg" id="carmodel-seg" role="group" aria-label="控制页 3D 车模">
         <button type="button" data-cm="y-yl">Model Y L</button>
         <button type="button" data-cm="y-juniper">新款 Model Y</button>
         <button type="button" data-cm="model-3">Model 3</button>
         <button type="button" data-cm="cybertruck">Cybertruck</button>
         <button type="button" data-cm="y-legacy">2021 款 Model Y</button>
       </div>
-      <span style="font-size:12px;color:var(--text-muted)">控制页带车身交互热点,仅特斯拉车模;Model Y L 暂无真模型,当前以 Cybertruck 占位</span>
+      <span class="model-pref-hint">控制页带车身交互热点,仅特斯拉车模;Model Y L 暂无真模型,当前以 Cybertruck 占位</span>
     </div>
-    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px">
-      <span style="font-size:13px;color:var(--text-secondary)">总览 3D 模型</span>
-      <div class="seg" id="ovcarmodel-seg" role="group" aria-label="总览 3D 模型">
+    <div class="model-pref-row">
+      <span class="model-pref-label">总览 3D 模型</span>
+      <div class="seg model-seg" id="ovcarmodel-seg" role="group" aria-label="总览 3D 模型">
         <button type="button" data-ocm="y-yl">Model Y L</button>
         <button type="button" data-ocm="y-juniper">新款 Model Y</button>
         <button type="button" data-ocm="model-3">Model 3</button>
         <button type="button" data-ocm="cybertruck">Cybertruck</button>
         <button type="button" data-ocm="y-legacy">2021 款 Model Y</button>
+        <span class="model-seg-divider" aria-hidden="true"></span>
         <button type="button" data-ocm="sanbengzi">三蹦子</button>
         <button type="button" data-ocm="mars-rover">火星车</button>
         <button type="button" data-ocm="yaoyao">摇摇车</button>
       </div>
-      <span style="font-size:12px;color:var(--text-muted)">总览展台模型,与控制页相互独立;三蹦子/火星车/摇摇车为娱乐模型,仅用于总览 3D,无车身交互。模型均为社区作者作品,细节为近似</span>
+      <span class="model-pref-hint">总览展台模型,与控制页相互独立;分隔线后为娱乐模型,仅用于总览 3D,无车身交互。模型均为社区作者作品,细节为近似</span>
+    </div>
+    <div class="model-pref-row">
+      <span class="model-pref-label">车身颜色</span>
+      <div class="color-seg" id="carcolor-seg" role="group" aria-label="车身颜色">
+        <button type="button" class="swatch swatch-auto" data-cc="">自动</button>
+        <button type="button" class="swatch" data-cc="#e8e9e7" style="--sw:#e8e9e7" title="珍珠白" aria-label="珍珠白"></button>
+        <button type="button" class="swatch" data-cc="#17191d" style="--sw:#17191d" title="纯黑" aria-label="纯黑"></button>
+        <button type="button" class="swatch" data-cc="#1b1d21" style="--sw:#1b1d21" title="钻石黑" aria-label="钻石黑"></button>
+        <button type="button" class="swatch" data-cc="#5a5e63" style="--sw:#5a5e63" title="午夜银" aria-label="午夜银"></button>
+        <button type="button" class="swatch" data-cc="#4b4f55" style="--sw:#4b4f55" title="星空灰" aria-label="星空灰"></button>
+        <button type="button" class="swatch" data-cc="#1e3a75" style="--sw:#1e3a75" title="深海蓝" aria-label="深海蓝"></button>
+        <button type="button" class="swatch" data-cc="#a6121c" style="--sw:#a6121c" title="中国红" aria-label="中国红"></button>
+        <button type="button" class="swatch" data-cc="#b70f1e" style="--sw:#b70f1e" title="烈焰红" aria-label="烈焰红"></button>
+        <button type="button" class="swatch" data-cc="#a9adb2" style="--sw:#a9adb2" title="水银" aria-label="水银"></button>
+        <button type="button" class="swatch" data-cc="#5e0e14" style="--sw:#5e0e14" title="午夜樱桃红" aria-label="午夜樱桃红"></button>
+      </div>
+      <span class="model-pref-hint" id="carcolor-hint">车漆颜色,作用于 3D 车模;选「自动」跟随车辆识别颜色</span>
     </div>
     <div class="form-msg" id="days-msg"></div>
   </section>

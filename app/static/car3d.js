@@ -134,10 +134,15 @@ export function setupStudio(renderer, scene, exposure = 1.05) {
 }
 
 // ---------- 共享材质(车漆可换色;源模型材质均为 doubleSided) ----------
+// 车漆颜色:个人中心可改,默认跟随车辆自动识别(/api/prefs 校准进 localStorage 秒开)
+function paintColor() {
+  const v = localStorage.getItem('ttv-carcolor');
+  return (v && /^#[0-9a-fA-F]{6}$/.test(v)) ? parseInt(v.slice(1), 16) : 0x17191d;   // 默认星钻黑
+}
 export function makeMats() {
   return {
     paintMat: new THREE.MeshPhysicalMaterial({
-      color: 0x17191d, metalness: 0.45, roughness: 0.38,   // 默认星钻黑(用户车为钻黑)
+      color: paintColor(), metalness: 0.45, roughness: 0.38,
       clearcoat: 0.85, clearcoatRoughness: 0.18, envMapIntensity: 0.8,
       side: THREE.DoubleSide,
     }),

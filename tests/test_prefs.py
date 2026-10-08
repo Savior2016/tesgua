@@ -104,7 +104,9 @@ def test_merge_semantics(env):
     assert prefs["owner"] == {"days": 30, "overview_mode": "data"}
     got = client.get("/api/prefs").json()
     assert got == {"days": 30, "overview_mode": "data", "control_mode": "2d",
-                   "car_model": "y-yl", "ov_car_model": "y-yl"}
+                   "car_model": "y-yl", "ov_car_model": "y-yl",
+                   "car_color": None, "car_color_detected": None,
+                   "car_color_detected_name": None, "car_color_effective": "#17191d"}
     client.post("/api/prefs", json={"days": 1})
     assert prefs["owner"] == {"days": 1, "overview_mode": "data"}
 
@@ -189,6 +191,62 @@ def test_invalid_ov_car_model(env):
     client, _ = env
     login(client)
     assert client.post("/api/prefs", json={"ov_car_model": "model-s"}).status_code == 422
+
+
+def test_default_car_color(env):
+    """未设置且无车辆识别结果时:覆盖为空,生效色为默认钻黑。"""
+    client, _ = env
+    login(client)
+    got = client.get("/api/prefs").json()
+    assert got["car_color"] is None
+    assert got["car_color_effective"] == "#17191d"
+
+
+def test_set_car_color(env):
+    client, prefs = env
+    login(client)
+    r = client.post("/api/prefs", json={"car_color": "#A6121C"})
+    assert r.status_code == 200
+    got = r.json()
+    assert got["car_color"] == "#a6121c"  # 统一存小写
+    assert got["car_color_effective"] == "#a6121c"
+    assert prefs["owner"] == {"car_color": "#a6121c"}
+
+
+def test_clear_car_color(env):
+    """空串 = 清除手动覆盖,回到自动识别/默认。"""
+    client, prefs = env
+    login(client)
+    client.post("/api/prefs", json={"car_color": "#1e3a75"})
+    r = client.post("/api/prefs", json={"car_color": ""})
+    assert r.status_code == 200
+    got = r.json()
+    assert got["car_color"] is None
+    assert got["car_color_effective"] == "#17191d"
+    assert prefs["owner"] == {}
+
+
+def test_invalid_car_color(env):
+    client, _ = env
+    login(client)
+    assert client.post("/api/prefs", json={"car_color": "red"}).status_code == 422
+    assert client.post("/api/prefs", json={"car_color": "#12345"}).status_code == 422
+
+
+def test_detected_car_color_fallback(env, monkeypatch):
+    """TeslaMate cars.exterior_color 识别结果作为未手动覆盖时的生效色。"""
+    from app import prefs as prefs_mod
+    monkeypatch.setattr(prefs_mod, "_detected_car_color", lambda: ("#1b1d21", "DiamondBlack"))
+    client, _ = env
+    login(client)
+    got = client.get("/api/prefs").json()
+    assert got["car_color"] is None
+    assert got["car_color_detected"] == "#1b1d21"
+    assert got["car_color_detected_name"] == "DiamondBlack"
+    assert got["car_color_effective"] == "#1b1d21"
+    # 手动覆盖优先于识别结果
+    client.post("/api/prefs", json={"car_color": "#e8e9e7"})
+    assert client.get("/api/prefs").json()["car_color_effective"] == "#e8e9e7"
 
 
 def test_invalid_overview_mode(env):

@@ -459,6 +459,7 @@ function inspectRing(e) {
 // ---------- 加载用户车型 ----------
 fetch('/api/prefs').then((r) => r.json()).then((p) => {
   if (p.ov_car_model && MODELS[p.ov_car_model]) localStorage.setItem('ttv-ovcarmodel', p.ov_car_model);
+  if (p.car_color_effective) localStorage.setItem('ttv-carcolor', p.car_color_effective);
 }).catch(() => {});
 
 let rockPivot = null;   // 摇摇车:绕底座顶面铰链的缓摇组(尊重 prefers-reduced-motion)

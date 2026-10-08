@@ -1350,9 +1350,39 @@ button { touch-action: manipulation; }
   white-space: nowrap;
 }
 
-/* 个人中心 3D 车模选择:5 个长名称选项,手机端一行放不下 → 允许换行 */
-#carmodel-seg { flex-wrap: wrap; max-width: 100%; }
-#carmodel-seg button { white-space: nowrap; }
+/* 个人中心 3D 车模选择(控制页/总览):独占一行竖排布局,按钮均分自动换行,
+   窄屏不再溢出;趣味模型前有细分隔线 */
+.model-pref-row { margin-top: 14px; display: flex; flex-direction: column; gap: 7px; }
+.model-pref-label { font-size: 13px; color: var(--text-secondary); }
+.model-pref-hint { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+.seg.model-seg { display: flex; flex-wrap: wrap; max-width: 100%; row-gap: 4px; }
+.model-seg button {
+  flex: 1 1 auto; white-space: nowrap; text-align: center;
+  padding: 6px 12px;
+}
+.model-seg-divider {
+  flex: 0 0 1px; align-self: stretch; margin: 5px 4px;
+  background: var(--glass-edge);
+}
+
+/* 车身颜色:圆形色板 + 「自动」胶囊;选中套高亮环 */
+.color-seg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.color-seg .swatch {
+  width: 30px; height: 30px; border-radius: 50%; padding: 0;
+  background: var(--sw, transparent);
+  border: 2px solid var(--glass-edge);
+  cursor: pointer; transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.color-seg .swatch:hover { transform: scale(1.12); }
+.color-seg .swatch.on {
+  border-color: var(--series-1);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--series-1) 35%, transparent);
+}
+.color-seg .swatch-auto {
+  width: auto; height: 30px; border-radius: 15px; padding: 0 14px;
+  background: none; font-size: 13px; color: var(--text-secondary);
+}
+.color-seg .swatch-auto.on { color: var(--series-1); }
 
 /* ===== 3D 车模(总览 3D 全景 / 控制页 3D,与 test.html 同款样式) ===== */
 .tx3d-stage {

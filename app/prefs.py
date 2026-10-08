@@ -4,6 +4,8 @@
 独立成模块减少与 main.py 的并发修改冲突(同 vehicle/parking 模式)。
 viewer 也可读写自己的偏好:main.py 中间件已对 /api/prefs 放行非 GET。
 """
+import re
+
 from fastapi import APIRouter, HTTPException, Request
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel
@@ -24,6 +26,34 @@ _OV_CAR_MODELS = _CTL_CAR_MODELS + ("sanbengzi", "mars-rover", "yaoyao")
 _CAR_MODELS = _OV_CAR_MODELS  # 兼容:旧代码/测试里的并集名单
 _DEFAULT_CAR_MODEL = "y-yl"
 
+# 车身颜色:特斯拉官方漆色名(TeslaMate cars.exterior_color)→ 展示用 hex。
+# 3D 车漆材质用;未识别的颜色名回退默认(钻黑)。
+_TESLA_COLORS = {
+    "PearlWhite": ("珍珠白", "#e8e9e7"),
+    "SolidBlack": ("纯黑", "#17191d"),
+    "DiamondBlack": ("钻石黑", "#1b1d21"),
+    "MidnightSilver": ("午夜银", "#5a5e63"),
+    "StealthGrey": ("星空灰", "#4b4f55"),
+    "DeepBlue": ("深海蓝", "#1e3a75"),
+    "RedMulticoat": ("中国红", "#a6121c"),
+    "UltraRed": ("烈焰红", "#b70f1e"),
+    "Quicksilver": ("水银", "#a9adb2"),
+    "MidnightCherryRed": ("午夜樱桃红", "#5e0e14"),
+}
+_DEFAULT_CAR_COLOR = "#17191d"   # 星钻黑
+_CAR_COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+
+
+def _detected_car_color() -> tuple[str | None, str | None]:
+    """从 TeslaMate cars.exterior_color 读车辆漆色,返回 (hex, 原始名);无车/未识别 → (None, None)。"""
+    try:
+        rows = _m().q("SELECT exterior_color FROM cars ORDER BY id LIMIT 1")
+    except Exception:  # noqa: BLE001 — 读失败只影响颜色展示
+        return None, None
+    raw = str(rows[0].get("exterior_color") or "") if rows else ""
+    hit = _TESLA_COLORS.get(raw)
+    return (hit[1], raw) if hit else (None, raw or None)
+
 
 class PrefsIn(BaseModel):
     # 合并语义:缺省字段保留已存值,各设置(时间范围/总览样式/车模)互不覆盖
@@ -32,6 +62,7 @@ class PrefsIn(BaseModel):
     control_mode: str | None = None  # 控制样式:2d(2D 车身)/ 3d(3D 车模)
     car_model: str | None = None  # 控制页 3D 车模:y-yl / y-juniper / model-3 / cybertruck / y-legacy
     ov_car_model: str | None = None  # 总览 3D 模型:特斯拉车模 + 趣味模型(sanbengzi/mars-rover/yaoyao)
+    car_color: str | None = None  # 车身颜色 #rrggbb;空串 = 清除(跟随车辆自动识别)
 
 
 def _m():
@@ -58,12 +89,20 @@ def get_prefs(request: Request):
         ocm = cm
     # 控制页车模兜底 y-yl;总览模型未单独设置时跟随控制页选择(老账号无缝迁移)
     cm = cm if cm in _CTL_CAR_MODELS else _DEFAULT_CAR_MODEL
+    # 车身颜色:手动覆盖 > TeslaMate 自动识别 > 默认钻黑
+    cc = row.get("car_color")
+    cc = cc.lower() if isinstance(cc, str) and _CAR_COLOR_RE.match(cc) else None
+    detected, detected_raw = _detected_car_color()
     return {
         "days": days if days in _DAYS else _DEFAULT_DAYS,
         "overview_mode": ov if ov in _OV_MODES else _DEFAULT_OV_MODE,
         "control_mode": ct if ct in _CTL_MODES else _DEFAULT_CTL_MODE,
         "car_model": cm,
         "ov_car_model": ocm if ocm in _OV_CAR_MODELS else cm,
+        "car_color": cc,                     # 手动覆盖;null = 自动
+        "car_color_detected": detected,      # TeslaMate cars.exterior_color 识别结果
+        "car_color_detected_name": detected_raw,
+        "car_color_effective": cc or detected or _DEFAULT_CAR_COLOR,
     }
 
 
@@ -80,6 +119,9 @@ def set_prefs(payload: PrefsIn, request: Request):
         raise HTTPException(status_code=422, detail="car_model 未知车型键(控制页仅特斯拉车模)")
     if payload.ov_car_model is not None and payload.ov_car_model not in _OV_CAR_MODELS:
         raise HTTPException(status_code=422, detail="ov_car_model 未知模型键")
+    if (payload.car_color is not None and payload.car_color != ""
+            and not _CAR_COLOR_RE.match(payload.car_color)):
+        raise HTTPException(status_code=422, detail="car_color 只能是 #rrggbb 或空串(自动)")
     row = _prefs_of(request.state.user)
     if payload.days is not None:
         row["days"] = payload.days
@@ -91,6 +133,11 @@ def set_prefs(payload: PrefsIn, request: Request):
         row["car_model"] = payload.car_model
     if payload.ov_car_model is not None:
         row["ov_car_model"] = payload.ov_car_model
+    if payload.car_color is not None:
+        if payload.car_color == "":
+            row.pop("car_color", None)   # 空串 = 清除覆盖,回到自动识别
+        else:
+            row["car_color"] = payload.car_color.lower()
     _m()._exec(
         """
         INSERT INTO panel_manual (kind, key, payload) VALUES (%s, %s, %s)

@@ -353,6 +353,37 @@
       msg($('days-msg'), err.message, false);
     }
   });
+  /* 车身颜色:空串 = 自动(跟随 TeslaMate 车辆识别);否则 #rrggbb 覆盖 */
+  const ccSeg = $('carcolor-seg');
+  const ccHint = $('carcolor-hint');
+  const CC_NAMES = {
+    '#e8e9e7': '珍珠白', '#17191d': '纯黑', '#1b1d21': '钻石黑', '#5a5e63': '午夜银',
+    '#4b4f55': '星空灰', '#1e3a75': '深海蓝', '#a6121c': '中国红', '#b70f1e': '烈焰红',
+    '#a9adb2': '水银', '#5e0e14': '午夜樱桃红',
+  };
+  function markCarColor(cc) {
+    cc = (cc || '').toLowerCase();
+    ccSeg.querySelectorAll('button').forEach((b) =>
+      b.classList.toggle('on', b.dataset.cc.toLowerCase() === cc));
+  }
+  ccSeg.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const cc = btn.dataset.cc;
+    markCarColor(cc);
+    if (cc) localStorage.setItem('ttv-carcolor', cc);  // 面板下次打开即刻生效
+    else localStorage.removeItem('ttv-carcolor');       // 自动:等 prefs 校准
+    try {
+      await api('/api/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ car_color: cc }),
+      });
+      msg($('days-msg'), '已保存', true);
+    } catch (err) {
+      msg($('days-msg'), err.message, false);
+    }
+  });
   (async () => {
     try {
       const p = await api('/api/prefs');
@@ -371,6 +402,15 @@
       const ocm = OV_CAR_MODELS.includes(p.ov_car_model) ? p.ov_car_model : cm;
       markOvCarModel(ocm);
       localStorage.setItem('ttv-ovcarmodel', ocm);
+      const cc = typeof p.car_color === 'string' ? p.car_color : '';
+      markCarColor(cc);
+      if (p.car_color_effective) localStorage.setItem('ttv-carcolor', p.car_color_effective);
+      const dName = CC_NAMES[(p.car_color_detected || '').toLowerCase()] || p.car_color_detected_name;
+      ccHint.textContent = cc
+        ? `车漆颜色,作用于 3D 车模;当前手动指定${CC_NAMES[cc.toLowerCase()] ? `「${CC_NAMES[cc.toLowerCase()]}」` : ''},选「自动」跟随车辆识别`
+        : (dName
+          ? `已自动识别车辆漆色:${dName};也可手动选色覆盖,作用于 3D 车模`
+          : '未能识别车辆漆色,当前使用默认钻黑;可手动选色,作用于 3D 车模');
     } catch (e) {
       msg($('days-msg'), e.message, false);
     }

@@ -488,6 +488,7 @@ function preferredModel() {
 }
 loadModel(preferredModel());
 fetch('/api/prefs').then((r) => r.json()).then((p) => {
+  if (p.car_color_effective) localStorage.setItem('ttv-carcolor', p.car_color_effective);
   if (p.car_model && MODELS[p.car_model]) {
     localStorage.setItem('ttv-carmodel', p.car_model);
     if (p.car_model !== cfg.key) loadModel(p.car_model);
