@@ -89,9 +89,9 @@ export const MODELS = {
     note: '写实玩具车(Khronos ToyCar,CC0)+ 程序化弹簧投币底座;仅供娱乐,无车身交互',
   },
   'ironman': {
-    label: '钢铁侠 · Mark 85', url: '/models/fun/ironman.glb', sizeMB: 6.6,
-    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
-    note: '站姿人形(LLIypuk @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+    label: '钢铁侠 · Mark 85', url: '/models/fun/ironman.glb', sizeMB: 3.5,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.9,
+    note: '战斗姿态(掌心炮;9A Films @ Sketchfab  rigged 版烘焙,CC-BY 4.0);仅供娱乐,无车身交互',
   },
 };
 

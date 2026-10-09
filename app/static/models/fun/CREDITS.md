@@ -24,11 +24,12 @@
 - 处理:裁掉展示绒布与相机节点,写实 PBR 玩具车(墨绿火焰涂装)拼装程序化
   大弹簧 + 投币底座(`scripts/make-fun-models.py`),总览 3D 中绕底座铰链缓摇。
 
-## ironman.glb —— 钢铁侠(Mark 85,站姿)
+## ironman.glb —— 钢铁侠(Mark 85,战斗姿态)
 
-- Author: [LLIypuk](https://sketchfab.com/LLIypuk)
-- Source: [Iron Man Mark 85](https://sketchfab.com/3d-models/iron-man-mark-85-8da781aa74024366844b36444c650d69)(GitHub 镜像:tryanimeshpanda/portfolio)
+- Author: [9A Films / Nihar Arora](https://sketchfab.com/Nihar-9Afilms)
+- Source: [Iron-Man Mark 85 | Rigged](https://sketchfab.com/3d-models/iron-man-mark-85-rigged-dde1085c464d4f8da259fe6669ae4dd2)(GitHub 镜像:avengers2405/movie-list)
 - License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - 说明:钢铁侠形象版权属 Marvel;此模型为社区作者作品,仅作个人面板娱乐展示。
-- 处理:转正(-Z 正面)、落地、按身高归一化至 2.4m,减面 50%、纹理转 1024px
-  WebP、meshopt 压缩(101MB → 6.6MB)。
+- 处理:Blender 摆战斗姿态(右臂前伸掌心炮、开立弓步)后烘焙网格
+  (`scripts/pose-ironman.py`),转正(-Z 正面)、落地、按身高归一化至 3.0m,
+  减面 50%、纹理转 1024px WebP、meshopt 压缩(178MB → 3.5MB)。

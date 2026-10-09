@@ -291,7 +291,22 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="TeslaMate Telemetry Visualizer", lifespan=lifespan)
-app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+class SmartGZipMiddleware(GZipMiddleware):
+    """已是压缩格式的二进制资源跳过 gzip:GLB(meshopt/webp 内嵌)、图片、字体、
+    pbf 等再压一遍压缩率近零,却白耗单线程 CPU(实测 6.7MB GLB 浏览器端 17s 才传完)。"""
+    _SKIP_EXT = (".glb", ".webp", ".png", ".jpg", ".jpeg", ".gif", ".pbf",
+                 ".p12", ".woff", ".woff2", ".mp3", ".mp4", ".zip")
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http" and scope.get("path", "").lower().endswith(self._SKIP_EXT):
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
+
+
+app.add_middleware(SmartGZipMiddleware, minimum_size=1024)
 
 
 # Static assets needed before login; all data including map assets requires authentication.
@@ -402,6 +417,9 @@ async def auth_and_headers(request: Request, call_next):
         # 静态页面与脚本:不发 Cache-Control 时浏览器会按启发式缓存旧版本,
         # 部署后用户可能长时间看不到新页面;no-cache 仍走 ETag 304,开销极小。
         response.headers.setdefault("Cache-Control", "no-cache")
+    elif path.startswith("/models/"):
+        # 3D 模型体积大且内容随文件名稳定;一周缓存,更新模型时改文件名/查询串。
+        response.headers.setdefault("Cache-Control", "private, max-age=604800")
     return response
 
 # 将 UTC 时间戳转为本地墙钟时间 / 绝对毫秒时间戳的 SQL 片段
