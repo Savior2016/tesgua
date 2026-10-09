@@ -93,6 +93,16 @@ export const MODELS = {
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.9,
     note: '战斗姿态(掌心炮;9A Films @ Sketchfab  rigged 版烘焙,CC-BY 4.0);仅供娱乐,无车身交互',
   },
+  'hellokitty': {
+    label: 'Hello Kitty', url: '/models/fun/hellokitty.glb', sizeMB: 0.09,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.8,
+    note: 'ZxSimas/hello-kitty-3d(GitHub)模型,补绘五官;仅供娱乐,无车身交互',
+  },
+  'mickey': {
+    label: '米奇', url: '/models/fun/mickey.glb', sizeMB: 0.16,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.6,
+    note: '程序化几何拼装(scripts/make-mickey.py),无外部素材;仅供娱乐,无车身交互',
+  },
 };
 
 export function resolveCfg(key) {

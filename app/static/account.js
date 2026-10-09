@@ -331,7 +331,7 @@
   });
   /* 总览 3D 模型选择:特斯拉车模 + 趣味模型,与控制页独立(POST 合并语义,只发 ov_car_model) */
   const ocmSeg = $('ovcarmodel-seg');
-  const OV_CAR_MODELS = [...CAR_MODELS, 'sanbengzi', 'mars-rover', 'yaoyao', 'ironman'];
+  const OV_CAR_MODELS = [...CAR_MODELS, 'sanbengzi', 'mars-rover', 'yaoyao', 'ironman', 'hellokitty', 'mickey'];
   function markOvCarModel(m) {
     ocmSeg.querySelectorAll('button').forEach((b) =>
       b.classList.toggle('on', b.dataset.ocm === m));

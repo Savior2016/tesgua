@@ -21,5 +21,8 @@ COPY app ./app
 RUN groupadd --gid 1000 panel && useradd --uid 1000 --gid panel --no-create-home panel
 USER 1000:1000
 ENV DISPLAY_TZ=Asia/Shanghai
+# 内存驻留优化:glibc 默认每线程开 64 倍核数的 arena 且很少归还内存,
+# 小内存主机上 Python 进程 RSS 会虚高;限制 arena 数并激进 trim。
+ENV MALLOC_ARENA_MAX=2 MALLOC_TRIM_THRESHOLD_=131072
 EXPOSE 8080
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--no-proxy-headers", "--no-access-log"]

@@ -40,6 +40,10 @@ services:
       - POSTGRES_USER=teslamate
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?请在 .env 中设置 POSTGRES_PASSWORD}
       - POSTGRES_DB=teslamate
+    # 小内存主机:默认 shared_buffers=128MB 偏大,压到 48MB;单条查询 work_mem 4MB 封顶
+    command: >
+      postgres -c shared_buffers=48MB -c work_mem=4MB
+      -c maintenance_work_mem=32MB -c effective_cache_size=256MB
     volumes:
       - teslamate-db:/var/lib/postgresql
     healthcheck:

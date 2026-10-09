@@ -1,7 +1,8 @@
-# 钢铁侠战斗姿态烘焙 —— Blender 无头脚本(xvfb-run -a blender -b --python ...)。
-# 输入:Mark 85 rigged glTF(Mixamo 骨骼);做法:aim() 按世界方向逐级旋转骨骼
-# (掌心炮前伸/弓步/前倾),预览渲染后应用 Armature modifier 烘焙成静态 GLB。
-# 预览图:/tmp/battle_front.png、/tmp/battle_three-quarter.png。
+# 钢铁侠 Mark 85 战斗姿态摆姿 + 烘焙导出(无头 Blender):
+#   xvfb-run -a blender -b --python scripts/pose-ironman.py -- <scene.gltf> <out.glb [preview]>
+# 源模型:9A Films / Nihar Arora @ Sketchfab「Iron-Man Mark 85 | Rigged」(CC-BY 4.0)。
+# 姿态:弓步冲拳(右臂掌心炮前伸、左臂收拳、躯干前倾扭转、后腿脚跟抬起)。
+# 导出后由 make-fun-models.py 同款 trimesh 归一化(rotY180/身高 3.0m/落地/居中)+ gltf-transform 压缩。
 import bpy, math, sys
 from mathutils import Euler, Vector, Matrix
 
@@ -12,14 +13,41 @@ PREVIEW = len(argv) > 2 and argv[2] == 'preview'
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.gltf(filepath=SRC)
 
+# 场景里的无关残留网格(Sketchfab 文件带了个 ±1 的 Icosphere),删掉再处理
+for obj in list(bpy.data.objects):
+    if obj.type == 'MESH' and not any(m.type == 'ARMATURE' for m in obj.modifiers):
+        bpy.data.objects.remove(obj, do_unlink=True)
+
 arm = next(o for o in bpy.data.objects if o.type == 'ARMATURE')
+
+# 静置姿态下网格的世界包围盒(模型节点带 ~0.0033 缩放,世界尺寸远小于原生单位)
+def mesh_world_bbox():
+    dg = bpy.context.evaluated_depsgraph_get()
+    mins = [1e9]*3; maxs = [-1e9]*3
+    for obj in bpy.data.objects:
+        if obj.type != 'MESH':
+            continue
+        eo = obj.evaluated_get(dg)
+        me = eo.to_mesh()
+        mw = eo.matrix_world
+        for v in me.vertices:
+            w = mw @ v.co
+            for i in range(3):
+                mins[i] = min(mins[i], w[i]); maxs[i] = max(maxs[i], w[i])
+        eo.to_mesh_clear()
+    return mins, maxs
+
+rmins, rmaxs = mesh_world_bbox()
+REST_H = rmaxs[2] - rmins[2]
+print('REST BBOX', [round(v,3) for v in rmins], [round(v,3) for v in rmaxs], 'H', round(REST_H,3))
+
 bpy.context.view_layer.objects.active = arm
 bpy.ops.object.mode_set(mode='POSE')
 
 MW = arm.matrix_world
 MWi = MW.inverted()
 
-def aim(bone, direction, twist=0.0):
+def aim(bone, direction):
     """把骨骼当前指向旋转到世界方向 direction(绕头端点转,子骨骼跟随)。"""
     pb = arm.pose.bones.get(bone)
     if pb is None:
@@ -34,6 +62,16 @@ def aim(bone, direction, twist=0.0):
     pb.matrix = MWi @ M2
     bpy.context.view_layer.update()
 
+def move(bone, offset):
+    """世界空间平移骨骼(用于 Hips 整体下蹲/前移)。"""
+    pb = arm.pose.bones.get(bone)
+    if pb is None:
+        print('MISS', bone); return
+    M = MW @ pb.matrix
+    M2 = Matrix.Translation(Vector(offset)) @ M
+    pb.matrix = MWi @ M2
+    bpy.context.view_layer.update()
+
 def rot(bone, x=0.0, y=0.0, z=0.0):
     pb = arm.pose.bones.get(bone)
     if pb is None:
@@ -42,50 +80,55 @@ def rot(bone, x=0.0, y=0.0, z=0.0):
     pb.rotation_euler = Euler((math.radians(x), math.radians(y), math.radians(z)), 'XYZ')
     bpy.context.view_layer.update()
 
-# ---- 战斗姿态(世界:模型面朝 -Y,上 = +Z;aim 的 Y 负 = 向前) ----
-# 右臂前伸掌心炮:上臂→前臂→手腕逐级指向前方偏下
-aim('mixamorig:RightArm_033', (0.08, -1.0, 0.02))
-aim('mixamorig:RightForeArm_034', (0.04, -1.0, 0.04))
-aim('mixamorig:RightHand_035', (0.0, -1.0, 0.0))
-# 左臂:后摆外展
-aim('mixamorig:LeftArm_09', (-0.55, 0.35, -0.75))
-aim('mixamorig:LeftForeArm_010', (-0.35, 0.55, -0.75))
-# 躯干前倾 + 微侧转(脊椎三段叠加)
-rot('mixamorig:Spine_02', x=9)
-rot('mixamorig:Spine1_03', x=5, y=-5)
-rot('mixamorig:Spine2_04', x=5, y=-5)
-# 头:回正前倾的视角,平视前方
-aim('mixamorig:Head_06', (0.02, -0.12, 1.0))
-# 腿部:小幅前后开立(右腿前),避免脚掌离地的悬空感
-aim('mixamorig:RightUpLeg_060', (-0.14, -0.45, -1.0))
-aim('mixamorig:RightLeg_061', (0.02, -0.08, -1.0))
-aim('mixamorig:LeftUpLeg_00', (0.18, 0.38, -1.0))
-aim('mixamorig:LeftLeg_056', (0.03, 0.06, -1.0))
+# ---- 战斗姿态 v2:弓步冲拳(世界:模型面朝 -Y,上 = +Z;aim 的 Y 负 = 向前) ----
+# 位移量按静置身高换算(模型世界尺寸很小,不能按米拍脑袋)
+H = REST_H
+# 重心:前移 + 下蹲
+move('mixamorig:Hips_01', (0.02*H, -0.075*H, -0.085*H))
+# 右腿(前弓):大腿前下方,小腿近垂直,脚掌平贴地
+aim('mixamorig:RightUpLeg_060', (-0.05, -0.75, -0.7))
+aim('mixamorig:RightLeg_061', (0.03, 0.05, -1.0))
+aim('mixamorig:RightFoot_062', (0.0, -0.88, -0.47))
+# 左腿(后蹬):大腿后下方,小腿近垂直,脚跟抬起脚尖点地
+aim('mixamorig:LeftUpLeg_00', (0.2, 0.7, -0.72))
+aim('mixamorig:LeftLeg_056', (0.05, 0.25, -1.0))
+aim('mixamorig:LeftFoot_057', (0.0, 0.45, -0.9))
+# 躯干:明显前倾 + 向左扭转(右拳打出时肩线对准目标)
+rot('mixamorig:Spine_02', x=13)
+rot('mixamorig:Spine1_03', x=7, y=-8)
+rot('mixamorig:Spine2_04', x=7, y=-8)
+# 右臂掌心炮:胸口高度直线前冲,略外让(正脸不被手掌挡住),肘微屈
+aim('mixamorig:RightArm_033', (0.14, -0.95, 0.08))
+aim('mixamorig:RightForeArm_034', (0.22, -1.0, -0.02))
+aim('mixamorig:RightHand_035', (0.2, -1.0, -0.02))
+# 左臂:收拳蓄势——上臂后下摆,前臂外张,拳在肩侧(不挡脸)
+aim('mixamorig:LeftArm_09', (-0.35, 0.55, -0.75))
+aim('mixamorig:LeftForeArm_010', (0.5, 0.3, 0.75))
+aim('mixamorig:LeftHand_011', (0.15, -0.8, 0.45))
+# 头:视线压向目标
+aim('mixamorig:Head_06', (0.02, -0.28, 1.0))
 
-# ---- 取景(骨骼世界坐标) ----
-mins = [1e9]*3; maxs = [-1e9]*3
-for pb in arm.pose.bones:
-    for pt in (pb.head, pb.tail):
-        w = MW @ pt
-        for i in range(3):
-            mins[i] = min(mins[i], w[i]); maxs[i] = max(maxs[i], w[i])
-c = [(mins[i]+maxs[i])/2 for i in range(3)]
-size = max(maxs[i]-mins[i] for i in range(3))
-print('POSED BBOX', [round(v,2) for v in mins], [round(v,2) for v in maxs])
+# ---- 取景(摆姿后网格世界包围盒) ----
+pmins, pmaxs = mesh_world_bbox()
+c = [(pmins[i]+pmaxs[i])/2 for i in range(3)]
+size = max(pmaxs[i]-pmins[i] for i in range(3))
+print('POSED BBOX', [round(v,3) for v in pmins], [round(v,3) for v in pmaxs])
 
 scene = bpy.context.scene
 scene.render.engine = 'BLENDER_WORKBENCH'
 scene.display.shading.light = 'STUDIO'
 scene.display.shading.color_type = 'TEXTURE'
 scene.render.resolution_x = scene.render.resolution_y = 700
-d = size * 1.6
-for name, loc, eul in [
-    ('front', (c[0], c[1]-d, c[2]+size*0.05), (math.radians(85),0,0)),
-    ('three-quarter', (c[0]+d*0.7, c[1]-d*0.8, c[2]+size*0.25), (math.radians(72),0,math.radians(38))),
+d = size * 2.2
+for name, loc in [
+    ('front', (c[0], c[1]-d, c[2]+size*0.08)),
+    ('three-quarter', (c[0]+d*0.7, c[1]-d*0.75, c[2]+size*0.3)),
+    ('side', (c[0]+d, c[1], c[2]+size*0.05)),
 ]:
-    cam_data = bpy.data.cameras.new('cam'); cam_data.clip_end = size*20
+    cam_data = bpy.data.cameras.new('cam'); cam_data.clip_end = size*50
     cam = bpy.data.objects.new('cam', cam_data)
-    cam.location = loc; cam.rotation_euler = eul
+    cam.location = loc
+    cam.rotation_euler = (Vector(c) - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
     scene.collection.objects.link(cam); scene.camera = cam
     scene.render.filepath = f'/tmp/battle_{name}.png'
     bpy.ops.render.render(write_still=True)

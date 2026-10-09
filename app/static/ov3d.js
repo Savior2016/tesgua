@@ -107,7 +107,7 @@ function fitRadius() {
 // 不同模型配不同台面/侧壁/边缘光;默认深色台 + 电蓝边缘光环,避免与深色背景相融。
 // 侧壁特斯拉 T 标 / TESLA 字标除火星地表主题外均保留。
 const ovModelKey = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
-const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street' }[ovModelKey] || 'default';
+const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', hellokitty: 'candy', mickey: 'club' }[ovModelKey] || 'default';
 {
   // 确定性伪噪声(布景用):多组 sin 叠加,无需随机种子
   const pnoise = (x, y) => Math.sin(x * 2.1 + y * 1.3) * 0.5 + Math.sin(x * 4.7 - y * 3.1 + 1.7) * 0.3
@@ -161,6 +161,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     stark:   { side: ['#39414f', '#0e1118'], top: 0x14181f, glow: [0x6fd3ff, 0.8] },
     candy:   { side: ['#e89bb2', '#5c3547'], top: 0xfdf0f3, glow: [0xff9ec4, 0.5] },
     street:  { side: ['#3c3f45', '#121317'], top: 0x26282d, glow: [0xffc42e, 0.4] },
+    club:    { side: ['#4a1518', '#0d0b0c'], top: 0x8f1216, glow: [0xffc42e, 0.6] },
   };
   const th = THEMES[pedTheme];
   const ped = new THREE.Mesh(
@@ -172,10 +173,12 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
   scene.add(ped);
 
   if (pedTheme === 'mars') {
-    // 3D 火星表面:实拍纹理(裁掉天空)+ 噪声起伏 + 散落岩石;停车区(r<2.5m)压平
+    // 3D 火星表面:实拍纹理(裁掉天空)+ 噪声起伏 + 散落岩石。
+    // 布局:r<2.1 停车区压平;r 2.1~3.1 起伏带;再往外是能耗环/电量环丝带(r 3.2~3.82,
+    // 离地仅 2~3cm),必须保持平整,岩石也不能越过 r≈3.05。
     const terrH = (x, z) => {
       const r = Math.hypot(x, z);
-      return pnoise(x, z) * 0.14 * smooth01(2.5, 3.3, r) * (1 - smooth01(3.7, 3.95, r));
+      return pnoise(x, z) * 0.1 * smooth01(2.1, 2.7, r) * (1 - smooth01(2.9, 3.15, r));
     };
     const terr = new THREE.Mesh(
       new THREE.RingGeometry(0.02, 3.96, 96, 18).rotateX(-Math.PI / 2),
@@ -195,12 +198,12 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
       terr.material.color.set(0xffffff);
       terr.material.needsUpdate = true;
     });
-    // 散落岩石(黄金角散布,位置确定)
+    // 散落岩石(黄金角散布,位置确定;限制在起伏带内,不碰能耗环)
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x7d4b30, roughness: 1, flatShading: true });
-    for (let i = 0; i < 16; i++) {
+    for (let i = 0; i < 14; i++) {
       const a = i * 2.399963 + 0.7;
-      const r = 2.75 + ((i * 37) % 100) / 100 * 1.0;
-      const s = 0.05 + ((i * 53) % 100) / 100 * 0.13;
+      const r = 2.32 + ((i * 37) % 100) / 100 * 0.58;
+      const s = 0.05 + ((i * 53) % 100) / 100 * 0.12;
       const x = Math.cos(a) * r, z = Math.sin(a) * r;
       const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rockMat);
       rock.position.set(x, terrH(x, z) + s * 0.35, z);
@@ -247,6 +250,18 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
       c.setLineDash([]);
       c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 3;
       c.beginPath(); c.arc(256, 256, 240, 0, Math.PI * 2); c.stroke();
+    }));
+  } else if (pedTheme === 'club') {
+    // 米奇俱乐部:红丝绒台面 + 一圈黄色圆点
+    topDisc(canvasTex(512, 512, (c) => {
+      const g = c.createRadialGradient(256, 256, 40, 256, 256, 256);
+      g.addColorStop(0, '#c11e24'); g.addColorStop(1, '#7d0f14');
+      c.fillStyle = g; c.fillRect(0, 0, 512, 512);
+      c.fillStyle = '#ffc42e';
+      for (let i = 0; i < 12; i++) {   // 外圈黄点
+        const a = i * Math.PI / 6;
+        c.beginPath(); c.arc(256 + Math.cos(a) * 200, 256 + Math.sin(a) * 200, 13, 0, Math.PI * 2); c.fill();
+      }
     }));
   }
   if (th.glow) {
