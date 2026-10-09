@@ -1,8 +1,8 @@
 # 钢铁侠 Mark 85 战斗姿态摆姿 + 烘焙导出(无头 Blender):
 #   xvfb-run -a blender -b --python scripts/pose-ironman.py -- <scene.gltf> <out.glb [preview]>
 # 源模型:9A Films / Nihar Arora @ Sketchfab「Iron-Man Mark 85 | Rigged」(CC-BY 4.0)。
-# 姿态:弓步冲拳(右臂掌心炮前伸、左臂收拳、躯干前倾扭转、后腿脚跟抬起)。
-# 导出后由 make-fun-models.py 同款 trimesh 归一化(rotY180/身高 3.0m/落地/居中)+ gltf-transform 压缩。
+# 姿态:开立站姿 + 双掌心炮(双脚大幅开立,双臂对称前伸掌心朝前,躯干正直微前倾)。
+# 导出后由 trimesh 归一化(rotY180/身高 3.0m/落地/居中)+ gltf-transform 压缩。
 import bpy, math, sys
 from mathutils import Euler, Vector, Matrix
 
@@ -80,33 +80,31 @@ def rot(bone, x=0.0, y=0.0, z=0.0):
     pb.rotation_euler = Euler((math.radians(x), math.radians(y), math.radians(z)), 'XYZ')
     bpy.context.view_layer.update()
 
-# ---- 战斗姿态 v2:弓步冲拳(世界:模型面朝 -Y,上 = +Z;aim 的 Y 负 = 向前) ----
-# 位移量按静置身高换算(模型世界尺寸很小,不能按米拍脑袋)
+# ---- 战斗姿态 v4:开立站姿 + 双掌心炮(世界:模型面朝 -Y,上 = +Z;aim 的 Y 负 = 向前) ----
+# 参考钢铁侠经典双炮齐射站姿:双脚大幅开立,双臂对称前伸,躯干正直微前倾
 H = REST_H
-# 重心:前移 + 下蹲
-move('mixamorig:Hips_01', (0.02*H, -0.075*H, -0.085*H))
-# 右腿(前弓):大腿前下方,小腿近垂直,脚掌平贴地
-aim('mixamorig:RightUpLeg_060', (-0.05, -0.75, -0.7))
-aim('mixamorig:RightLeg_061', (0.03, 0.05, -1.0))
-aim('mixamorig:RightFoot_062', (0.0, -0.88, -0.47))
-# 左腿(后蹬):大腿后下方,小腿近垂直,脚跟抬起脚尖点地
-aim('mixamorig:LeftUpLeg_00', (0.2, 0.7, -0.72))
-aim('mixamorig:LeftLeg_056', (0.05, 0.25, -1.0))
-aim('mixamorig:LeftFoot_057', (0.0, 0.45, -0.9))
-# 躯干:明显前倾 + 向左扭转(右拳打出时肩线对准目标)
-rot('mixamorig:Spine_02', x=13)
-rot('mixamorig:Spine1_03', x=7, y=-8)
-rot('mixamorig:Spine2_04', x=7, y=-8)
-# 右臂掌心炮:胸口高度直线前冲,略外让(正脸不被手掌挡住),肘微屈
-aim('mixamorig:RightArm_033', (0.14, -0.95, 0.08))
-aim('mixamorig:RightForeArm_034', (0.22, -1.0, -0.02))
-aim('mixamorig:RightHand_035', (0.2, -1.0, -0.02))
-# 左臂:收拳蓄势——上臂后下摆,前臂外张,拳在肩侧(不挡脸)
-aim('mixamorig:LeftArm_09', (-0.35, 0.55, -0.75))
-aim('mixamorig:LeftForeArm_010', (0.5, 0.3, 0.75))
-aim('mixamorig:LeftHand_011', (0.15, -0.8, 0.45))
-# 头:视线压向目标
-aim('mixamorig:Head_06', (0.02, -0.28, 1.0))
+# 重心:微降(开立时腿更长,少蹲)
+move('mixamorig:Hips_01', (0.0, -0.01*H, -0.035*H))
+# 双腿:左右大幅开立,膝盖顺脚尖方向,脚掌平贴地
+aim('mixamorig:RightUpLeg_060', (-0.42, -0.10, -1.0))
+aim('mixamorig:RightLeg_061', (-0.06, 0.0, -1.0))
+aim('mixamorig:RightFoot_062', (-0.35, -0.9, -0.2))
+aim('mixamorig:LeftUpLeg_00', (0.42, -0.10, -1.0))
+aim('mixamorig:LeftLeg_056', (0.06, 0.0, -1.0))
+aim('mixamorig:LeftFoot_057', (0.35, -0.9, -0.2))
+# 躯干:正直微前倾,不扭转(对称双炮)
+rot('mixamorig:Spine_02', x=6)
+rot('mixamorig:Spine1_03', x=3)
+rot('mixamorig:Spine2_04', x=3)
+# 双臂:对称前伸掌心炮,略外展避开脸,肘微屈
+aim('mixamorig:RightArm_033', (-0.38, -0.88, 0.12))
+aim('mixamorig:RightForeArm_034', (-0.30, -1.0, 0.0))
+aim('mixamorig:RightHand_035', (-0.28, -1.0, 0.0))
+aim('mixamorig:LeftArm_09', (0.38, -0.88, 0.12))
+aim('mixamorig:LeftForeArm_010', (0.30, -1.0, 0.0))
+aim('mixamorig:LeftHand_011', (0.28, -1.0, 0.0))
+# 头:正视前方
+aim('mixamorig:Head_06', (0.0, -0.1, 1.0))
 
 # ---- 取景(摆姿后网格世界包围盒) ----
 pmins, pmaxs = mesh_world_bbox()

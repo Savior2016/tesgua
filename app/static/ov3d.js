@@ -105,7 +105,7 @@ function fitRadius() {
 
 // ---------- 展示圆台(按模型主题差异化) ----------
 // 不同模型配不同台面/侧壁/边缘光;默认深色台 + 电蓝边缘光环,避免与深色背景相融。
-// 侧壁特斯拉 T 标 / TESLA 字标除火星地表主题外均保留。
+// 侧壁特斯拉 T 标 / TESLA 字标所有主题均保留。
 const ovModelKey = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
 const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', hellokitty: 'candy', mickey: 'club' }[ovModelKey] || 'default';
 {
@@ -287,8 +287,8 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
   }
 
   // 侧壁车标:贴合柱面的弧形贴片(与圆台同心、略大一圈防 z-fighting),
-  // 对齐车头(-Z);特斯拉红 #E82127 T 字徽章(图形标,火星地表主题除外)
-  if (pedTheme !== 'mars') {
+  // 对齐车头(-Z);特斯拉红 #E82127 T 字徽章(图形标,所有模型都显示)
+  {
   const lc = document.createElement('canvas');
   lc.width = lc.height = 512;
   const lctx = lc.getContext('2d');
@@ -311,7 +311,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
 
   // 侧壁文字标:与图形标正对的一侧(θ=0,车尾方向 +Z),TESLA 红色字标。
   // SVG 含嵌套变换,Path2D 直译会画飞,故整图 base64 内嵌走 Image 绘制
-  if (pedTheme !== 'mars') {
+  {
   const wc = document.createElement('canvas');
   wc.width = 1024; wc.height = 136;   // 与 SVG viewBox 1236×161 同比例
   const wctx = wc.getContext('2d');

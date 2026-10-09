@@ -30,7 +30,7 @@
 - Source: [Iron-Man Mark 85 | Rigged](https://sketchfab.com/3d-models/iron-man-mark-85-rigged-dde1085c464d4f8da259fe6669ae4dd2)(GitHub 镜像:avengers2405/movie-list)
 - License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - 说明:钢铁侠形象版权属 Marvel;此模型为社区作者作品,仅作个人面板娱乐展示。
-- 处理:Blender 摆战斗姿态(右臂前伸掌心炮、开立弓步)后烘焙网格
+- 处理:Blender 摆战斗姿态(开立站姿、双臂对称前伸双掌心炮)后烘焙网格
   (`scripts/pose-ironman.py`),转正(-Z 正面)、落地、按身高归一化至 3.0m,
   减面 50%、纹理转 1024px WebP、meshopt 压缩(178MB → 3.5MB)。
 
@@ -38,8 +38,9 @@
 
 - Source: [ZxSimas/hello-kitty-3d](https://github.com/ZxSimas/hello-kitty-3d)(GitHub,Kitty.glb)
 - License: 仓库未附许可;Hello Kitty 形象版权属 Sanrio,仅作个人面板娱乐展示。
-- 处理:原模型 UV 取色自平面参考图导致面部空白,Blender 补绘眼睛/鼻子几何
-  (`scripts/fix-kitty.py`),剥除损坏的动画轨道,转正(-Z 正面)、落地、
+- 处理:原模型 UV 取色自平面参考图导致面部空白,Blender 补绘眼睛/鼻子几何、
+  双臂经骨骼摆成自然下垂后烘焙(`scripts/fix-kitty.py`),剥除损坏的动画轨道,
+  转正(-Z 正面)、落地、
   按身高归一化至 1.8m,meshopt 压缩(275KB → 83KB)。
 
 ## mickey.glb —— 米奇(Q 版)
@@ -47,4 +48,5 @@
 - Source: 程序化几何拼装,无外部素材(`scripts/make-mickey.py`,Blender 无头生成)。
 - License: 代码生成;米奇形象版权属 Disney(1928 汽船威利版形象已进入公有领域),
   仅作个人面板娱乐展示。
-- 处理:导出即转正(-Z 正面)、落地、按身高归一化至 1.7m,meshopt 压缩(816KB → 155KB)。
+- 处理:双臂自然下垂贴裤边,导出即转正(-Z 正面)、落地、按身高归一化至 1.7m,
+  meshopt 压缩(808KB → 156KB)。
