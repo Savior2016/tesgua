@@ -103,32 +103,177 @@ function fitRadius() {
   }, { passive: false });
 }
 
-// 展示圆台(有厚度的展台,侧壁可见)+ 台面柔和投影;特斯拉红 T 车标贴在圆台侧壁正前方
+// ---------- 展示圆台(按模型主题差异化) ----------
+// 不同模型配不同台面/侧壁/边缘光;默认深色台 + 电蓝边缘光环,避免与深色背景相融。
+// 侧壁特斯拉 T 标 / TESLA 字标除火星地表主题外均保留。
+const ovModelKey = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
+const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street' }[ovModelKey] || 'default';
 {
+  // 确定性伪噪声(布景用):多组 sin 叠加,无需随机种子
+  const pnoise = (x, y) => Math.sin(x * 2.1 + y * 1.3) * 0.5 + Math.sin(x * 4.7 - y * 3.1 + 1.7) * 0.3
+    + Math.sin(x * 9.3 + y * 7.7 + 4.2) * 0.2;
+  const smooth01 = (a, b, x) => {
+    const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+    return t * t * (3 - 2 * t);
+  };
+  const canvasTex = (w, h, draw) => {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    draw(c.getContext('2d'));
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    return t;
+  };
+  // 侧壁竖向渐变(上亮下暗,让圆台从深色背景里"立"起来)
+  const sideTex = (top, bottom) => {
+    const t = canvasTex(8, 128, (c) => {
+      const g = c.createLinearGradient(0, 0, 0, 128);
+      g.addColorStop(0, top); g.addColorStop(1, bottom);
+      c.fillStyle = g; c.fillRect(0, 0, 8, 128);
+    });
+    t.wrapS = THREE.RepeatWrapping;
+    return t;
+  };
+  // 台面边缘发光环(无后处理泛光,additive 叠加模拟)
+  const glowRing = (rIn, rOut, color, opacity) => {
+    const m = new THREE.Mesh(
+      new THREE.RingGeometry(rIn, rOut, 96).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({
+        color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
+    m.position.y = 0.004;
+    m.renderOrder = 2;
+    scene.add(m);
+  };
+  // 台面贴图圆片(盖在圆台顶面上,不动圆柱 UV)
+  const topDisc = (tex) => {
+    const m = new THREE.Mesh(
+      new THREE.CircleGeometry(3.98, 96).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: tex }));
+    m.position.y = 0.003;
+    scene.add(m);
+  };
+
+  const THEMES = {
+    default: { side: ['#2b3346', '#0b0e14'], top: 0x1b2130, glow: [0x3d7bff, 0.45] },
+    mars:    { side: ['#5a3220', '#1c0e08'], top: 0x3a2115 },
+    stark:   { side: ['#39414f', '#0e1118'], top: 0x14181f, glow: [0x6fd3ff, 0.8] },
+    candy:   { side: ['#e89bb2', '#5c3547'], top: 0xfdf0f3, glow: [0xff9ec4, 0.5] },
+    street:  { side: ['#3c3f45', '#121317'], top: 0x26282d, glow: [0xffc42e, 0.4] },
+  };
+  const th = THEMES[pedTheme];
   const ped = new THREE.Mesh(
     new THREE.CylinderGeometry(4.0, 4.0, 0.5, 72),
-    [new THREE.MeshBasicMaterial({ color: 0x0b0e14 }),    // 侧壁
-     new THREE.MeshBasicMaterial({ color: 0x171c26 }),    // 台面
-     new THREE.MeshBasicMaterial({ color: 0x0b0e14 })]);  // 底面(不可见)
+    [new THREE.MeshBasicMaterial({ map: sideTex(th.side[0], th.side[1]) }),   // 侧壁
+     new THREE.MeshBasicMaterial({ color: th.top }),                          // 台面
+     new THREE.MeshBasicMaterial({ color: th.side[1] })]);                    // 底面(不可见)
   ped.position.y = -0.249;   // 台面与旧圆盘同高(y≈0.001),台体向下延伸出厚度
   scene.add(ped);
-  const cv = document.createElement('canvas');
-  cv.width = cv.height = 256;
-  const ctx = cv.getContext('2d');
-  const g = ctx.createRadialGradient(128, 128, 20, 128, 128, 128);
-  g.addColorStop(0, 'rgba(0,0,0,0.55)');
-  g.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 256, 256);
-  const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(7.0, 3.7).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
-  shadow.position.y = 0.01;
-  scene.add(shadow);
+
+  if (pedTheme === 'mars') {
+    // 3D 火星表面:实拍纹理(裁掉天空)+ 噪声起伏 + 散落岩石;停车区(r<2.5m)压平
+    const terrH = (x, z) => {
+      const r = Math.hypot(x, z);
+      return pnoise(x, z) * 0.14 * smooth01(2.5, 3.3, r) * (1 - smooth01(3.7, 3.95, r));
+    };
+    const terr = new THREE.Mesh(
+      new THREE.RingGeometry(0.02, 3.96, 96, 18).rotateX(-Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0xb0714f, roughness: 1, metalness: 0 }));
+    const tpos = terr.geometry.attributes.position;
+    for (let i = 0; i < tpos.count; i++) {
+      tpos.setY(i, terrH(tpos.getX(i), tpos.getZ(i)));
+    }
+    terr.geometry.computeVertexNormals();
+    terr.position.y = 0.002;
+    scene.add(terr);
+    new THREE.TextureLoader().load('/mars-surface.webp', (t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      t.repeat.set(1, 0.42);   // 原图上半是天空,只取底部地表
+      terr.material.map = t;
+      terr.material.color.set(0xffffff);
+      terr.material.needsUpdate = true;
+    });
+    // 散落岩石(黄金角散布,位置确定)
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x7d4b30, roughness: 1, flatShading: true });
+    for (let i = 0; i < 16; i++) {
+      const a = i * 2.399963 + 0.7;
+      const r = 2.75 + ((i * 37) % 100) / 100 * 1.0;
+      const s = 0.05 + ((i * 53) % 100) / 100 * 0.13;
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rockMat);
+      rock.position.set(x, terrH(x, z) + s * 0.35, z);
+      rock.rotation.set(i * 1.3, i * 2.1, i * 0.7);
+      scene.add(rock);
+    }
+  } else if (pedTheme === 'stark') {
+    // 斯塔克工业风:枪灰金属台面 + 方舟反应炉光环
+    topDisc(canvasTex(512, 512, (c) => {
+      const g = c.createRadialGradient(256, 256, 30, 256, 256, 256);
+      g.addColorStop(0, '#232a36'); g.addColorStop(1, '#12161d');
+      c.fillStyle = g; c.fillRect(0, 0, 512, 512);
+      c.strokeStyle = 'rgba(111,211,255,0.9)';
+      c.shadowColor = '#6fd3ff'; c.shadowBlur = 18;
+      c.lineWidth = 7; c.beginPath(); c.arc(256, 256, 92, 0, Math.PI * 2); c.stroke();
+      c.lineWidth = 3; c.setLineDash([26, 18]);
+      c.beginPath(); c.arc(256, 256, 150, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([]); c.globalAlpha = 0.5; c.lineWidth = 2;
+      c.beginPath(); c.arc(256, 256, 205, 0, Math.PI * 2); c.stroke();
+    }));
+  } else if (pedTheme === 'candy') {
+    // 摇摇车:薄荷糖条纹台面
+    topDisc(canvasTex(512, 512, (c) => {
+      for (let i = 0; i < 16; i++) {
+        c.fillStyle = i % 2 ? '#ffbdd2' : '#fff2f6';
+        c.beginPath(); c.moveTo(256, 256);
+        c.arc(256, 256, 260, i * Math.PI / 8, (i + 1) * Math.PI / 8);
+        c.fill();
+      }
+      c.fillStyle = '#ff9ec4';
+      c.beginPath(); c.arc(256, 256, 46, 0, Math.PI * 2); c.fill();
+    }));
+  } else if (pedTheme === 'street') {
+    // 三蹦子:柏油路面 + 黄色虚线环岛
+    topDisc(canvasTex(512, 512, (c) => {
+      c.fillStyle = '#26282d'; c.fillRect(0, 0, 512, 512);
+      for (let i = 0; i < 900; i++) {   // 柏油颗粒(格点伪随机)
+        const x = (i * 197) % 512, y = (i * 311) % 512;
+        c.fillStyle = i % 3 ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.16)';
+        c.fillRect(x, y, 2, 2);
+      }
+      c.strokeStyle = '#ffc42e'; c.lineWidth = 6; c.setLineDash([30, 22]);
+      c.beginPath(); c.arc(256, 256, 190, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([]);
+      c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 3;
+      c.beginPath(); c.arc(256, 256, 240, 0, Math.PI * 2); c.stroke();
+    }));
+  }
+  if (th.glow) {
+    glowRing(3.55, 3.78, th.glow[0], th.glow[1] * 0.5);
+    glowRing(3.9, 3.99, th.glow[0], th.glow[1]);
+  }
+
+  // 台面柔和投影(火星地表自带起伏与光影,跳过)
+  if (pedTheme !== 'mars') {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 256;
+    const ctx = cv.getContext('2d');
+    const g = ctx.createRadialGradient(128, 128, 20, 128, 128, 128);
+    g.addColorStop(0, 'rgba(0,0,0,0.55)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 256, 256);
+    const shadow = new THREE.Mesh(
+      new THREE.PlaneGeometry(7.0, 3.7).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
+    shadow.position.y = 0.01;
+    scene.add(shadow);
+  }
 
   // 侧壁车标:贴合柱面的弧形贴片(与圆台同心、略大一圈防 z-fighting),
-  // 对齐车头(-Z);特斯拉红 #E82127 T 字徽章(图形标,所有模型都显示)
-  {
+  // 对齐车头(-Z);特斯拉红 #E82127 T 字徽章(图形标,火星地表主题除外)
+  if (pedTheme !== 'mars') {
   const lc = document.createElement('canvas');
   lc.width = lc.height = 512;
   const lctx = lc.getContext('2d');
@@ -151,7 +296,7 @@ function fitRadius() {
 
   // 侧壁文字标:与图形标正对的一侧(θ=0,车尾方向 +Z),TESLA 红色字标。
   // SVG 含嵌套变换,Path2D 直译会画飞,故整图 base64 内嵌走 Image 绘制
-  {
+  if (pedTheme !== 'mars') {
   const wc = document.createElement('canvas');
   wc.width = 1024; wc.height = 136;   // 与 SVG viewBox 1236×161 同比例
   const wctx = wc.getContext('2d');
