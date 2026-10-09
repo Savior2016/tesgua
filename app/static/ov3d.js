@@ -269,6 +269,21 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     glowRing(3.9, 3.99, th.glow[0], th.glow[1]);
   }
 
+  // 主题补光:摄影棚环境(setupStudio)是为黑漆车调暗的,人形手办类 raw 模型偏暗,
+  // 按主题加英雄光(模型正面 = -Z)
+  if (pedTheme === 'stark') {
+    scene.add(new THREE.HemisphereLight(0xe8f0ff, 0x2c313a, 0.55));
+    const fill = new THREE.DirectionalLight(0xdceaff, 1.5);   // 正面补光
+    fill.position.set(0, 4, -6);
+    scene.add(fill);
+    const rim = new THREE.DirectionalLight(0x6fd3ff, 1.8);    // 背后青色轮廓光(方舟反应炉色调)
+    rim.position.set(-3, 5, 5);
+    scene.add(rim);
+    const warm = new THREE.DirectionalLight(0xffd9a6, 0.8);   // 右前暖光,提金甲层次
+    warm.position.set(4, 3, -3);
+    scene.add(warm);
+  }
+
   // 台面柔和投影(火星地表自带起伏与光影,跳过)
   if (pedTheme !== 'mars') {
     const cv = document.createElement('canvas');
@@ -643,6 +658,22 @@ fetch('/api/prefs').then((r) => r.json()).then((p) => {
   if (p.car_color_effective) localStorage.setItem('ttv-carcolor', p.car_color_effective);
 }).catch(() => {});
 
+// ---------- raw 趣味模型的逐模型微调(保留原配色前提下的提亮/自发光) ----------
+// 摄影棚环境为黑漆车调暗,金属甲/塑料手办会显得闷;按模型名补 envMap 与自发光。
+const RAW_TUNE = {
+  ironman(root) {
+    root.traverse((o) => {
+      if (!o.isMesh || !o.material) return;
+      const m = o.material;
+      if ('envMapIntensity' in m) m.envMapIntensity = 1.9;
+      if (/Arc_Reactor|Lights/.test(m.name || '')) {   // 胸口反应炉/掌心/眼灯点亮
+        m.emissive = new THREE.Color(0xbfe8ff);
+        m.emissiveIntensity = 1.6;
+      }
+    });
+  },
+};
+
 let rockPivot = null;   // 摇摇车:绕底座顶面铰链的缓摇组(尊重 prefers-reduced-motion)
 loader.load(cfg.url, (gltf) => {
   if (cfg.cybertruck) {
@@ -652,6 +683,7 @@ loader.load(cfg.url, (gltf) => {
   } else if (!cfg.raw) {
     prepareModel(gltf.scene, cfg, makeMats());
   }   // raw:趣味模型保留原配色,不做换漆/玻璃重映射
+  if (cfg.raw && RAW_TUNE[cfg.key]) RAW_TUNE[cfg.key](gltf.scene);
   gltf.scene.scale.multiplyScalar(1.18);   // 放大车模:原比例相对圆台偏小
   let root = gltf.scene;
   if (cfg.rock && !matchMedia('(prefers-reduced-motion: reduce)').matches) {

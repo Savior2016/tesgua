@@ -30,23 +30,25 @@
 - Source: [Iron-Man Mark 85 | Rigged](https://sketchfab.com/3d-models/iron-man-mark-85-rigged-dde1085c464d4f8da259fe6669ae4dd2)(GitHub 镜像:avengers2405/movie-list)
 - License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - 说明:钢铁侠形象版权属 Marvel;此模型为社区作者作品,仅作个人面板娱乐展示。
-- 处理:Blender 摆战斗姿态(开立站姿、双臂对称前伸双掌心炮)后烘焙网格
-  (`scripts/pose-ironman.py`),转正(-Z 正面)、落地、按身高归一化至 3.0m,
-  减面 50%、纹理转 1024px WebP、meshopt 压缩(178MB → 3.5MB)。
+- 处理:Blender 摆战斗姿态 v6(开立站姿、双臂前伸、掌心朝正前、手指向上的
+  经典掌心炮;掌心朝向由食/小指根骨骼推算掌心法线后绕手骨扭转校正,脚掌放平)
+  后烘焙网格(`scripts/pose-ironman.py`),转正(-Z 正面)、落地、按身高归一化
+  至 3.0m,纹理转 1024px WebP、meshopt 压缩(178MB → 2.1MB)。
 
 ## hellokitty.glb —— Hello Kitty
 
-- Source: [ZxSimas/hello-kitty-3d](https://github.com/ZxSimas/hello-kitty-3d)(GitHub,Kitty.glb)
+- Source: [ZxSimas/hello-kitty-3d](https://github.com/ZxSimas/hello-kitty-3d)(GitHub,hello_kitty.glb 雕塑版)
 - License: 仓库未附许可;Hello Kitty 形象版权属 Sanrio,仅作个人面板娱乐展示。
-- 处理:原模型 UV 取色自平面参考图导致面部空白,Blender 补绘眼睛/鼻子几何、
-  双臂经骨骼摆成自然下垂后烘焙(`scripts/fix-kitty.py`),剥除损坏的动画轨道,
-  转正(-Z 正面)、落地、
-  按身高归一化至 1.8m,meshopt 压缩(275KB → 83KB)。
+- 处理:v2 换用仓库中更圆润的雕塑版白模(自带蝴蝶结/鼻子/胡须几何,原 Kitty.glb
+  已弃用,`scripts/fix-kitty.py` 随之归档),按网格名程序化着色(白身/黑胡须/黄鼻子/
+  红蝴蝶结)并补黑色椭圆眼(`scripts/make-kitty-v2.py`),Blender 内归一化至 1.8m、
+  转正(-Z 正面)、落地,meshopt 压缩(4.8MB → 126KB)。
 
 ## mickey.glb —— 米奇(Q 版)
 
-- Source: 程序化几何拼装,无外部素材(`scripts/make-mickey.py`,Blender 无头生成)。
+- Source: 程序化几何拼装 v2,无外部素材(`scripts/make-mickey.py`,Blender 无头生成)。
 - License: 代码生成;米奇形象版权属 Disney(1928 汽船威利版形象已进入公有领域),
   仅作个人面板娱乐展示。
-- 处理:双臂自然下垂贴裤边,导出即转正(-Z 正面)、落地、按身高归一化至 1.7m,
-  meshopt 压缩(808KB → 156KB)。
+- 处理:v2 更圆润 Q 版比例:连体长眼区、弧线上翘微笑(曲线 bevel,取代整环)、
+  白袖口手套、大黄鞋、S 形细尾巴;Blender 内归一化至 1.7m、落地、XZ 居中,
+  meshopt 压缩(1.2MB → 130KB)。
