@@ -1,7 +1,7 @@
 # 钢铁侠 Mark 85 战斗姿态摆姿 + 烘焙导出(无头 Blender):
 #   xvfb-run -a blender -b --python scripts/pose-ironman.py -- <scene.gltf> <out.glb [preview]>
 # 源模型:9A Films / Nihar Arora @ Sketchfab「Iron-Man Mark 85 | Rigged」(CC-BY 4.0)。
-# 姿态:开立站姿 + 双掌心炮(双脚大幅开立,双臂对称前伸掌心朝前,躯干正直微前倾)。
+# 姿态:开立站姿 + 双掌心炮(双脚大幅开立,双臂前伸、手腕立起掌心朝前,躯干正直微前倾)。
 # 导出后由 trimesh 归一化(rotY180/身高 3.0m/落地/居中)+ gltf-transform 压缩。
 import bpy, math, sys
 from mathutils import Euler, Vector, Matrix
@@ -80,7 +80,7 @@ def rot(bone, x=0.0, y=0.0, z=0.0):
     pb.rotation_euler = Euler((math.radians(x), math.radians(y), math.radians(z)), 'XYZ')
     bpy.context.view_layer.update()
 
-# ---- 战斗姿态 v4:开立站姿 + 双掌心炮(世界:模型面朝 -Y,上 = +Z;aim 的 Y 负 = 向前) ----
+# ---- 战斗姿态 v5:开立站姿 + 双掌心炮(手腕立起掌心朝前)(世界:模型面朝 -Y,上 = +Z;aim 的 Y 负 = 向前) ----
 # 参考钢铁侠经典双炮齐射站姿:双脚大幅开立,双臂对称前伸,躯干正直微前倾
 H = REST_H
 # 重心:微降(开立时腿更长,少蹲)
@@ -97,12 +97,12 @@ rot('mixamorig:Spine_02', x=6)
 rot('mixamorig:Spine1_03', x=3)
 rot('mixamorig:Spine2_04', x=3)
 # 双臂:对称前伸掌心炮,略外展避开脸,肘微屈
-aim('mixamorig:RightArm_033', (-0.38, -0.88, 0.12))
-aim('mixamorig:RightForeArm_034', (-0.30, -1.0, 0.0))
-aim('mixamorig:RightHand_035', (-0.28, -1.0, 0.0))
-aim('mixamorig:LeftArm_09', (0.38, -0.88, 0.12))
-aim('mixamorig:LeftForeArm_010', (0.30, -1.0, 0.0))
-aim('mixamorig:LeftHand_011', (0.28, -1.0, 0.0))
+aim('mixamorig:RightArm_033', (-0.22, -0.95, -0.08))
+aim('mixamorig:RightForeArm_034', (-0.10, -1.0, -0.38))
+aim('mixamorig:RightHand_035', (-0.06, -0.25, 1.0))
+aim('mixamorig:LeftArm_09', (0.22, -0.95, -0.08))
+aim('mixamorig:LeftForeArm_010', (0.10, -1.0, -0.38))
+aim('mixamorig:LeftHand_011', (0.06, -0.25, 1.0))
 # 头:正视前方
 aim('mixamorig:Head_06', (0.0, -0.1, 1.0))
 
