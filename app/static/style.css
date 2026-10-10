@@ -1365,6 +1365,7 @@ button { touch-action: manipulation; }
 .model-seg button {
   position: relative;
   white-space: nowrap; text-align: center;
+  overflow: hidden; text-overflow: ellipsis;   /* 长型号名兜底省略号,不撑破按钮 */
   padding: 10px 8px;
   border: 1px solid var(--glass-edge);
   border-radius: 10px;
