@@ -170,6 +170,16 @@ def test_ov_car_model(env):
     assert prefs["owner"] == {"ov_car_model": "mars-rover"}
 
 
+def test_ov_car_model_fun_models(env):
+    """趣味模型白名单与前端注册表一致(hellokitty/mickey 曾漏配导致保存 422)。"""
+    client, _ = env
+    login(client)
+    for key in ("sanbengzi", "mars-rover", "yaoyao", "ironman", "hellokitty", "mickey"):
+        r = client.post("/api/prefs", json={"ov_car_model": key})
+        assert r.status_code == 200, key
+        assert r.json()["ov_car_model"] == key
+
+
 def test_ov_car_model_defaults_to_car_model(env):
     """总览模型未单独设置时跟随控制页车模(老账号无缝迁移)。"""
     client, _ = env

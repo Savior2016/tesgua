@@ -89,9 +89,9 @@ export const MODELS = {
     note: '写实玩具车(Khronos ToyCar,CC0)+ 程序化弹簧投币底座;仅供娱乐,无车身交互',
   },
   'ironman': {
-    label: '钢铁侠 · Mark 85', url: '/models/fun/ironman.glb', sizeMB: 2.1,
+    label: '钢铁侠 · Mark 85', url: '/models/fun/ironman.glb', sizeMB: 3.6,
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.9,
-    note: '战斗姿态(双掌朝前、手指向上掌心炮;9A Films @ Sketchfab rigged 版烘焙,CC-BY 4.0);仅供娱乐,无车身交互',
+    note: '战斗姿态(双掌朝前手指向上掌心炮+脉冲光束;9A Films @ Sketchfab rigged 版烘焙,CC-BY 4.0);仅供娱乐,无车身交互',
   },
   'hellokitty': {
     label: 'Hello Kitty', url: '/models/fun/hellokitty.glb', sizeMB: 0.13,
@@ -99,9 +99,9 @@ export const MODELS = {
     note: '雕塑版白模(ZxSimas/hello-kitty-3d)+ 程序化配色五官与红蝴蝶结;仅供娱乐,无车身交互',
   },
   'mickey': {
-    label: '米奇', url: '/models/fun/mickey.glb', sizeMB: 0.13,
+    label: '米奇', url: '/models/fun/mickey.glb', sizeMB: 0.07,
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.6,
-    note: '程序化几何拼装 v2(scripts/make-mickey.py),无外部素材;仅供娱乐,无车身交互',
+    note: '汽船威利橡皮管米奇(frankilito/steamboat-willie,1928 公有领域风格);仅供娱乐,无车身交互',
   },
 };
 

@@ -660,6 +660,7 @@ fetch('/api/prefs').then((r) => r.json()).then((p) => {
 
 // ---------- raw 趣味模型的逐模型微调(保留原配色前提下的提亮/自发光) ----------
 // 摄影棚环境为黑漆车调暗,金属甲/塑料手办会显得闷;按模型名补 envMap 与自发光。
+const repulsorBeams = [];   // 钢铁侠掌心炮光束(脉冲在 frame() 里驱动)
 const RAW_TUNE = {
   ironman(root) {
     root.traverse((o) => {
@@ -669,6 +670,28 @@ const RAW_TUNE = {
       if (/Arc_Reactor|Lights/.test(m.name || '')) {   // 胸口反应炉/掌心/眼灯点亮
         m.emissive = new THREE.Color(0xbfe8ff);
         m.emissiveIntensity = 1.6;
+      }
+    });
+    // 掌心炮光束:GLB 里烘了 repulsor_L/R 发光盘作锚点(几何已烘进世界坐标),
+    // 从掌心向正前(-Z)打出双层加色光束(外晕 + 亮芯),脉冲在渲染循环里驱动。
+    // 锚点中心必须取世界包围盒:量化网格(KHR_mesh_quantization)的
+    // geometry.boundingBox 是 int16 归一化空间,直接用会把光束放到原点附近。
+    root.traverse((o) => {
+      if (!o.isMesh || !/^repulsor_[LR]$/.test(o.name || '')) return;
+      o.updateWorldMatrix(true, false);
+      const c = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
+      const LEN = 1.35;
+      for (const [rad, op] of [[0.085, 0.15], [0.028, 0.5]]) {
+        const g = new THREE.CylinderGeometry(rad, rad * 0.45, LEN, 20, 1, true);
+        const bm = new THREE.MeshBasicMaterial({
+          color: 0x7dd8ff, transparent: true, opacity: op,
+          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+        });
+        const beam = new THREE.Mesh(g, bm);
+        beam.rotation.x = -Math.PI / 2;   // 圆柱 +Y 轴 → -Z(正前方)
+        beam.position.set(c.x, c.y, c.z - LEN / 2);
+        root.add(beam);
+        repulsorBeams.push({ mesh: beam, base: op });
       }
     });
   },
@@ -723,6 +746,11 @@ function frame() {
   requestAnimationFrame(frame);
   if (autoSpin) orbitGoal.theta += 0.0012;   // 展台缓转(比控制页略慢)
   if (rockPivot) rockPivot.rotation.x = Math.sin(performance.now() * 0.0022) * 0.05;  // 摇摇车缓摇
+  if (repulsorBeams.length) {   // 掌心炮光束脉冲
+    const t = performance.now() * 0.004;
+    const k = 0.82 + 0.18 * Math.sin(t) + 0.06 * Math.sin(t * 2.7);
+    for (const b of repulsorBeams) b.mesh.material.opacity = b.base * k;
+  }
   orbit.theta += (orbitGoal.theta - orbit.theta) * 0.12;
   orbit.phi += (orbitGoal.phi - orbit.phi) * 0.12;
   orbit.r += (orbitGoal.r - orbit.r) * 0.15;

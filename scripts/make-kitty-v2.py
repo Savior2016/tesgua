@@ -43,16 +43,24 @@ for o in bpy.data.objects:
         o.data.materials.clear()
         o.data.materials.append(COLOR[o.name])
 
-# 眼睛:黑色竖椭圆,贴在脸盘正面凸起的眼位上(前推压过眼凸,保证两侧都露出)
+# 眼睛:黑色竖椭圆,从前方向脸盘射线求交,半嵌进表面(固定坐标会悬空——
+# 曾按目测放在面盘前方 0.005 处,归一化放大 32 倍后眼睛悬浮在脸前 16cm)
 def eye(x, tag):
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=0.0022, segments=24, ring_count=16)
+    dg = bpy.context.evaluated_depsgraph_get()
+    hit, loc, nrm, *_ = bpy.context.scene.ray_cast(dg, Vector((x, -0.06, 0.0328)), Vector((0, 1, 0)))
+    if not hit:
+        print('EYE RAY MISS', tag)
+        return
+    r = 0.0022
+    bpy.ops.mesh.primitive_uv_sphere_add(radius=r, segments=24, ring_count=16)
     o = bpy.context.active_object
     o.name = tag
     o.scale = (0.85, 0.35, 1.30)
-    o.location = (x, -0.0195, 0.0328)
+    o.location = Vector(loc) + Vector(nrm).normalized() * (r * 0.55)   # 45% 嵌入表面
     o.data.materials.append(BLACK)
-eye(-0.0076, "eyeL")
-eye(0.0076, "eyeR")
+    print('EYE', tag, [round(v, 4) for v in o.location])
+eye(-0.007, "eyeL")
+eye(0.007, "eyeR")
 bpy.context.view_layer.update()   # 强制刷新 matrix_world(无头模式下延迟求值会把右眼落在原点)
 
 # ---- 转正 + 归一化:面板正面 = -Z(Blender -Y 面朝导出后为 +Z,绕 Z 转 180°),

@@ -30,10 +30,12 @@
 - Source: [Iron-Man Mark 85 | Rigged](https://sketchfab.com/3d-models/iron-man-mark-85-rigged-dde1085c464d4f8da259fe6669ae4dd2)(GitHub 镜像:avengers2405/movie-list)
 - License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - 说明:钢铁侠形象版权属 Marvel;此模型为社区作者作品,仅作个人面板娱乐展示。
-- 处理:Blender 摆战斗姿态 v6(开立站姿、双臂前伸、掌心朝正前、手指向上的
-  经典掌心炮;掌心朝向由食/小指根骨骼推算掌心法线后绕手骨扭转校正,脚掌放平)
-  后烘焙网格(`scripts/pose-ironman.py`),转正(-Z 正面)、落地、按身高归一化
-  至 3.0m,纹理转 1024px WebP、meshopt 压缩(178MB → 2.1MB)。
+- 处理:Blender 摆战斗姿态 v9(开立站姿、双臂前伸、掌心朝正前、手指向上的
+  经典掌心炮;掌心朝向由食/小指根骨骼推算掌心法线后绕手骨扭转校正,脚掌放平;
+  repulsor_L/R 自发光圆盘刚性绑到手骨上随身体一起烘焙作光束锚点,光束由
+  ov3d.js 运行时生成;转正/归一化全部烘进顶点,`scripts/pose-ironman.py`),
+  转正(-Z 正面)、落地、按身高归一化至 2.4m,纹理转 1024px WebP、
+  meshopt 压缩(171MB → 3.6MB,simplify 需 --lock-border 否则锚点被坍缩)。
 
 ## hellokitty.glb —— Hello Kitty
 
@@ -41,14 +43,18 @@
 - License: 仓库未附许可;Hello Kitty 形象版权属 Sanrio,仅作个人面板娱乐展示。
 - 处理:v2 换用仓库中更圆润的雕塑版白模(自带蝴蝶结/鼻子/胡须几何,原 Kitty.glb
   已弃用,`scripts/fix-kitty.py` 随之归档),按网格名程序化着色(白身/黑胡须/黄鼻子/
-  红蝴蝶结)并补黑色椭圆眼(`scripts/make-kitty-v2.py`),Blender 内归一化至 1.8m、
-  转正(-Z 正面)、落地,meshopt 压缩(4.8MB → 126KB)。
+  红蝴蝶结)并补黑色椭圆眼(`scripts/make-kitty-v2.py`;v3 起眼睛由射线求交半嵌进
+  脸盘表面,不再悬空),Blender 内归一化至 1.8m、转正(-Z 正面)、落地,
+  meshopt 压缩(4.8MB → 126KB)。
 
-## mickey.glb —— 米奇(Q 版)
+## mickey.glb —— 米奇(汽船威利橡皮管风格)
 
-- Source: 程序化几何拼装 v2,无外部素材(`scripts/make-mickey.py`,Blender 无头生成)。
-- License: 代码生成;米奇形象版权属 Disney(1928 汽船威利版形象已进入公有领域),
-  仅作个人面板娱乐展示。
-- 处理:v2 更圆润 Q 版比例:连体长眼区、弧线上翘微笑(曲线 bevel,取代整环)、
-  白袖口手套、大黄鞋、S 形细尾巴;Blender 内归一化至 1.7m、落地、XZ 居中,
-  meshopt 压缩(1.2MB → 130KB)。
+- Source: [frankilito/steamboat-willie](https://github.com/frankilito/steamboat-willie)(GitHub,assets/models/willieMickey.glb)
+- License: 仓库未附许可;该仓库为 1928 年公有领域作品《Steamboat Willie》的独立再创作
+  (无手套、饼切眼、圆鼻、短裤大鞋的黑白橡皮管风格),仅作个人面板娱乐展示。
+- 处理:v4 换用该仓库的 rigged 米奇(11 段动画;v2 程序化拼装版已弃用,归档于
+  `scripts/make-mickey.py`)。源模型静止姿态是散件,且所有动画剪辑只覆盖部分骨骼
+  (17 关节最多 13),采样动画会留下悬空四肢(v3 因此废弃);v4 起直接导出绑定几何
+  (绑定姿态本身即组装好的站姿):`scripts/dump-willie.html` + `scripts/dump-willie.py`
+  (clip=raw)浏览器内导出顶点,`scripts/dump2glb.py` 归一化),转正(-Z 正面)、落地、
+  归一化至 1.7m,meshopt 压缩(1.2MB → 66KB)。

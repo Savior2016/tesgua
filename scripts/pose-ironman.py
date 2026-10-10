@@ -1,9 +1,15 @@
-# 钢铁侠 Mark 85 战斗姿态 v6:双臂前伸 + 掌心朝正前 + 手指向上(经典掌心炮)
-#   xvfb-run -a blender -b --python pose-ironman-v6.py -- <scene.gltf> <out.glb [preview]>
+# 钢铁侠 Mark 85 战斗姿态 v9:双臂前伸 + 掌心朝正前 + 手指向上(经典掌心炮)
+#   xvfb-run -a blender -b --python pose-ironman.py -- <scene.gltf> <out.glb [preview]>
 # 源模型:9A Films / Nihar Arora @ Sketchfab「Iron-Man Mark 85 | Rigged」(CC-BY 4.0)。
-# v6 变更:v5 只 aim 了手骨方向(掌心朝向由骨骼扭转自由度决定,不可控 → 掌心没朝前)。
-# 现在用手骨 + 食指/小指根骨骼的世界位置算出当前掌心法线,绕手指轴扭到正前方(-Y),
-# 再把五指逐节摆直朝上(拇指侧张),做到「掌心炮对准前方,手指向上」。
+# v6:用手骨 + 食指/小指根骨骼的世界位置算掌心法线,绕手指轴扭到正前方,五指逐节摆直朝上。
+# v7:导出前整体绕 Z 转 180°(Blender -Y 朝面 → glTF +Z,面板正面是 -Z,v6 因此一直背对观众);
+#    掌心烘入 repulsor_L/R 自发光圆盘网格(ov3d.js 光束锚点,按名识别)。
+# v9:锚点在烘焙**之前**创建并刚性绑到手骨(vertex group + Armature modifier),随身体一起
+#    modifier_apply —— modifier_apply 会把网格顶点落到 armature 局部坐标(比世界大 ~1000 倍),
+#    烘后再建的锚点与身体差三个数量级(v8 锚点落到脚底);trimesh 归一化也会把带旋转的小节点
+#    写坏(v7 经 normalize_fun.py 后锚点失位),故转正/归一化全部烘进顶点、节点保持 identity。
+#    压缩:gltf-transform optimize 默认 simplify 会坍缩锚点小圆柱 → 必须
+#    --simplify-lock-border 且关 --join/--flatten/--palette。
 import bpy, math, sys
 from mathutils import Euler, Vector, Matrix
 
@@ -159,6 +165,25 @@ for side, t1, t2, t3 in [('L', '_012', '_013', '_014'), ('R', '_036', '_037', '_
 # 头:正视前方
 aim('mixamorig:Head_06', (0.0, -0.1, 1.0))
 
+# ---- 掌心炮锚点:掌心中心 + 掌心法线 + 掌心宽度(烘发光盘前先取姿态数据) ----
+def palm_info(hand, index1, pinky1, side):
+    k1, k5 = head_w(index1), head_w(pinky1)
+    center = (k1 + k5) / 2
+    pb = arm.pose.bones[hand]
+    finger = ((MW @ pb.tail) - (MW @ pb.head)).normalized()
+    k = (k1 - k5).normalized()
+    n = (finger.cross(k) if side == 'L' else k.cross(finger)).normalized()
+    return center, n, (k1 - k5).length
+
+REPU = []
+for side, hand, i1, p1 in [
+    ('L', 'mixamorig:LeftHand_011', 'mixamorig:LeftHandIndex1_016', 'mixamorig:LeftHandPinky1_028'),
+    ('R', 'mixamorig:RightHand_035', 'mixamorig:RightHandIndex1_040', 'mixamorig:RightHandPinky1_052'),
+]:
+    c, n, w = palm_info(hand, i1, p1, side)
+    print(f'REPU {side}: center={[round(v,3) for v in c]} normal={[round(v,2) for v in n]} width={round(w,3)}')
+    REPU.append((side, c + n * 0.004, n, w * 0.34))
+
 # ---- 取景(摆姿后网格世界包围盒) ----
 pmins, pmaxs = mesh_world_bbox()
 c = [(pmins[i]+pmaxs[i])/2 for i in range(3)]
@@ -191,7 +216,44 @@ print('PREVIEW OK')
 if PREVIEW:
     sys.exit(0)
 
-# ---- 烘焙:应用 Armature modifier,删骨骼,导出 ----
+# ---- 掌心炮发光盘(绑定手骨随烘焙,ov3d.js 光束锚点;盘面法线 = 掌心方向) ----
+# 关键坑:modifier_apply 后网格顶点落在 armature 局部坐标(比世界大 ~1000 倍),
+# 烘后再建的锚点会差三个数量级(v8 锚点因此落到脚底)。所以锚点在烘焙**之前**建:
+# 放在 rest 姿态掌心位、刚性绑到手骨上,随身体一起 apply,坐标系自然一致。
+mrep = bpy.data.materials.new('RepulsorGlow')
+mrep.use_nodes = True
+_bsdf = mrep.node_tree.nodes['Principled BSDF']
+_bsdf.inputs['Base Color'].default_value = (0.35, 0.75, 1.0, 1)
+_bsdf.inputs['Emission Color'].default_value = (0.55, 0.85, 1.0, 1)
+_bsdf.inputs['Emission Strength'].default_value = 3.0
+
+def palm_info_rest(hand, index1, pinky1, side):
+    k1 = MW @ arm.data.bones[index1].head_local
+    k5 = MW @ arm.data.bones[pinky1].head_local
+    center = (k1 + k5) / 2
+    hb = arm.data.bones[hand]
+    finger = ((MW @ hb.tail_local) - (MW @ hb.head_local)).normalized()
+    k = (k1 - k5).normalized()
+    n = (finger.cross(k) if side == 'L' else k.cross(finger)).normalized()
+    return center, n, (k1 - k5).length
+
+for side, hand, i1, p1 in [
+    ('L', 'mixamorig:LeftHand_011', 'mixamorig:LeftHandIndex1_016', 'mixamorig:LeftHandPinky1_028'),
+    ('R', 'mixamorig:RightHand_035', 'mixamorig:RightHandIndex1_040', 'mixamorig:RightHandPinky1_052'),
+]:
+    c, n, w = palm_info_rest(hand, i1, p1, side)
+    bpy.ops.mesh.primitive_cylinder_add(radius=w * 0.34, depth=0.004, vertices=24)
+    disc = bpy.context.active_object
+    disc.name = f'repulsor_{side}'
+    disc.data.transform(Matrix.Translation(c + n * 0.004) @ n.to_track_quat('Z', 'Y').to_matrix().to_4x4())
+    disc.data.materials.append(mrep)
+    vg = disc.vertex_groups.new(name=hand)
+    vg.add(list(range(len(disc.data.vertices))), 1.0, 'REPLACE')
+    mod = disc.modifiers.new('Armature', 'ARMATURE')
+    mod.object = arm
+    print(f'DISC {side} rest_center={[round(v,4) for v in c]}')
+
+# ---- 烘焙:应用 Armature modifier(含锚点),删骨骼,导出 ----
 bpy.ops.object.mode_set(mode='OBJECT')
 for obj in list(bpy.data.objects):
     if obj.type != 'MESH':
@@ -203,6 +265,41 @@ for obj in list(bpy.data.objects):
 for obj in list(bpy.data.objects):
     if obj.type == 'ARMATURE':
         bpy.data.objects.remove(obj, do_unlink=True)
+
+# ---- 转正 + 归一化:全部烘进顶点,对象变换归 identity ----
+# 面板正面 = glTF -Z,而 Blender -Y 朝面导出后落在 +Z → 绕 Z 转 180°。
+# 归一化(2.4m/落地/居中)也在这里做:此前交给 normalize_fun.py(trimesh),
+# 但 trimesh 会把带旋转的小锚点节点写坏(v8-norm 里 repulsor 落到 (0,0.07,0.39));
+# 顶点全烘后下游任何工具都没有节点变换可处理,最稳。
+R180 = Matrix.Rotation(math.pi, 4, 'Z')
+for o in bpy.data.objects:
+    if o.type == 'MESH':
+        if o.data.users > 1:
+            o.data = o.data.copy()
+        o.data.transform(R180 @ o.matrix_world)
+        o.matrix_world = Matrix.Identity(4)
+bpy.context.view_layer.update()
+
+mins = [1e9] * 3
+maxs = [-1e9] * 3
+for o in bpy.data.objects:
+    if o.type != 'MESH':
+        continue
+    for c in o.bound_box:          # matrix_world 已是 identity,bound_box 即世界坐标
+        for i in range(3):
+            mins[i] = min(mins[i], c[i])
+            maxs[i] = max(maxs[i], c[i])
+s = 2.4 / (maxs[2] - mins[2])    # Blender z-up,按身高归一
+print('NORM bbox', [round(v, 4) for v in mins], [round(v, 4) for v in maxs], 's=', round(s, 4))
+M = Matrix.Translation((-(mins[0] + maxs[0]) / 2 * s,
+                        -(mins[1] + maxs[1]) / 2 * s,
+                        -mins[2] * s)) @ Matrix.Scale(s, 4)
+for o in bpy.data.objects:
+    if o.type == 'MESH':
+        o.data.transform(M)
+        if o.name.startswith('repulsor'):
+            print(f'NORM {o.name} v0={[round(v,4) for v in o.data.vertices[0].co]}')
+bpy.context.view_layer.update()
 
 bpy.ops.export_scene.gltf(filepath=OUT, export_format='GLB',
                           export_image_format='AUTO', export_materials='EXPORT',
