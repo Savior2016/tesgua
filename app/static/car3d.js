@@ -89,9 +89,10 @@ export const MODELS = {
     note: '写实玩具车(Khronos ToyCar,CC0)+ 程序化弹簧投币底座;仅供娱乐,无车身交互',
   },
   'ironman': {
-    label: '钢铁侠 · Mark 85', url: '/models/fun/ironman.glb', sizeMB: 3.6,
+    // ?v= 破缓存:/models/ 响应带一周强缓存,模型文件内容更新时必须递增
+    label: '钢铁侠 · Mark 85', url: '/models/fun/ironman.glb?v=11', sizeMB: 3.7,
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.9,
-    note: '战斗姿态(双掌朝前手指向上掌心炮+脉冲光束;9A Films @ Sketchfab rigged 版烘焙,CC-BY 4.0);仅供娱乐,无车身交互',
+    note: '砸地姿态(右膝跪地右拳砸地+左掌前射掌心炮;9A Films @ Sketchfab rigged 版烘焙,CC-BY 4.0);仅供娱乐,无车身交互',
   },
   'hellokitty': {
     label: 'Hello Kitty', url: '/models/fun/hellokitty.glb', sizeMB: 0.13,
