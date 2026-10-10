@@ -1,4 +1,4 @@
-# 钢铁侠 Mark 85 砸地姿态 v11:右膝跪地 + 右拳砸地 + 左腿前撑 + 左掌前射掌心炮
+# 钢铁侠 Mark 85 战斗姿态 v9:双臂前伸 + 掌心朝正前 + 手指向上(经典掌心炮)
 #   xvfb-run -a blender -b --python pose-ironman.py -- <scene.gltf> <out.glb [preview]>
 # 源模型:9A Films / Nihar Arora @ Sketchfab「Iron-Man Mark 85 | Rigged」(CC-BY 4.0)。
 # v6:用手骨 + 食指/小指根骨骼的世界位置算掌心法线,绕手指轴扭到正前方,五指逐节摆直朝上。
@@ -116,71 +116,28 @@ def twist_palm(hand, index1, pinky1, side, target=(0.0, -1.0, 0.0)):
     n2 = (finger2.cross(k2) if side == 'L' else k2.cross(finger2)).normalized()
     print(f'PALM {hand}: before={[round(v,2) for v in n]} after={[round(v,2) for v in n2]} target={list(target)}')
 
-def set_pos(bone, pos):
-    """把骨骼头端平移到世界坐标 pos(髋部等根骨骼定位用)。"""
-    pb = arm.pose.bones.get(bone)
-    if pb is None:
-        print('MISS', bone); return
-    bpy.context.view_layer.update()
-    cur = MW @ pb.head
-    M = MW @ pb.matrix
-    pb.matrix = MWi @ (Matrix.Translation(Vector(pos) - cur) @ M)
-    bpy.context.view_layer.update()
-
-def ik_to(bone, target, chain=2):
-    """给骨骼加临时 IK 约束,target 为世界坐标空物体。
-    砸地姿态的膝/踝/腕触地位置靠手调角度永远对不齐,直接 IK 钉死;
-    modifier_apply 按约束求值,烘进网格后骨骼即删,约束不残留。"""
-    pb = arm.pose.bones.get(bone)
-    if pb is None:
-        print('MISS', bone); return
-    tgt = bpy.data.objects.new('ik_' + bone.replace(':', '_'), None)
-    bpy.context.scene.collection.objects.link(tgt)
-    tgt.location = Vector(target)
-    con = pb.constraints.new('IK')
-    con.target = tgt
-    con.chain_count = chain
-    bpy.context.view_layer.update()
-    print('IK', bone, '→', [round(v, 4) for v in (MW @ pb.tail)])
-
-# ---- 砸地姿态 v11(超级英雄着陆:右膝跪地、右拳砸地、左腿前撑、左掌前射) ----
-# 世界:模型面朝 -Y,上 = +Z;aim 的 Y 负 = 向前;模型右手在 -X 侧。
-# 脚掌骨 rest 方向本来就是下扣的(脚踝在地面之上、趾骨水平补偿)。
+# ---- 战斗姿态 v10(世界:模型面朝 -Y,上 = +Z;aim 的 Y 负 = 向前) ----
+# v10 腿部回归 rest 直立站姿:v5~v9 的开立蹲姿 + 髋部下移让脚悬空/踮脚,
+# 无接触阴影下像漂浮;掌心炮姿态的辨识度全在双臂,腿保持绑定姿态最干净。
 H = REST_H
-FLOOR = rmins[2]
-# 髋部:跪姿骨盆高(~0.008 ≈ 0.29m),略前移
-set_pos('mixamorig:Hips_01', (0.0, -0.001, FLOOR + 0.008))
-# 躯干前倾 ~45°(胸压到前膝上方,拳头才够得到地)
-rot('mixamorig:Spine_02', x=35)
-rot('mixamorig:Spine1_03', x=17)
-rot('mixamorig:Spine2_04', x=17)
-# 左腿:先 aim 出弓步形状(大腿前下、小腿近竖直),再 IK 钉脚踝——
-# 纯 IK 从 rest 解算会乱弯(膝/踝上下颠倒),aim 给定邻域后 IK 只精修落点
-aim('mixamorig:LeftUpLeg_00', (0.15, -0.85, -0.45))
-aim('mixamorig:LeftLeg_056', (0.08, 0.05, -1.0))
-ik_to('mixamorig:LeftLeg_056', (0.008, -0.014, FLOOR + 0.0032))
-# 右腿:先 aim 出跪姿(大腿后下、小腿沿地面朝后),再 IK 钉膝盖触地(chain 1)
-aim('mixamorig:RightUpLeg_060', (-0.44, 0.87, -0.23))
-aim('mixamorig:RightLeg_061', (-0.08, 1.0, 0.06))
-ik_to('mixamorig:RightLeg_061', (-0.009, 0.028, FLOOR + 0.0028))
-# 右脚脚背贴地趾朝后;左脚放平(rest 下扣方向)
-aim('mixamorig:RightFoot_062', (-0.05, 1.0, -0.15))
-aim('mixamorig:RightToeBase_063', (-0.05, 1.0, -0.10))
-aim('mixamorig:LeftFoot_057', (0.10, -0.85, -0.55))
-# 右臂:先 aim 下前方,再 IK 钉腕部触地;手腕/手指保持 rest 半握即是拳
-aim('mixamorig:RightArm_033', (-0.12, -0.55, -0.85))
-aim('mixamorig:RightForeArm_034', (-0.05, -0.55, -0.85))
-ik_to('mixamorig:RightForeArm_034', (-0.008, -0.009, FLOOR + 0.0028))
-# 左臂前伸下压 ~35°:掌心朝正前发射(v10 教训:直指前方正面看像举手,要下压)
-aim('mixamorig:LeftArm_09', (0.35, -0.70, -0.45))
-aim('mixamorig:LeftForeArm_010', (0.15, -0.85, -0.80))
-# 手腕:手指直朝上(略前倾,掌心炮有前冲感);仅左手,右手是拳
+# 躯干正直微前倾
+rot('mixamorig:Spine_02', x=6)
+rot('mixamorig:Spine1_03', x=3)
+rot('mixamorig:Spine2_04', x=3)
+# 双臂前伸(v10:前臂前伸下压 ~25°,手在胸腹高度——手贴头侧从正面看像举手投降;
+# 上臂张开,3/4 机位下双臂都可见)
+aim('mixamorig:RightArm_033', (-0.36, -0.85, -0.20))
+aim('mixamorig:RightForeArm_034', (-0.17, -0.95, -0.42))
+aim('mixamorig:LeftArm_09', (0.36, -0.85, -0.20))
+aim('mixamorig:LeftForeArm_010', (0.17, -0.95, -0.42))
+# 手腕:手指直朝上(略前倾 8°,掌心炮有前冲感)
 UP = (0.0, -0.14, 1.0)
+aim('mixamorig:RightHand_035', UP)
 aim('mixamorig:LeftHand_011', UP)
-# 左掌心扭到正前方(-Y);在五指望直之前做,掌心法线由根骨骼连线推算
+# 掌心扭到正前方(-Y);在五指望直之前做,掌心法线由根骨骼连线推算
 twist_palm('mixamorig:LeftHand_011', 'mixamorig:LeftHandIndex1_016', 'mixamorig:LeftHandPinky1_028', 'L')
-# 左手五指:除拇指外逐节顺着手骨方向摆直(略向后扣出张力),拇指侧张;
-# 右手不摆(保持 rest 半握拳砸地)
+twist_palm('mixamorig:RightHand_035', 'mixamorig:RightHandIndex1_040', 'mixamorig:RightHandPinky1_052', 'R')
+# 五指:除拇指外逐节顺着手骨方向摆直(略向后扣出张力),拇指侧张
 FINGERS = [
     ('Index', '_016', '_017', '_018', '_040', '_041', '_042'),
     ('Middle', '_020', '_021', '_022', '_044', '_045', '_046'),
@@ -188,30 +145,26 @@ FINGERS = [
     ('Pinky', '_028', '_029', '_030', '_052', '_053', '_054'),
 ]
 for name, l1, l2, l3, r1, r2, r3 in FINGERS:
-    aim(f'mixamorig:LeftHand{name}1{l1}', (0.0, -0.10, 1.0))
-    aim(f'mixamorig:LeftHand{name}2{l2}', (0.0, 0.10, 1.0))    # 中节略后扣
-    aim(f'mixamorig:LeftHand{name}3{l3}', (0.0, 0.22, 1.0))    # 末节再扣一点(张力的手型,不是僵直棍)
-# 左拇指:向 -X 侧前方张开
-aim('mixamorig:LeftHandThumb1_012', (-0.85, -0.35, 0.45))
-aim('mixamorig:LeftHandThumb2_013', (-0.75, -0.55, 0.30))
-aim('mixamorig:LeftHandThumb3_014', (-0.65, -0.65, 0.25))
-# 头:躯干前倾下抬起前视
-aim('mixamorig:Head_06', (0.0, 0.55, 1.0))
+    for b in (f'mixamorig:LeftHand{name}1{l1}', f'mixamorig:RightHand{name}1{r1}'):
+        aim(b, (0.0, -0.10, 1.0))
+    for b in (f'mixamorig:LeftHand{name}2{l2}', f'mixamorig:RightHand{name}2{r2}'):
+        aim(b, (0.0, 0.10, 1.0))    # 中节略后扣
+    for b in (f'mixamorig:LeftHand{name}3{l3}', f'mixamorig:RightHand{name}3{r3}'):
+        aim(b, (0.0, 0.22, 1.0))    # 末节再扣一点(张力的手型,不是僵直棍)
+# 拇指:向侧前方张开(左拇指朝 -X 侧,右拇指朝 +X 侧)
+for side, t1, t2, t3 in [('L', '_012', '_013', '_014'), ('R', '_036', '_037', '_038')]:
+    sx = -1.0 if side == 'L' else 1.0
+    aim(f'mixamorig:{"Left" if side=="L" else "Right"}HandThumb1{t1}', (0.85*sx, -0.35, 0.45))
+    aim(f'mixamorig:{"Left" if side=="L" else "Right"}HandThumb2{t2}', (0.75*sx, -0.55, 0.30))
+    aim(f'mixamorig:{"Left" if side=="L" else "Right"}HandThumb3{t3}', (0.65*sx, -0.65, 0.25))
+# 头:正视前方
+aim('mixamorig:Head_06', (0.0, -0.1, 1.0))
 # 诊断:脚掌/脚趾世界方向(rest 腿,应接近水平朝前,-Y 为前)
 for b in ['mixamorig:RightFoot_062', 'mixamorig:RightToeBase_063',
           'mixamorig:LeftFoot_057', 'mixamorig:LeftToeBase_058']:
     pb = arm.pose.bones.get(b)
     if pb:
         print('DIR', b, [round(v, 2) for v in ((MW @ pb.tail) - (MW @ pb.head)).normalized()])
-# 诊断:关键点世界坐标(单位 ×36≈米;拳头尾端 z 应≈地面=bbox min z)
-for b in ['mixamorig:Hips_01', 'mixamorig:RightArm_033', 'mixamorig:RightForeArm_034',
-          'mixamorig:RightUpLeg_060', 'mixamorig:RightHand_035', 'mixamorig:RightLeg_061',
-          'mixamorig:LeftUpLeg_00', 'mixamorig:LeftLeg_056', 'mixamorig:LeftFoot_057',
-          'mixamorig:Head_06']:
-    pb = arm.pose.bones.get(b)
-    if pb:
-        print('POS', b, 'head', [round(v, 4) for v in (MW @ pb.head)],
-              'tail', [round(v, 4) for v in (MW @ pb.tail)])
 
 # ---- 掌心炮锚点:掌心中心 + 掌心法线 + 掌心宽度(烘发光盘前先取姿态数据) ----
 def palm_info(hand, index1, pinky1, side):
@@ -238,13 +191,6 @@ c = [(pmins[i]+pmaxs[i])/2 for i in range(3)]
 size = max(pmaxs[i]-pmins[i] for i in range(3))
 print('POSED BBOX', [round(v,3) for v in pmins], [round(v,3) for v in pmaxs])
 
-# 地面参考板(取摆姿后 bbox 底=将来归一化的地面),只看接触关系用
-bpy.ops.mesh.primitive_plane_add(size=size * 3, location=(c[0], c[1], pmins[2]))
-floor_pl = bpy.context.active_object
-_fm = bpy.data.materials.new('floorref')
-_fm.diffuse_color = (0.25, 0.28, 0.32, 1)
-floor_pl.data.materials.append(_fm)
-
 scene = bpy.context.scene
 scene.render.engine = 'BLENDER_WORKBENCH'
 scene.display.shading.light = 'STUDIO'
@@ -267,7 +213,6 @@ for name, loc, look_at in [
     scene.render.filepath = f'/tmp/battle6_{name}.png'
     bpy.ops.render.render(write_still=True)
     bpy.data.objects.remove(cam)
-bpy.data.objects.remove(floor_pl)   # 地面参考板只用于预览,必须删掉——否则进 bbox 和导出
 print('PREVIEW OK')
 
 if PREVIEW:
@@ -346,7 +291,7 @@ for o in bpy.data.objects:
         for i in range(3):
             mins[i] = min(mins[i], c[i])
             maxs[i] = max(maxs[i], c[i])
-s = 2.4 / REST_H    # 按 rest 站立身高归一:砸地姿态矮,用摆姿后高度会把人放大成巨人
+s = 2.4 / (maxs[2] - mins[2])    # Blender z-up,按身高归一
 print('NORM bbox', [round(v, 4) for v in mins], [round(v, 4) for v in maxs], 's=', round(s, 4))
 M = Matrix.Translation((-(mins[0] + maxs[0]) / 2 * s,
                         -(mins[1] + maxs[1]) / 2 * s,
