@@ -369,8 +369,8 @@ const DEMO = {
   tpmsColors: { fl: '#1baf7a', fr: '#1baf7a', rl: '#eda100', rr: '#1baf7a' },
 };
 
-// ---------- 圆柱形数据背景 ----------
-// 车模后方一整圈 3D 曲面(相机在柱内,轨道旋转时各数据面板依次入画),
+// ---------- 数据背景墙(竖直公告板环) ----------
+// 车模后方一圈 7 块竖直面板的环(轨道旋转时各数据面板依次入画),
 // 上下两行:上排=里程/电量/电池健康/能耗/陪伴/车内空调/车外温度,
 // 下排=胎压(四轮) + 本充电周期能耗构成比例(行驶/哨兵/驻车/未充/剩余,与底座内环同一份数据) + 本月里程
 function drawBackdrop(cv, d) {
@@ -533,25 +533,57 @@ function drawBackdrop(cv, d) {
     if (d.weekKm != null) sub(p(6), cy2 + 78, `本周 ${Math.round(d.weekKm)} km`);
   }
 }
+// 背景墙 = 7 块竖直公告板(每列一块,上下两行内容不变):每帧绕 Y 轴转向相机
+// (yaw billboard,板面始终保持竖直),文字在屏幕上永远端正不倾斜;
+// 相机近侧的面板会挡车 → 按与相机的相对方位淡出,只有远侧入画。
 const backdrop = (() => {
-  const cv = document.createElement('canvas');
-  cv.width = 4096; cv.height = 1152;
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = renderer.capabilities.getMaxAnisotropy();   // 斜角柱面上文字保持锐利
-  // 从柱内看 BackSide 纹理左右镜像 → 水平翻转补偿
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.repeat.x = -1;
-  const wall = new THREE.Mesh(
-    new THREE.CylinderGeometry(5.4, 5.4, 5.0, 96, 1, true),   // 两行数据,柱面加高(原 4.2)
-    new THREE.MeshBasicMaterial({
-      map: tex, transparent: true, side: THREE.BackSide,
-      depthWrite: false, toneMapped: false,
-    }));
-  wall.position.y = 2.08;
-  wall.renderOrder = -1;   // 永远垫底
-  scene.add(wall);
-  return { canvas: cv, tex, redraw(d) { drawBackdrop(cv, d); tex.needsUpdate = true; } };
+  const N = 7, R = 5.4, WALL_H = 5.0, WALL_Y = 2.08;
+  const big = document.createElement('canvas');   // 整墙内容先画到这里(布局与旧柱面一致)
+  big.width = 4096; big.height = 1152;
+  const pw = big.width / N;
+  const aniso = renderer.capabilities.getMaxAnisotropy();
+  const panels = [];
+  for (let i = 0; i < N; i++) {
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(pw); cv.height = big.height;
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = aniso;
+    const mat = new THREE.MeshBasicMaterial({
+      map: tex, transparent: true, depthWrite: false, toneMapped: false,
+    });
+    const th = 2 * Math.PI * (1 - (i + 0.5) / N);   // 与旧柱面(repeat.x=-1)相同的角度布局
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(2 * Math.PI * R / N, WALL_H), mat);
+    m.position.set(R * Math.sin(th), WALL_Y, R * Math.cos(th));
+    m.renderOrder = -1;   // 永远垫底
+    scene.add(m);
+    panels.push({ mesh: m, canvas: cv, tex });
+  }
+  return {
+    panels,
+    redraw(d) {
+      drawBackdrop(big, d);
+      for (let i = 0; i < N; i++) {
+        const pctx = panels[i].canvas.getContext('2d');
+        pctx.clearRect(0, 0, panels[i].canvas.width, big.height);
+        pctx.drawImage(big, i * pw, 0, pw, big.height, 0, 0, panels[i].canvas.width, big.height);
+        panels[i].tex.needsUpdate = true;
+      }
+    },
+    // 每帧:转向相机(仅 yaw,保持竖直)+ 近侧面板淡出
+    update() {
+      const cx = camera.position.x - target.x, cz = camera.position.z - target.z;
+      const cl = Math.hypot(cx, cz) || 1;
+      for (const p of panels) {
+        const dx = camera.position.x - p.mesh.position.x;
+        const dz = camera.position.z - p.mesh.position.z;
+        p.mesh.rotation.y = Math.atan2(dx, dz);
+        const px = p.mesh.position.x - target.x, pz = p.mesh.position.z - target.z;
+        const dot = (px * cx + pz * cz) / ((Math.hypot(px, pz) || 1) * cl);
+        p.mesh.material.opacity = THREE.MathUtils.clamp((-dot - 0.15) / 0.25, 0, 1);
+      }
+    },
+  };
 })();
 
 // ---------- 底盘圆盘上的能量环(3D 场景内,正确遮挡/透视) ----------
@@ -755,6 +787,7 @@ function frame() {
   orbit.phi += (orbitGoal.phi - orbit.phi) * 0.12;
   orbit.r += (orbitGoal.r - orbit.r) * 0.15;
   applyOrbit();
+  backdrop.update();   // 背景墙公告板:转向相机 + 近侧淡出
   if (!window.__txovPaused) renderer.render(scene, camera);
 }
 frame();
