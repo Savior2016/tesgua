@@ -30,12 +30,13 @@
 - Source: [Iron-Man Mark 85 | Rigged](https://sketchfab.com/3d-models/iron-man-mark-85-rigged-dde1085c464d4f8da259fe6669ae4dd2)(GitHub 镜像:avengers2405/movie-list)
 - License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - 说明:钢铁侠形象版权属 Marvel;此模型为社区作者作品,仅作个人面板娱乐展示。
-- 处理:Blender 摆战斗姿态 v9(开立站姿、双臂前伸、掌心朝正前、手指向上的
-  经典掌心炮;掌心朝向由食/小指根骨骼推算掌心法线后绕手骨扭转校正,脚掌放平;
-  repulsor_L/R 自发光圆盘刚性绑到手骨上随身体一起烘焙作光束锚点,光束由
-  ov3d.js 运行时生成;转正/归一化全部烘进顶点,`scripts/pose-ironman.py`),
-  转正(-Z 正面)、落地、按身高归一化至 2.4m,纹理转 1024px WebP、
-  meshopt 压缩(171MB → 3.6MB,simplify 需 --lock-border 否则锚点被坍缩)。
+- 处理:Blender 摆战斗姿态 v10(直立站姿、双臂前伸下压、掌心朝正前、手指向上的
+  经典掌心炮;掌心朝向由食/小指根骨骼推算掌心法线后绕手骨扭转校正;腿部保持绑定
+  姿态——开立蹲姿+髋部下移会悬空踮脚;repulsor_L/R 自发光圆盘刚性绑到手骨上随
+  身体一起烘焙作光束锚点,光束由 ov3d.js 运行时生成;转正/归一化全部烘进顶点,
+  `scripts/pose-ironman.py`),转正(-Z 正面)、落地、按身高归一化至 2.4m,
+  纹理转 1024px WebP、meshopt 压缩(171MB → 3.5MB,simplify 需 --lock-border
+  否则锚点被坍缩)。
 
 ## hellokitty.glb —— Hello Kitty
 

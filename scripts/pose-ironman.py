@@ -116,25 +116,20 @@ def twist_palm(hand, index1, pinky1, side, target=(0.0, -1.0, 0.0)):
     n2 = (finger2.cross(k2) if side == 'L' else k2.cross(finger2)).normalized()
     print(f'PALM {hand}: before={[round(v,2) for v in n]} after={[round(v,2) for v in n2]} target={list(target)}')
 
-# ---- 战斗姿态 v6(世界:模型面朝 -Y,上 = +Z;aim 的 Y 负 = 向前) ----
+# ---- 战斗姿态 v10(世界:模型面朝 -Y,上 = +Z;aim 的 Y 负 = 向前) ----
+# v10 腿部回归 rest 直立站姿:v5~v9 的开立蹲姿 + 髋部下移让脚悬空/踮脚,
+# 无接触阴影下像漂浮;掌心炮姿态的辨识度全在双臂,腿保持绑定姿态最干净。
 H = REST_H
-move('mixamorig:Hips_01', (0.0, -0.01*H, -0.035*H))
-# 双腿开立(同 v5)
-aim('mixamorig:RightUpLeg_060', (-0.42, -0.10, -1.0))
-aim('mixamorig:RightLeg_061', (-0.06, 0.0, -1.0))
-aim('mixamorig:RightFoot_062', (-0.30, -1.0, -0.02))   # 脚掌放平(v5 竖成芭蕾脚尖)
-aim('mixamorig:LeftUpLeg_00', (0.42, -0.10, -1.0))
-aim('mixamorig:LeftLeg_056', (0.06, 0.0, -1.0))
-aim('mixamorig:LeftFoot_057', (0.30, -1.0, -0.02))
 # 躯干正直微前倾
 rot('mixamorig:Spine_02', x=6)
 rot('mixamorig:Spine1_03', x=3)
 rot('mixamorig:Spine2_04', x=3)
-# 双臂前伸(同 v5)
-aim('mixamorig:RightArm_033', (-0.22, -0.95, -0.08))
-aim('mixamorig:RightForeArm_034', (-0.10, -1.0, -0.38))
-aim('mixamorig:LeftArm_09', (0.22, -0.95, -0.08))
-aim('mixamorig:LeftForeArm_010', (0.10, -1.0, -0.38))
+# 双臂前伸(v10:前臂前伸下压 ~25°,手在胸腹高度——手贴头侧从正面看像举手投降;
+# 上臂张开,3/4 机位下双臂都可见)
+aim('mixamorig:RightArm_033', (-0.36, -0.85, -0.20))
+aim('mixamorig:RightForeArm_034', (-0.17, -0.95, -0.42))
+aim('mixamorig:LeftArm_09', (0.36, -0.85, -0.20))
+aim('mixamorig:LeftForeArm_010', (0.17, -0.95, -0.42))
 # 手腕:手指直朝上(略前倾 8°,掌心炮有前冲感)
 UP = (0.0, -0.14, 1.0)
 aim('mixamorig:RightHand_035', UP)
@@ -164,6 +159,12 @@ for side, t1, t2, t3 in [('L', '_012', '_013', '_014'), ('R', '_036', '_037', '_
     aim(f'mixamorig:{"Left" if side=="L" else "Right"}HandThumb3{t3}', (0.65*sx, -0.65, 0.25))
 # 头:正视前方
 aim('mixamorig:Head_06', (0.0, -0.1, 1.0))
+# 诊断:脚掌/脚趾世界方向(rest 腿,应接近水平朝前,-Y 为前)
+for b in ['mixamorig:RightFoot_062', 'mixamorig:RightToeBase_063',
+          'mixamorig:LeftFoot_057', 'mixamorig:LeftToeBase_058']:
+    pb = arm.pose.bones.get(b)
+    if pb:
+        print('DIR', b, [round(v, 2) for v in ((MW @ pb.tail) - (MW @ pb.head)).normalized()])
 
 # ---- 掌心炮锚点:掌心中心 + 掌心法线 + 掌心宽度(烘发光盘前先取姿态数据) ----
 def palm_info(hand, index1, pinky1, side):
@@ -196,16 +197,17 @@ scene.display.shading.light = 'STUDIO'
 scene.display.shading.color_type = 'TEXTURE'
 scene.render.resolution_x = scene.render.resolution_y = 700
 d = size * 2.2
-for name, loc in [
-    ('front', (c[0], c[1]-d, c[2]+size*0.08)),
-    ('three-quarter', (c[0]+d*0.7, c[1]-d*0.75, c[2]+size*0.3)),
-    ('side', (c[0]+d, c[1], c[2]+size*0.05)),
-    ('hand', ((head_w('mixamorig:LeftHand_011') + Vector((0.5,-1.4,0.2))) if True else None)),
+for name, loc, look_at in [
+    ('front', (c[0], c[1]-d, c[2]+size*0.08), None),
+    ('three-quarter', (c[0]+d*0.7, c[1]-d*0.75, c[2]+size*0.3), None),
+    ('side', (c[0]+d, c[1], c[2]+size*0.05), None),
+    ('hand', (head_w('mixamorig:LeftHand_011') + Vector((0.5,-1.4,0.2))), head_w('mixamorig:LeftHand_011')),
+    ('feet', (c[0]+0.9, pmins[1]-1.0, pmins[2]+0.35), (c[0], pmins[1]+0.2, pmins[2]+0.15)),
 ]:
     cam_data = bpy.data.cameras.new('cam'); cam_data.clip_end = size*50
     cam = bpy.data.objects.new('cam', cam_data)
     cam.location = loc
-    look = Vector(c) if name != 'hand' else head_w('mixamorig:LeftHand_011')
+    look = Vector(c) if look_at is None else Vector(look_at)
     cam.rotation_euler = (look - Vector(loc)).to_track_quat('-Z', 'Y').to_euler()
     scene.collection.objects.link(cam); scene.camera = cam
     scene.render.filepath = f'/tmp/battle6_{name}.png'
