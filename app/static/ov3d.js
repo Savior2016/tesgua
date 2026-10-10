@@ -107,7 +107,7 @@ function fitRadius() {
 // 不同模型配不同台面/侧壁/边缘光;默认深色台 + 电蓝边缘光环,避免与深色背景相融。
 // 侧壁特斯拉 T 标 / TESLA 字标所有主题均保留。
 const ovModelKey = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
-const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', hellokitty: 'candy', mickey: 'club' }[ovModelKey] || 'default';
+const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'club', f40: 'street', revuelto: 'street', f1lm: 'street' }[ovModelKey] || 'default';
 {
   // 确定性伪噪声(布景用):多组 sin 叠加,无需随机种子
   const pnoise = (x, y) => Math.sin(x * 2.1 + y * 1.3) * 0.5 + Math.sin(x * 4.7 - y * 3.1 + 1.7) * 0.3

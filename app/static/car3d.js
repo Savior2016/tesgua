@@ -94,15 +94,30 @@ export const MODELS = {
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.9,
     note: '战斗姿态(双掌朝前手指向上掌心炮+脉冲光束;9A Films @ Sketchfab rigged 版烘焙,CC-BY 4.0);仅供娱乐,无车身交互',
   },
-  'hellokitty': {
-    label: 'Hello Kitty', url: '/models/fun/hellokitty.glb', sizeMB: 0.13,
-    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.8,
-    note: '雕塑版白模(ZxSimas/hello-kitty-3d)+ 程序化配色五官与红蝴蝶结;仅供娱乐,无车身交互',
+  'batmobile': {
+    label: '蝙蝠车', url: '/models/fun/batmobile.glb', sizeMB: 0.25,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 2.8,
+    note: 'BvS 蝙蝠车(arsalanmalek/3d_model_batmobile_bvs,Blender 重制哑光黑装甲);仅供娱乐,无车身交互',
   },
-  'mickey': {
-    label: '米奇', url: '/models/fun/mickey.glb', sizeMB: 0.07,
-    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.6,
-    note: '汽船威利橡皮管米奇(frankilito/steamboat-willie,1928 公有领域风格);仅供娱乐,无车身交互',
+  'spiderman': {
+    label: '蜘蛛侠', url: '/models/fun/spiderman.glb', sizeMB: 0.8,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.9,
+    note: 'Marvel Rivals 蜘蛛侠(gameModels @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'f40': {
+    label: '法拉利 F40', url: '/models/fun/f40.glb', sizeMB: 1.1,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 2.2,
+    note: 'Ferrari F40(Black Snow @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'revuelto': {
+    label: '兰博基尼 Revuelto', url: '/models/fun/revuelto.glb', sizeMB: 2.9,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 2.5,
+    note: 'Lamborghini Revuelto(Ddiaz Design @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'f1lm': {
+    label: '迈凯伦 F1 LM', url: '/models/fun/f1lm.glb', sizeMB: 0.7,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 2.3,
+    note: 'McLaren F1 LM(Ajay Gawde @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
   },
 };
 

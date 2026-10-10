@@ -171,10 +171,10 @@ def test_ov_car_model(env):
 
 
 def test_ov_car_model_fun_models(env):
-    """趣味模型白名单与前端注册表一致(hellokitty/mickey 曾漏配导致保存 422)。"""
+    """趣味模型白名单与前端注册表一致(hellokitty/mickey 曾漏配导致保存 422;后由蝙蝠车/蜘蛛侠/超跑替换)。"""
     client, _ = env
     login(client)
-    for key in ("sanbengzi", "mars-rover", "yaoyao", "ironman", "hellokitty", "mickey"):
+    for key in ("sanbengzi", "mars-rover", "yaoyao", "ironman", "batmobile", "spiderman", "f40", "revuelto", "f1lm"):
         r = client.post("/api/prefs", json={"ov_car_model": key})
         assert r.status_code == 200, key
         assert r.json()["ov_car_model"] == key

@@ -38,24 +38,39 @@
   纹理转 1024px WebP、meshopt 压缩(171MB → 3.5MB,simplify 需 --lock-border
   否则锚点被坍缩)。
 
-## hellokitty.glb —— Hello Kitty
+## batmobile.glb —— 蝙蝠车(BvS 版)
 
-- Source: [ZxSimas/hello-kitty-3d](https://github.com/ZxSimas/hello-kitty-3d)(GitHub,hello_kitty.glb 雕塑版)
-- License: 仓库未附许可;Hello Kitty 形象版权属 Sanrio,仅作个人面板娱乐展示。
-- 处理:v2 换用仓库中更圆润的雕塑版白模(自带蝴蝶结/鼻子/胡须几何,原 Kitty.glb
-  已弃用,`scripts/fix-kitty.py` 随之归档),按网格名程序化着色(白身/黑胡须/黄鼻子/
-  红蝴蝶结)并补黑色椭圆眼(`scripts/make-kitty-v2.py`;v3 起眼睛由射线求交半嵌进
-  脸盘表面,不再悬空),Blender 内归一化至 1.8m、转正(-Z 正面)、落地,
-  meshopt 压缩(4.8MB → 126KB)。
+- Source: [arsalanmalek/3d_model_batmobile_bvs](https://github.com/arsalanmalek/3d_model_batmobile_bvs)(Blender 源文件)
+- License: 仓库未附许可;蝙蝠车形象版权属 DC,仅作个人面板娱乐展示。
+- 处理:从展示间场景中提取车身 24 个网格,重新指定哑光黑装甲/枪灰金属/轮胎/
+  车灯自发光材质,转正(-Z 车头)、落地、归一化至 5.6m,meshopt 压缩。
 
-## mickey.glb —— 米奇(汽船威利橡皮管风格)
+## spiderman.glb —— 蜘蛛侠(Marvel Rivals)
 
-- Source: [frankilito/steamboat-willie](https://github.com/frankilito/steamboat-willie)(GitHub,assets/models/willieMickey.glb)
-- License: 仓库未附许可;该仓库为 1928 年公有领域作品《Steamboat Willie》的独立再创作
-  (无手套、饼切眼、圆鼻、短裤大鞋的黑白橡皮管风格),仅作个人面板娱乐展示。
-- 处理:v4 换用该仓库的 rigged 米奇(11 段动画;v2 程序化拼装版已弃用,归档于
-  `scripts/make-mickey.py`)。源模型静止姿态是散件,且所有动画剪辑只覆盖部分骨骼
-  (17 关节最多 13),采样动画会留下悬空四肢(v3 因此废弃);v4 起直接导出绑定几何
-  (绑定姿态本身即组装好的站姿):`scripts/dump-willie.html` + `scripts/dump-willie.py`
-  (clip=raw)浏览器内导出顶点,`scripts/dump2glb.py` 归一化),转正(-Z 正面)、落地、
-  归一化至 1.7m,meshopt 压缩(1.2MB → 66KB)。
+- Author: [gameModels](https://sketchfab.com/lastheroes02)
+- Source: [Spider Man | Marvel Rivals](https://sketchfab.com/3d-models/spider-man-marvel-rivals-4f8db46aaebb4fcfabef535af4df6837)(GitHub 镜像:speedcubersg-cell/Spiderman-glb)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 说明:蜘蛛侠形象版权属 Marvel;此模型为社区作者作品,仅作个人面板娱乐展示。
+- 处理:转正(-Z 正面)、落地、归一化至 1.88m,纹理转 1024px WebP、meshopt 压缩。
+
+## f40.glb —— 法拉利 F40
+
+- Author: [Black Snow](https://skfb.ly/oRnMV)
+- Source: [supercar3d/supercar_3D_asssets](https://github.com/supercar3d/supercar_3D_asssets)(basic/ferrari/f40)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(fan-made,与法拉利官方无关)
+- 处理:Draco 解码后转正(-Z 车头)、落地、归一化至 4.36m,meshopt 压缩。
+
+## revuelto.glb —— 兰博基尼 Revuelto
+
+- Author: [Ddiaz Design](https://skfb.ly/prv6Y)
+- Source: [supercar3d/supercar_3D_asssets](https://github.com/supercar3d/supercar_3D_asssets)(basic/lamborghini/revuelto)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(fan-made,与兰博基尼官方无关)
+- 处理:源模型为 1:100 微缩尺度,Draco 解码后转正(-Z 车头)、落地、归一化至
+  4.95m,meshopt 压缩。
+
+## f1lm.glb —— 迈凯伦 F1 LM
+
+- Author: [Ajay Gawde](https://skfb.ly/oBRUy)
+- Source: [supercar3d/supercar_3D_asssets](https://github.com/supercar3d/supercar_3D_asssets)(basic/mclaren/f1lm,Low Poly)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(fan-made,与迈凯伦官方无关)
+- 处理:Draco 解码后转正(-Z 车头)、落地、归一化至 4.49m,meshopt 压缩。
