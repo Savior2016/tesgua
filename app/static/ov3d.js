@@ -680,6 +680,7 @@ const RAW_TUNE = {
       if (!o.isMesh || !/^repulsor_[LR]$/.test(o.name || '')) return;
       o.updateWorldMatrix(true, false);
       const c = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3());
+      if (c.y < 0.3) return;   // 砸地姿态的拳面锚点贴地,不对地面开火
       const LEN = 1.35;
       for (const [rad, op] of [[0.085, 0.15], [0.028, 0.5]]) {
         const g = new THREE.CylinderGeometry(rad, rad * 0.45, LEN, 20, 1, true);
