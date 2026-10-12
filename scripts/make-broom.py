@@ -11,7 +11,7 @@ from mathutils import Matrix, Vector
 BASE = '/tmp/pvmodels'
 SRC = f'{BASE}/broom1/scene.gltf'
 OUT = f'{BASE}/out/broomstick.glb'
-LENGTH = 2.2      # 归一化总长
+LENGTH = 2.8      # 归一化总长(细长物体,放大撑构图)
 HOVER = 0.45      # 悬浮高度(最低点离台面)
 TILT = 4.0        # 抬头角度(柄尖微翘)
 

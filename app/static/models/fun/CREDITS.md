@@ -57,7 +57,7 @@
 - Author: [trashart](https://sketchfab.com/trash-art)
 - Source: [Stylized Broomstick](https://sketchfab.com/3d-models/stylized-broomstick-ba2dc348a8b2446185341d42c849d1da)(GitHub 镜像:Dkingofcode/DevPortfolio)
 - License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-- 处理:刷头朝后、悬浮 0.45m、柄尖微翘 4°,归一化至 2.2m 长,
+- 处理:刷头朝后、悬浮 0.45m、柄尖微翘 4°,归一化至 2.8m 长,
   纹理转 1024px WebP、meshopt 压缩(`scripts/make-broom.py`)。
 
 ## f40.glb —— 法拉利 F40
