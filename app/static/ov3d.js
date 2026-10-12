@@ -107,7 +107,7 @@ function fitRadius() {
 // 不同模型配不同台面/侧壁/边缘光;默认深色台 + 电蓝边缘光环,避免与深色背景相融。
 // 侧壁特斯拉 T 标 / TESLA 字标所有主题均保留。
 const ovModelKey = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
-const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'club', f40: 'street', revuelto: 'street', f1lm: 'street' }[ovModelKey] || 'default';
+const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', f40: 'street', revuelto: 'street', f1lm: 'street' }[ovModelKey] || 'default';
 {
   // 确定性伪噪声(布景用):多组 sin 叠加,无需随机种子
   const pnoise = (x, y) => Math.sin(x * 2.1 + y * 1.3) * 0.5 + Math.sin(x * 4.7 - y * 3.1 + 1.7) * 0.3
@@ -161,7 +161,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     stark:   { side: ['#39414f', '#0e1118'], top: 0x14181f, glow: [0x6fd3ff, 0.8] },
     candy:   { side: ['#e89bb2', '#5c3547'], top: 0xfdf0f3, glow: [0xff9ec4, 0.5] },
     street:  { side: ['#3c3f45', '#121317'], top: 0x26282d, glow: [0xffc42e, 0.4] },
-    club:    { side: ['#4a1518', '#0d0b0c'], top: 0x8f1216, glow: [0xffc42e, 0.6] },
+    gotham:  { side: ['#2a2d34', '#0a0b0e'], top: 0x14161a, glow: [0xffd23e, 0.5] },
   };
   const th = THEMES[pedTheme];
   const ped = new THREE.Mesh(
@@ -251,17 +251,44 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
       c.strokeStyle = 'rgba(255,255,255,0.5)'; c.lineWidth = 3;
       c.beginPath(); c.arc(256, 256, 240, 0, Math.PI * 2); c.stroke();
     }));
-  } else if (pedTheme === 'club') {
-    // 米奇俱乐部:红丝绒台面 + 一圈黄色圆点
+  } else if (pedTheme === 'gotham') {
+    // 蝙蝠车:哥谭夜色台面 + 蝙蝠信号灯(黄色椭圆光斑里的蝙蝠剪影)
     topDisc(canvasTex(512, 512, (c) => {
       const g = c.createRadialGradient(256, 256, 40, 256, 256, 256);
-      g.addColorStop(0, '#c11e24'); g.addColorStop(1, '#7d0f14');
+      g.addColorStop(0, '#1d2026'); g.addColorStop(1, '#0e1013');
       c.fillStyle = g; c.fillRect(0, 0, 512, 512);
-      c.fillStyle = '#ffc42e';
-      for (let i = 0; i < 12; i++) {   // 外圈黄点
-        const a = i * Math.PI / 6;
-        c.beginPath(); c.arc(256 + Math.cos(a) * 200, 256 + Math.sin(a) * 200, 13, 0, Math.PI * 2); c.fill();
-      }
+      // 外圈:细黄环 + 内侧虚线(探照灯扫过的警戒感)
+      c.strokeStyle = 'rgba(255,210,62,0.85)'; c.lineWidth = 5;
+      c.beginPath(); c.arc(256, 256, 236, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([20, 14]); c.lineWidth = 3; c.globalAlpha = 0.45;
+      c.beginPath(); c.arc(256, 256, 214, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([]); c.globalAlpha = 1;
+      // 蝙蝠信号:黄色椭圆光斑
+      c.save(); c.translate(256, 252); c.rotate(-0.10);
+      c.fillStyle = '#ffd23e'; c.shadowColor = '#ffd23e'; c.shadowBlur = 26;
+      c.beginPath(); c.ellipse(0, 0, 168, 108, 0, 0, Math.PI * 2); c.fill();
+      c.shadowBlur = 0;
+      // 蝙蝠剪影(右半 + 镜像左半,单位坐标后缩放)
+      const bat = new Path2D();
+      const R = 118;
+      bat.moveTo(0, -0.10 * R);
+      bat.lineTo(0.13 * R, -0.40 * R);                                   // 右耳
+      bat.lineTo(0.26 * R, -0.16 * R);                                   // 头右侧
+      bat.quadraticCurveTo(0.60 * R, -0.34 * R, 1.02 * R, -0.16 * R);    // 右翼上缘
+      bat.quadraticCurveTo(0.88 * R, 0.04 * R, 0.62 * R, 0.10 * R);      // 翼缘凹口 1
+      bat.quadraticCurveTo(0.56 * R, 0.26 * R, 0.38 * R, 0.22 * R);      // 翼缘凹口 2
+      bat.quadraticCurveTo(0.30 * R, 0.40 * R, 0.12 * R, 0.32 * R);      // 翼缘凹口 3
+      bat.lineTo(0, 0.50 * R);                                           // 尾尖
+      bat.lineTo(-0.12 * R, 0.32 * R);
+      bat.quadraticCurveTo(-0.30 * R, 0.40 * R, -0.38 * R, 0.22 * R);
+      bat.quadraticCurveTo(-0.56 * R, 0.26 * R, -0.62 * R, 0.10 * R);
+      bat.quadraticCurveTo(-0.88 * R, 0.04 * R, -1.02 * R, -0.16 * R);
+      bat.quadraticCurveTo(-0.60 * R, -0.34 * R, -0.26 * R, -0.16 * R);
+      bat.lineTo(-0.13 * R, -0.40 * R);                                  // 左耳
+      bat.closePath();
+      c.fillStyle = '#101216';
+      c.fill(bat);
+      c.restore();
     }));
   }
   if (th.glow) {
