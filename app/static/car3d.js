@@ -100,9 +100,10 @@ export const MODELS = {
     note: 'BvS 蝙蝠车(arsalanmalek/3d_model_batmobile_bvs,Blender 重制哑光黑装甲);仅供娱乐,无车身交互',
   },
   'spiderman': {
-    label: '蜘蛛侠', url: '/models/fun/spiderman.glb', sizeMB: 0.8,
+    // ?v= 破缓存:/models/ 响应带一周强缓存,模型文件内容更新时必须递增
+    label: '蜘蛛侠', url: '/models/fun/spiderman.glb?v=2', sizeMB: 0.8,
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.9,
-    note: 'Marvel Rivals 蜘蛛侠(gameModels @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+    note: 'Marvel Rivals 蜘蛛侠·蛛丝倒挂(gameModels @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
   },
   'f40': {
     label: '法拉利 F40', url: '/models/fun/f40.glb', sizeMB: 1.1,
