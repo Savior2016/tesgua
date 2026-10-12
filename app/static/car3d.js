@@ -99,11 +99,15 @@ export const MODELS = {
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 2.8,
     note: 'BvS 蝙蝠车(arsalanmalek/3d_model_batmobile_bvs,Blender 重制哑光黑装甲);仅供娱乐,无车身交互',
   },
-  'spiderman': {
-    // ?v= 破缓存:/models/ 响应带一周强缓存,模型文件内容更新时必须递增
-    label: '蜘蛛侠', url: '/models/fun/spiderman.glb?v=3', sizeMB: 0.8,
-    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.9,
-    note: 'Marvel Rivals 蜘蛛侠·蛛丝倒挂(gameModels @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  'pumpkin-carriage': {
+    label: '南瓜车', url: '/models/fun/pumpkin-carriage.glb', sizeMB: 0.22,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 2.1,
+    note: '灰姑娘南瓜车(程序化建模,金色拱窗暖光);仅供娱乐,无车身交互',
+  },
+  'broomstick': {
+    label: '飞天扫帚', url: '/models/fun/broomstick.glb', sizeMB: 0.14,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 1.1,
+    note: '飞天扫帚·悬浮姿态(trashart @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
   },
   'f40': {
     label: '法拉利 F40', url: '/models/fun/f40.glb', sizeMB: 1.1,

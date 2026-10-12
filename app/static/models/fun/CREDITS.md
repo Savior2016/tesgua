@@ -45,13 +45,20 @@
 - 处理:从展示间场景中提取车身 24 个网格,重新指定哑光黑装甲/枪灰金属/轮胎/
   车灯自发光材质,转正(-Z 车头)、落地、归一化至 5.6m,meshopt 压缩。
 
-## spiderman.glb —— 蜘蛛侠(Marvel Rivals)
+## pumpkin-carriage.glb —— 南瓜车(灰姑娘款)
 
-- Author: [gameModels](https://sketchfab.com/lastheroes02)
-- Source: [Spider Man | Marvel Rivals](https://sketchfab.com/3d-models/spider-man-marvel-rivals-4f8db46aaebb4fcfabef535af4df6837)(GitHub 镜像:speedcubersg-cell/Spiderman-glb)
+- Source: 纯程序化建模(`scripts/make-pumpkin-carriage.py`),无第三方素材。
+- License: 本项目自产,随项目许可。
+- 构成:瓣纹南瓜车身 + 金色拱形门/窗(暖光自发光)+ 四轮金轮(后大前小)
+  + 底盘连杆 + 瓜蒂/卷须 + 门阶;归一化至 4.2m 长,meshopt 压缩。
+
+## broomstick.glb —— 飞天扫帚
+
+- Author: [trashart](https://sketchfab.com/trash-art)
+- Source: [Stylized Broomstick](https://sketchfab.com/3d-models/stylized-broomstick-ba2dc348a8b2446185341d42c849d1da)(GitHub 镜像:Dkingofcode/DevPortfolio)
 - License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-- 说明:蜘蛛侠形象版权属 Marvel;此模型为社区作者作品,仅作个人面板娱乐展示。
-- 处理:转正(-Z 正面)、落地、归一化至 1.88m,纹理转 1024px WebP、meshopt 压缩。
+- 处理:刷头朝后、悬浮 0.45m、柄尖微翘 4°,归一化至 2.2m 长,
+  纹理转 1024px WebP、meshopt 压缩(`scripts/make-broom.py`)。
 
 ## f40.glb —— 法拉利 F40
 
