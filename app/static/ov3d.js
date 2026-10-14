@@ -92,7 +92,9 @@ function fitRadius() {
       if (e.type === 'pointerup' && tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 8) {
         inspectRing(e);
         // 三连击(每次间隔 <0.7s、位移 <8px)循环切换下一个模型
-        const now = performance.now();
+        // 用事件自带的 timeStamp 而非 performance.now():主线程繁忙时事件处理会延迟,
+        // timeStamp 记录的是真实点击时刻,三连击判定不受渲染卡顿影响
+        const now = e.timeStamp;
         if (now - lastTapAt > 700) tapCount = 0;
         tapCount += 1;
         lastTapAt = now;
