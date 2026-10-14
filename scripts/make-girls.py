@@ -1,4 +1,15 @@
-# 美少女模型批量构建:导入 → 删散件 → 烘姿态 → 归一化 → 转正 → 导出 GLB
+# 美少女模型批量构建(2026-10-14):导入 → 删散件 → 烘姿态 → 归一化 → 转正 → 导出 GLB
+# 源均为 Sketchfab 转存(署名见 app/static/models/fun/CREDITS.md),下载到 /tmp/pvmodels/:
+#   cand_dancer  = Dancing Girl from Fire Emblem If (valentinov8060/multiple-marker)
+#   cand_sexy    = sexy anime girl (proginvert/3d_resources)
+#   cand_bikini101 = Bikini Girl_SF_101 (IngRamirezJezhuah/Porfl_web)
+#   cand_mia     = anime girl Mia Ter Excited Preview (kateBea/Mikoto)
+#   cand_mikustand = Hatsune Miku Chibi w/ Stand (kookmin-sw/capstone-2021-6)
+# 要点:姿态经 depsgraph 评估烘焙成静态网格(new_from_object),脱离骨架导出;
+# 源模型自带隐藏参照球(Icosphere)/地面阴影板(test_kage)需按名删除;
+# 烘进顶点后包围盒会变,二次落地压 z=0;统一转 180° 使正面朝面板 -Z。
+# 用法(服务器):xvfb-run -a blender -b --python scripts/make-girls.py
+#   然后逐个 gltf-transform optimize(参数同 make-broom.py)
 import bpy, math, os
 from mathutils import Matrix, Vector
 
