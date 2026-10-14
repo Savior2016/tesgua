@@ -107,7 +107,7 @@ function fitRadius() {
 // 不同模型配不同台面/侧壁/边缘光;默认深色台 + 电蓝边缘光环,避免与深色背景相融。
 // 侧壁特斯拉 T 标 / TESLA 字标所有主题均保留。
 const ovModelKey = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
-const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', broomstick: 'magic', f40: 'street', revuelto: 'street', f1lm: 'street' }[ovModelKey] || 'default';
+const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', broomstick: 'magic', azura: 'figure', stargirl: 'figure', bikini: 'figure', mia: 'figure', 'miku-chibi': 'figure', f40: 'street', revuelto: 'street', f1lm: 'street' }[ovModelKey] || 'default';
 {
   // 确定性伪噪声(布景用):多组 sin 叠加,无需随机种子
   const pnoise = (x, y) => Math.sin(x * 2.1 + y * 1.3) * 0.5 + Math.sin(x * 4.7 - y * 3.1 + 1.7) * 0.3
@@ -163,6 +163,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     street:  { side: ['#3c3f45', '#121317'], top: 0x26282d, glow: [0xffc42e, 0.4] },
     gotham:  { side: ['#2a2d34', '#0a0b0e'], top: 0x14161a, glow: [0xffd23e, 0.5] },
     magic:   { side: ['#3d2b57', '#140b21'], top: 0x1c1129, glow: [0xffc95c, 0.55] },
+    figure:  { side: ['#2b3346', '#0b0e14'], top: 0x1b2130, glow: [0xffe6f2, 0.4] },
   };
   const th = THEMES[pedTheme];
   const ped = new THREE.Mesh(
@@ -377,6 +378,12 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     scene.add(new THREE.HemisphereLight(0xc9c2f0, 0x241a33, 0.5));
     const fill = new THREE.DirectionalLight(0xffe3b0, 1.2);   // 正面暖光(模型正面 = -Z)
     fill.position.set(1.5, 3.5, -6);
+    scene.add(fill);
+  } else if (pedTheme === 'figure') {
+    // 手办人形:摄影棚灯为黑漆车调暗过,补柔和环境光 + 正面人像补光
+    scene.add(new THREE.HemisphereLight(0xf2ecff, 0x2a2733, 0.55));
+    const fill = new THREE.DirectionalLight(0xfff2e6, 1.35);  // 正面暖白(模型正面 = -Z)
+    fill.position.set(0.8, 4.2, -6);
     scene.add(fill);
   }
 
