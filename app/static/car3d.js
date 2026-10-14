@@ -110,29 +110,34 @@ export const MODELS = {
     note: '飞天扫帚·悬浮姿态(trashart @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
   },
   'azura': {
-    label: '舞姬阿库娅', url: '/models/fun/azura.glb', sizeMB: 0.79,
+    label: '舞姬阿库娅', url: '/models/fun/azura.glb?v=2', sizeMB: 0.75,
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 1.0,
     note: '火焰纹章if·阿库娅舞蹈姿态(Yann/Kokusho @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
   },
   'stargirl': {
-    label: '星星装少女', url: '/models/fun/stargirl.glb', sizeMB: 0.21,
+    label: '星星装少女', url: '/models/fun/stargirl.glb?v=2', sizeMB: 0.20,
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
     note: '星星比基尼少女(raine @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
   },
   'bikini': {
-    label: '泳装少女', url: '/models/fun/bikini.glb', sizeMB: 0.78,
+    label: '泳装少女', url: '/models/fun/bikini.glb?v=2', sizeMB: 0.74,
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
     note: '泳装少女(Grell @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
   },
   'mia': {
-    label: '哥特黑裙 Mia', url: '/models/fun/mia.glb', sizeMB: 1.12,
+    label: '哥特黑裙 Mia', url: '/models/fun/mia.glb?v=2', sizeMB: 1.07,
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
     note: '哥特黑裙少女 Mia(ChamberSu1996 @ Sketchfab,CC-BY-NC 4.0);仅供娱乐,无车身交互',
   },
   'miku-chibi': {
-    label: 'Q版初音', url: '/models/fun/miku-chibi.glb', sizeMB: 0.05,
+    label: 'Q版初音', url: '/models/fun/miku-chibi.glb?v=2', sizeMB: 0.04,
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
     note: 'Q版初音未来·自带展示底座(Senpai-3689 @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'zeze': {
+    label: '女仆装 Zeze', url: '/models/fun/zeze.glb', sizeMB: 1.02,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.7,
+    note: '女仆装少女 Zeze(DrewBurger @ Sketchfab,Free Standard);仅供娱乐,无车身交互',
   },
   'f40': {
     label: '法拉利 F40', url: '/models/fun/f40.glb', sizeMB: 1.1,

@@ -107,7 +107,7 @@ function fitRadius() {
 // 不同模型配不同台面/侧壁/边缘光;默认深色台 + 电蓝边缘光环,避免与深色背景相融。
 // 侧壁特斯拉 T 标 / TESLA 字标所有主题均保留。
 const ovModelKey = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
-const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', broomstick: 'magic', azura: 'figure', stargirl: 'figure', bikini: 'figure', mia: 'figure', 'miku-chibi': 'figure', f40: 'street', revuelto: 'street', f1lm: 'street' }[ovModelKey] || 'default';
+const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', broomstick: 'magic', azura: 'aqua', stargirl: 'starry', bikini: 'beach', mia: 'gothloli', 'miku-chibi': 'miku', zeze: 'maid', f40: 'street', revuelto: 'street', f1lm: 'street' }[ovModelKey] || 'default';
 {
   // 确定性伪噪声(布景用):多组 sin 叠加,无需随机种子
   const pnoise = (x, y) => Math.sin(x * 2.1 + y * 1.3) * 0.5 + Math.sin(x * 4.7 - y * 3.1 + 1.7) * 0.3
@@ -163,7 +163,12 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     street:  { side: ['#3c3f45', '#121317'], top: 0x26282d, glow: [0xffc42e, 0.4] },
     gotham:  { side: ['#2a2d34', '#0a0b0e'], top: 0x14161a, glow: [0xffd23e, 0.5] },
     magic:   { side: ['#3d2b57', '#140b21'], top: 0x1c1129, glow: [0xffc95c, 0.55] },
-    figure:  { side: ['#2b3346', '#0b0e14'], top: 0x1b2130, glow: [0xffe6f2, 0.4] },
+    aqua:    { side: ['#1e3d63', '#081422'], top: 0x0e1c2e, glow: [0x7fd4ff, 0.5] },
+    starry:  { side: ['#27305c', '#0b0e21'], top: 0x111736, glow: [0xffd97a, 0.5] },
+    beach:   { side: ['#8a6f47', '#2b2114'], top: 0xd9bd8a, glow: [0x7fe0d4, 0.45] },
+    gothloli:{ side: ['#3a2440', '#0d0710'], top: 0x160d1f, glow: [0xff5c7a, 0.5] },
+    miku:    { side: ['#1f5a56', '#081817'], top: 0x0f2b29, glow: [0x39c5bb, 0.55] },
+    maid:    { side: ['#6b4f3a', '#1f140d'], top: 0xe8d3ae, glow: [0xffb3c8, 0.45] },
   };
   const th = THEMES[pedTheme];
   const ped = new THREE.Mesh(
@@ -354,6 +359,249 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
       }
       spark(322, 296, 9);   // 新月右下陪一颗大星
     }));
+  } else if (pedTheme === 'aqua') {
+    // 舞姬阿库娅:深海夜色的水之舞台(涟漪弧 + 浪尖 + 水花)
+    topDisc(canvasTex(512, 512, (c) => {
+      const g = c.createRadialGradient(256, 256, 30, 256, 256, 256);
+      g.addColorStop(0, '#1d3a5c'); g.addColorStop(1, '#0a1522');
+      c.fillStyle = g; c.fillRect(0, 0, 512, 512);
+      const aqua = '#7fd4ff';
+      c.strokeStyle = 'rgba(127,212,255,0.85)';
+      c.shadowColor = aqua; c.shadowBlur = 10;
+      // 三组断续涟漪弧,半径由内向外
+      for (let k = 0; k < 3; k++) {
+        const r = 96 + k * 58;
+        c.lineWidth = 4 - k;
+        for (let i = 0; i < 6; i++) {
+          const a0 = i * Math.PI / 3 + k * 0.5;
+          c.beginPath(); c.arc(256, 256, r, a0 + 0.18, a0 + Math.PI / 3 - 0.18); c.stroke();
+        }
+      }
+      // 中央浪尖:两条相对的 S 形水波
+      c.shadowBlur = 14; c.lineWidth = 6; c.lineCap = 'round';
+      c.beginPath();
+      c.moveTo(176, 286);
+      c.bezierCurveTo(210, 240, 236, 246, 256, 226);
+      c.bezierCurveTo(276, 246, 302, 240, 336, 286);
+      c.stroke();
+      c.lineWidth = 4; c.globalAlpha = 0.7;
+      c.beginPath();
+      c.moveTo(196, 306);
+      c.bezierCurveTo(226, 268, 246, 274, 256, 260);
+      c.bezierCurveTo(266, 274, 286, 268, 316, 306);
+      c.stroke();
+      c.globalAlpha = 1; c.shadowBlur = 0;
+      // 水花点(黄金角散布在水波上方)
+      c.fillStyle = aqua;
+      for (let i = 0; i < 8; i++) {
+        const a = -Math.PI / 2 + (i - 3.5) * 0.34;
+        const r = 68 + ((i * 37) % 100) / 100 * 40;
+        c.beginPath();
+        c.arc(256 + Math.cos(a) * r, 250 + Math.sin(a) * r * 0.8, 2.5 + (i % 3), 0, Math.PI * 2);
+        c.fill();
+      }
+    }));
+  } else if (pedTheme === 'starry') {
+    // 星星装少女:午夜天穹 + 中央金星 + 环绕星芒
+    topDisc(canvasTex(512, 512, (c) => {
+      const g = c.createRadialGradient(256, 256, 30, 256, 256, 256);
+      g.addColorStop(0, '#1c2450'); g.addColorStop(1, '#0a0d1f');
+      c.fillStyle = g; c.fillRect(0, 0, 512, 512);
+      const gold = '#ffd97a';
+      // 四角星芒(同 magic 的 spark 造型)
+      const spark = (x, y, s) => {
+        c.save(); c.translate(x, y);
+        c.beginPath();
+        c.moveTo(0, -s); c.quadraticCurveTo(s * 0.18, -s * 0.18, s, 0);
+        c.quadraticCurveTo(s * 0.18, s * 0.18, 0, s);
+        c.quadraticCurveTo(-s * 0.18, s * 0.18, -s, 0);
+        c.quadraticCurveTo(-s * 0.18, -s * 0.18, 0, -s);
+        c.fill(); c.restore();
+      };
+      // 背景碎星
+      c.fillStyle = 'rgba(255,255,255,0.7)';
+      for (let i = 0; i < 40; i++) {
+        const a = i * 2.399963 + 0.9;
+        const r = 60 + ((i * 61) % 100) / 100 * 185;
+        c.beginPath();
+        c.arc(256 + Math.cos(a) * r, 256 + Math.sin(a) * r, 1 + (i % 3) * 0.6, 0, Math.PI * 2);
+        c.fill();
+      }
+      // 双环轨道
+      c.strokeStyle = 'rgba(255,217,122,0.8)'; c.lineWidth = 3;
+      c.shadowColor = gold; c.shadowBlur = 10;
+      c.beginPath(); c.arc(256, 256, 232, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([8, 12]); c.lineWidth = 2; c.globalAlpha = 0.55;
+      c.beginPath(); c.arc(256, 256, 190, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([]); c.globalAlpha = 1;
+      // 中央大五角星(描边发光)
+      c.shadowBlur = 20; c.lineWidth = 5; c.lineJoin = 'round';
+      c.beginPath();
+      for (let i = 0; i <= 10; i++) {
+        const a = i * Math.PI / 5 - Math.PI / 2;
+        const r = i % 2 ? 46 : 110;
+        const x = 256 + Math.cos(a) * r, y = 256 + Math.sin(a) * r;
+        i ? c.lineTo(x, y) : c.moveTo(x, y);
+      }
+      c.stroke();
+      c.shadowBlur = 0;
+      // 环上星芒
+      c.fillStyle = gold;
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3 + 0.35;
+        spark(256 + Math.cos(a) * 211, 256 + Math.sin(a) * 211, 9 + (i % 2) * 4);
+      }
+    }));
+  } else if (pedTheme === 'beach') {
+    // 泳装少女:沙滩台面 + 绿松石海浪环带 + 白浪花
+    topDisc(canvasTex(512, 512, (c) => {
+      const g = c.createRadialGradient(256, 256, 30, 256, 256, 256);
+      g.addColorStop(0, '#eed9ae'); g.addColorStop(1, '#c39f66');
+      c.fillStyle = g; c.fillRect(0, 0, 512, 512);
+      // 沙粒
+      for (let i = 0; i < 700; i++) {
+        const x = (i * 197) % 512, y = (i * 311) % 512;
+        c.fillStyle = i % 3 ? 'rgba(255,255,255,0.10)' : 'rgba(120,88,48,0.14)';
+        c.fillRect(x, y, 2, 2);
+      }
+      // 海浪环带(宽弧,绿松石)
+      c.strokeStyle = 'rgba(78,200,192,0.9)'; c.lineWidth = 26; c.lineCap = 'round';
+      c.shadowColor = '#4ec8c0'; c.shadowBlur = 8;
+      for (let i = 0; i < 5; i++) {
+        const a0 = i * Math.PI * 2 / 5 + 0.3;
+        c.beginPath(); c.arc(256, 256, 205, a0, a0 + Math.PI * 2 / 5 * 0.62); c.stroke();
+      }
+      // 浪尖白沫(跟随海弧前缘的小弧)
+      c.strokeStyle = 'rgba(255,255,255,0.95)'; c.lineWidth = 5; c.shadowBlur = 0;
+      for (let i = 0; i < 5; i++) {
+        const a0 = i * Math.PI * 2 / 5 + 0.3;
+        c.beginPath(); c.arc(256, 256, 219, a0 + 0.1, a0 + 0.42); c.stroke();
+        c.beginPath(); c.arc(256, 256, 191, a0 + 0.05, a0 + 0.3); c.stroke();
+      }
+      // 中央小贝壳(扇形 + 放射纹)
+      c.fillStyle = '#fff3e2';
+      c.beginPath(); c.moveTo(256, 276);
+      c.arc(256, 276, 52, Math.PI, 0); c.closePath(); c.fill();
+      c.strokeStyle = '#d8a86a'; c.lineWidth = 3;
+      for (let i = -2; i <= 2; i++) {
+        c.beginPath(); c.moveTo(256, 276);
+        c.lineTo(256 + Math.sin(i * 0.42) * 50, 276 - Math.cos(i * 0.42) * 50);
+        c.stroke();
+      }
+    }));
+  } else if (pedTheme === 'gothloli') {
+    // 哥特黑裙 Mia:黑紫夜幕 + 酒红双环 + 白色蕾丝花边 + 小十字
+    topDisc(canvasTex(512, 512, (c) => {
+      const g = c.createRadialGradient(256, 256, 30, 256, 256, 256);
+      g.addColorStop(0, '#241430'); g.addColorStop(1, '#0d0710');
+      c.fillStyle = g; c.fillRect(0, 0, 512, 512);
+      const wine = '#c23a5e';
+      // 酒红双环
+      c.strokeStyle = 'rgba(194,58,94,0.9)'; c.lineWidth = 4;
+      c.shadowColor = wine; c.shadowBlur = 12;
+      c.beginPath(); c.arc(256, 256, 234, 0, Math.PI * 2); c.stroke();
+      c.lineWidth = 2; c.globalAlpha = 0.6;
+      c.beginPath(); c.arc(256, 256, 216, 0, Math.PI * 2); c.stroke();
+      c.globalAlpha = 1; c.shadowBlur = 0;
+      // 白色蕾丝花边(一圈相切小半圆)
+      c.strokeStyle = 'rgba(240,228,240,0.55)'; c.lineWidth = 2.5;
+      for (let i = 0; i < 28; i++) {
+        const a = i * Math.PI / 14;
+        const x = 256 + Math.cos(a) * 176, y = 256 + Math.sin(a) * 176;
+        c.beginPath(); c.arc(x, y, 20, a + Math.PI / 2, a + Math.PI * 1.5); c.stroke();
+      }
+      // 中心玫瑰(三层旋转弧线)
+      c.strokeStyle = wine; c.lineWidth = 4; c.lineCap = 'round';
+      c.shadowColor = wine; c.shadowBlur = 10;
+      for (let k = 0; k < 3; k++) {
+        const r = 26 + k * 24;
+        for (let i = 0; i < 3; i++) {
+          const a0 = i * Math.PI * 2 / 3 + k * 0.6;
+          c.beginPath(); c.arc(256, 256, r, a0, a0 + Math.PI * 0.9); c.stroke();
+        }
+      }
+      c.shadowBlur = 0;
+      // 环间小十字(哥特元素)
+      c.strokeStyle = 'rgba(240,228,240,0.7)'; c.lineWidth = 2.5;
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4 + Math.PI / 8;
+        const x = 256 + Math.cos(a) * 195, y = 256 + Math.sin(a) * 195;
+        c.beginPath();
+        c.moveTo(x - 6, y); c.lineTo(x + 6, y);
+        c.moveTo(x, y - 9); c.lineTo(x, y + 9);
+        c.stroke();
+      }
+    }));
+  } else if (pedTheme === 'miku') {
+    // Q版初音:葱绿(39c5bb)舞台 + 音符 + 01 臂章
+    topDisc(canvasTex(512, 512, (c) => {
+      const g = c.createRadialGradient(256, 256, 30, 256, 256, 256);
+      g.addColorStop(0, '#174744'); g.addColorStop(1, '#081817');
+      c.fillStyle = g; c.fillRect(0, 0, 512, 512);
+      const teal = '#39c5bb';
+      // 外环 + 虚线内环
+      c.strokeStyle = 'rgba(57,197,187,0.9)'; c.lineWidth = 4;
+      c.shadowColor = teal; c.shadowBlur = 12;
+      c.beginPath(); c.arc(256, 256, 232, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([10, 12]); c.lineWidth = 2; c.globalAlpha = 0.55;
+      c.beginPath(); c.arc(256, 256, 168, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([]); c.globalAlpha = 1; c.shadowBlur = 0;
+      // 环绕音符(八分音符 ♪ 与 双音符 ♫)
+      c.fillStyle = teal;
+      c.shadowColor = teal; c.shadowBlur = 8;
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      const notes = ['♪', '♫', '♪', '♩', '♫', '♪', '♩', '♪'];
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4 - Math.PI / 2 + 0.2;
+        c.save();
+        c.translate(256 + Math.cos(a) * 200, 256 + Math.sin(a) * 200);
+        c.rotate(Math.sin(i * 2.7) * 0.3);
+        c.font = `${26 + (i % 3) * 6}px serif`;
+        c.fillText(notes[i], 0, 0);
+        c.restore();
+      }
+      // 中央大字 01(初音臂章)
+      c.shadowBlur = 18;
+      c.font = 'bold 110px sans-serif';
+      c.fillText('01', 256, 262);
+      c.shadowBlur = 0;
+    }));
+  } else if (pedTheme === 'maid') {
+    // 女仆 zeze:奶油咖啡厅台面 + 粉色蕾丝花边 + 小心心
+    topDisc(canvasTex(512, 512, (c) => {
+      const g = c.createRadialGradient(256, 256, 30, 256, 256, 256);
+      g.addColorStop(0, '#f6e7c8'); g.addColorStop(1, '#d4b184');
+      c.fillStyle = g; c.fillRect(0, 0, 512, 512);
+      const pink = '#e8729b';
+      // 粉色蕾丝花边(一圈相切小半圆)
+      c.strokeStyle = 'rgba(232,114,155,0.85)'; c.lineWidth = 3;
+      for (let i = 0; i < 24; i++) {
+        const a = i * Math.PI / 12;
+        const x = 256 + Math.cos(a) * 196, y = 256 + Math.sin(a) * 196;
+        c.beginPath(); c.arc(x, y, 26, a + Math.PI / 2, a + Math.PI * 1.5); c.stroke();
+      }
+      // 内圈细环 + 波点
+      c.lineWidth = 2.5; c.globalAlpha = 0.7;
+      c.beginPath(); c.arc(256, 256, 150, 0, Math.PI * 2); c.stroke();
+      c.globalAlpha = 1;
+      c.fillStyle = 'rgba(232,114,155,0.8)';
+      for (let i = 0; i < 12; i++) {
+        const a = i * Math.PI / 6;
+        c.beginPath(); c.arc(256 + Math.cos(a) * 150, 256 + Math.sin(a) * 150, 4, 0, Math.PI * 2); c.fill();
+      }
+      // 中央大爱心 + 两颗小爱心
+      const heart = (x, y, s, col) => {
+        c.fillStyle = col;
+        c.beginPath();
+        c.moveTo(x, y + s * 0.85);
+        c.bezierCurveTo(x - s * 1.15, y - s * 0.1, x - s * 0.55, y - s * 0.9, x, y - s * 0.3);
+        c.bezierCurveTo(x + s * 0.55, y - s * 0.9, x + s * 1.15, y - s * 0.1, x, y + s * 0.85);
+        c.fill();
+      };
+      heart(256, 250, 62, 'rgba(232,114,155,0.95)');
+      heart(178, 300, 22, 'rgba(232,114,155,0.6)');
+      heart(334, 300, 22, 'rgba(232,114,155,0.6)');
+    }));
   }
   if (th.glow) {
     glowRing(3.55, 3.78, th.glow[0], th.glow[1] * 0.5);
@@ -379,10 +627,14 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     const fill = new THREE.DirectionalLight(0xffe3b0, 1.2);   // 正面暖光(模型正面 = -Z)
     fill.position.set(1.5, 3.5, -6);
     scene.add(fill);
-  } else if (pedTheme === 'figure') {
-    // 手办人形:摄影棚灯为黑漆车调暗过,补柔和环境光 + 正面人像补光
+  }
+  // 手办人形(美少女系):摄影棚灯为黑漆车调暗过,补柔和环境光 + 正面人像补光,
+  // 补光色按角色主题微调(水舞偏冷 / 星星偏金 / 海滩暖阳 / 哥特偏紫 / 初音偏青 / 女仆偏暖橙)
+  const GIRL_FILL = { aqua: 0xdcefff, starry: 0xfff0d0, beach: 0xfff0d8,
+                      gothloli: 0xefe0ff, miku: 0xe0fff8, maid: 0xffead6 }[pedTheme];
+  if (GIRL_FILL) {
     scene.add(new THREE.HemisphereLight(0xf2ecff, 0x2a2733, 0.55));
-    const fill = new THREE.DirectionalLight(0xfff2e6, 1.35);  // 正面暖白(模型正面 = -Z)
+    const fill = new THREE.DirectionalLight(GIRL_FILL, 1.35);  // 正面(模型正面 = -Z)
     fill.position.set(0.8, 4.2, -6);
     scene.add(fill);
   }

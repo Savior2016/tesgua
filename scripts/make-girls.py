@@ -5,8 +5,11 @@
 #   cand_bikini101 = Bikini Girl_SF_101 (IngRamirezJezhuah/Porfl_web)
 #   cand_mia     = anime girl Mia Ter Excited Preview (kateBea/Mikoto)
 #   cand_mikustand = Hatsune Miku Chibi w/ Stand (kookmin-sw/capstone-2021-6)
+#   cand_zeze    = zeze 3d anime girl (valentinov8060/multiple-marker,女仆装)
 # 要点:姿态经 depsgraph 评估烘焙成静态网格(new_from_object),脱离骨架导出;
 # 源模型自带隐藏参照球(Icosphere)/地面阴影板(test_kage)需按名删除;
+# zeze 的贴图全塞在 emissive 槽且 emissiveFactor=0(导入后无贴图节点),
+# 且每个网格带一层 Material.002 黑色描边壳 → fix_zeze 删壳重建材质;
 # 烘进顶点后包围盒会变,二次落地压 z=0;统一转 180° 使正面朝面板 -Z。
 # 用法(服务器):xvfb-run -a blender -b --python scripts/make-girls.py
 #   然后逐个 gltf-transform optimize(参数同 make-broom.py)
@@ -15,17 +18,45 @@ from mathutils import Matrix, Vector
 
 BASE = "/tmp/pvmodels"
 MODELS = {
-  "azura":      dict(src="cand_dancer/scene.gltf",    H=2.10, drop=[]),
-  "stargirl":   dict(src="cand_sexy/scene.gltf",      H=2.30, drop=["Icosphere"]),
-  "bikini":     dict(src="cand_bikini101/scene.gltf", H=2.30, drop=[]),
-  "mia":        dict(src="cand_mia/scene.gltf",       H=2.30, drop=["Icosphere"]),
-  "miku-chibi": dict(src="cand_mikustand/scene.gltf", H=1.90, drop=["test_kage"]),
+  "azura":      dict(src="cand_dancer/scene.gltf",    H=2.55, drop=[]),
+  "stargirl":   dict(src="cand_sexy/scene.gltf",      H=2.75, drop=["Icosphere"]),
+  "bikini":     dict(src="cand_bikini101/scene.gltf", H=2.75, drop=[]),
+  "mia":        dict(src="cand_mia/scene.gltf",       H=2.75, drop=["Icosphere"]),
+  "miku-chibi": dict(src="cand_mikustand/scene.gltf", H=2.30, drop=["test_kage"]),
+  "zeze":       dict(src="cand_zeze/scene.gltf",      H=2.75, drop=[], fix="zeze"),
 }
+
+def fix_zeze():
+    # 删 Material.002 描边壳与无贴图杂件(Material = 参照方块 Cube)
+    for o in [x for x in bpy.data.objects if x.type == "MESH"]:
+        names = [m.name if m else "" for m in o.data.materials]
+        if names and (all(n.startswith("Material.002") for n in names)
+                      or all(n == "Material" for n in names)):
+            bpy.data.objects.remove(o, do_unlink=True)
+    # 重建材质:emissive 贴图转正为基础色贴图
+    TEX = {"Body": "Body_emissive.png", "Hair": "Hair_emissive.png",
+           "Material.001": "Material.001_emissive.png"}
+    for name, png in TEX.items():
+        mat = bpy.data.materials.get(name)
+        if not mat:
+            continue
+        mat.use_nodes = True
+        nt = mat.node_tree
+        nt.nodes.clear()
+        out = nt.nodes.new("ShaderNodeOutputMaterial")
+        bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+        bsdf.inputs["Roughness"].default_value = 0.7
+        tex = nt.nodes.new("ShaderNodeTexImage")
+        tex.image = bpy.data.images.load(os.path.join(BASE, "cand_zeze/textures", png))
+        nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+        nt.links.new(bsdf.outputs["BSDF"], out.inputs["Surface"])
 
 def build(key, cfg):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bpy.ops.import_scene.gltf(filepath=os.path.join(BASE, cfg["src"]))
     bpy.context.view_layer.update()
+    if cfg.get("fix") == "zeze":
+        fix_zeze()
     for name in cfg["drop"]:
         o = bpy.data.objects.get(name)
         if o:
