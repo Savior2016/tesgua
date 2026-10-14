@@ -57,7 +57,7 @@ function fitRadius() {
     hideTip();
     autoSpin = false;   // 用户接管,停止自动旋转
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    el.setPointerCapture(e.pointerId);
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}   // 指针已失效(快速点取消等)时忽略,不影响后续
     if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y), r: orbitGoal.r };
