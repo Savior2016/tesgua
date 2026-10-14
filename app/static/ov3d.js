@@ -328,13 +328,13 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
       }
       c.stroke();
       c.globalAlpha = 1; c.shadowBlur = 0;
-      // 新月(两圆相减)
+      // 新月(两圆相减;扣除色与台面中心渐变同值,避免黑洞感)
       c.fillStyle = gold;
       c.shadowColor = gold; c.shadowBlur = 18;
       c.beginPath(); c.arc(256, 250, 44, 0, Math.PI * 2); c.fill();
       c.shadowBlur = 0;
-      c.fillStyle = '#1c1129';
-      c.beginPath(); c.arc(274, 240, 40, 0, Math.PI * 2); c.fill();
+      c.fillStyle = '#231334';
+      c.beginPath(); c.arc(270, 242, 38, 0, Math.PI * 2); c.fill();
       // 星芒:四角星,确定性散点
       c.fillStyle = gold;
       const spark = (x, y, s) => {
