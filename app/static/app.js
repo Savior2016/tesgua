@@ -11,6 +11,7 @@
     ovMode: ['car', 'data', '3d'].includes(localStorage.getItem('ttv-ovmode'))
       ? localStorage.getItem('ttv-ovmode') : '3d',  // 总览样式:车模 / 数据 / 3D 全景(默认 3D)
     overview: null,
+    sys: null,
     health: null,
     cycles: null,
     cycleIdx: 0,
@@ -4095,6 +4096,34 @@
   window.__ttvApi = api;
   window.__ttvLoadMapStyle = loadMapStyle;
 
+  /* ---------- 仪表盘本地缓存(stale-while-revalidate) ---------- */
+// 开页先用上次缓存整页渲染(秒开),后台 refresh() 拉到新数据后覆盖;
+// 按时间范围分槽(days=1/7/30 各一份);轨迹点体积大,配额不足时降级去掉轨迹再存
+  const DASH_CACHE_FIELDS = ['sys', 'overview', 'health', 'sessions', 'cycles', 'parking',
+    'delivery', 'reminder', 'homeCharge', 'lifetime', 'monthly', 'tpmsWeekly', 'parked'];
+  const dashCacheKey = () => `ttv-dash-${S.days}`;
+  function saveDashCache() {
+    if (!S.overview) return;
+    const d = { t: Date.now(), carId: S.carId };
+    DASH_CACHE_FIELDS.forEach((k) => { d[k] = S[k]; });
+    try {
+      localStorage.setItem(dashCacheKey(), JSON.stringify(d));
+    } catch (e) {
+      try {
+        d.overview = { ...S.overview, routes: null };  // 行程列表/地图等下次刷新补齐
+        localStorage.setItem(dashCacheKey(), JSON.stringify(d));
+      } catch (e2) { /* 放弃缓存,不影响功能 */ }
+    }
+  }
+  function loadDashCache() {
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(dashCacheKey()) || 'null'); } catch (e) { return 0; }
+    if (!d || !d.overview) return 0;
+    if (d.carId !== null && d.carId !== undefined) S.carId = d.carId;
+    DASH_CACHE_FIELDS.forEach((k) => { if (k in d) S[k] = d[k]; });
+    return d.t || 0;
+  }
+
   async function refresh() {
     try {
       const o = await api('overview');
@@ -4134,6 +4163,7 @@
         temp,
       };
       S.health = health;
+      S.sys = sys;
       S.sessions = sessions;
       S.cycles = cyc;
       S.parking = pk;
@@ -4167,6 +4197,7 @@
       renderTraffic();
       renderTpms();
       renderTemp();
+      saveDashCache();  // 最新数据落本地,下次开页秒开
     } catch (err) {
       $('#state-text').textContent = '数据连接失败';
       $('#updated-at').textContent = 'API 请求失败,稍后自动重试';
@@ -4565,6 +4596,17 @@
       }
     }).catch(() => { /* 偏好拉取失败就用缓存/默认值 */ });
 
+    // 先渲上次缓存(秒开,标注「缓存·更新中」),后台 refresh 拉到新数据后覆盖整页
+    const cachedAt = loadDashCache();
+    if (cachedAt) {
+      renderSys(S.sys);
+      renderAll();
+      const ua = $('#updated-at');
+      ua.textContent = `缓存 ${fmtTime(cachedAt)},正在更新…`;
+      ua.classList.remove('fade-in');
+      void ua.offsetWidth;
+      ua.classList.add('fade-in');
+    }
     refresh();
     S.timer = setInterval(refresh, 60 * 1000);
   }
