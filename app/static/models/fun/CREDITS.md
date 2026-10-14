@@ -60,6 +60,48 @@
 - 处理:刷头朝后、悬浮 0.45m、柄尖微翘 4°,归一化至 2.8m 长,
   纹理转 1024px WebP、meshopt 压缩(`scripts/make-broom.py`)。
 
+## azura.glb —— 舞姬阿库娅(火焰纹章if)
+
+- Author: [Yann (Kokusho)](https://sketchfab.com/Kokusho)
+- Source: [Dancing Girl from Fire Emblem If](https://sketchfab.com/3d-models/dancing-girl-from-fire-emblem-if-bf3b946f6dbb448eb25811e87e006f08)(GitHub 镜像:valentinov8060/multiple-marker)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 说明:角色形象版权属 Nintendo/IS;此模型为社区作者作品,仅作个人面板娱乐展示。
+- 处理:自带舞蹈姿态烘焙成静态几何,转正(-Z 正面)、落地、按身高归一化至 1.75m,
+  纹理转 1024px WebP、meshopt 压缩(`scripts/make-girls.py`)。
+
+## stargirl.glb —— 星星装少女
+
+- Author: [raine](https://sketchfab.com/coolmantwo07)
+- Source: [sexy anime girl](https://sketchfab.com/3d-models/sexy-anime-girl-d73f2cd0967f48a98fbb49dfb450bc2b)(GitHub 镜像:proginvert/3d_resources)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 处理:删隐藏参照球,姿态烘焙成静态几何,转正、落地、归一化至 1.75m,
+  纹理转 1024px WebP、meshopt 压缩(`scripts/make-girls.py`)。
+
+## bikini.glb —— 泳装少女
+
+- Author: [Grell](https://sketchfab.com/grell)
+- Source: [Bikini Girl_SF_101](https://sketchfab.com/3d-models/bikini-girl-sf-101-568316e9e1724a288b1559ef96abeff9)(GitHub 镜像:IngRamirezJezhuah/Porfl_web)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 处理:顶点色模型(无贴图),姿态烘焙、转正、落地、归一化至 1.70m,
+  meshopt 压缩(`scripts/make-girls.py`)。
+
+## mia.glb —— 哥特黑裙 Mia
+
+- Author: [ChamberSu1996](https://sketchfab.com/chambersu1996)
+- Source: [anime girl Mia Ter Excited Preview](https://sketchfab.com/3d-models/anime-girl-mia-ter-excited-preview-bda66b935705449dad31f6c5d96780a7)(GitHub 镜像:kateBea/Mikoto)
+- License: [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)(仅非商业用途,本项目为个人面板)
+- 处理:删隐藏参照球,姿态烘焙成静态几何,转正、落地、归一化至 1.72m,
+  纹理转 1024px WebP、meshopt 压缩(`scripts/make-girls.py`)。
+
+## miku-chibi.glb —— Q版初音未来(带展示底座)
+
+- Author: [Senpai-3689](https://sketchfab.com/Senpai3689)
+- Source: [Hatsune Miku Chibi w/ Stand](https://sketchfab.com/3d-models/hatsune-miku-chibi-w-stand-7310aaeb8370428e966bdcff414273e7)(GitHub 镜像:kookmin-sw/capstone-2021-6)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 说明:初音未来形象版权属 Crypton Future Media;此模型为社区作者作品,仅作个人面板娱乐展示。
+- 处理:删地面阴影板(保留手办底座),转正、落地、连底座归一化至 1.45m,
+  meshopt 压缩(`scripts/make-girls.py`)。
+
 ## f40.glb —— 法拉利 F40
 
 - Author: [Black Snow](https://skfb.ly/oRnMV)
