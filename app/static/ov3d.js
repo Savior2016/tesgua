@@ -13,7 +13,7 @@ const loadingEl = document.getElementById('txov-loading');
 // 总览 3D 模型(个人中心「总览 3D 模型」偏好,与控制页车模相互独立;localStorage 秒开,后台 /api/prefs 校准)
 const loader = makeLoader();
 const prefKey = localStorage.getItem('ttv-ovcarmodel');
-const cfg = resolveCfg(prefKey && MODELS[prefKey] ? prefKey : 'y-yl');
+let cfg = resolveCfg(prefKey && MODELS[prefKey] ? prefKey : 'y-yl');
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 stage.prepend(renderer.domElement);   // canvas 垫底,数据 chips 在其上
@@ -89,7 +89,15 @@ function fitRadius() {
     if (pointers.size < 2) pinch = null;
     if (pointers.size === 0) {
       downAt = null;
-      if (e.type === 'pointerup' && tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 8) inspectRing(e);
+      if (e.type === 'pointerup' && tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 8) {
+        inspectRing(e);
+        // 三连击(每次间隔 <0.5s、位移 <8px)循环切换下一个模型
+        const now = performance.now();
+        if (now - lastTapAt > 500) tapCount = 0;
+        tapCount += 1;
+        lastTapAt = now;
+        if (tapCount >= 3) { tapCount = 0; hideTip(); nextModel(); }
+      }
       tap = null;
     }
   };
@@ -106,8 +114,25 @@ function fitRadius() {
 // ---------- 展示圆台(按模型主题差异化) ----------
 // 不同模型配不同台面/侧壁/边缘光;默认深色台 + 电蓝边缘光环,避免与深色背景相融。
 // 侧壁特斯拉 T 标 / TESLA 字标所有主题均保留。
-const ovModelKey = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
-const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', broomstick: 'magic', azura: 'aqua', stargirl: 'starry', bikini: 'beach', mia: 'gothloli', 'miku-chibi': 'miku', zeze: 'maid', f40: 'street', revuelto: 'street', f1lm: 'street' }[ovModelKey] || 'default';
+const ovModelKey0 = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
+let ovModelKey = ovModelKey0;
+const PED_THEMES = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', broomstick: 'magic', azura: 'aqua', stargirl: 'starry', bikini: 'beach', mia: 'gothloli', 'miku-chibi': 'miku', zeze: 'maid', f40: 'street', revuelto: 'street', f1lm: 'street' };
+const themeFor = (key) => PED_THEMES[key] || 'default';
+let pedTheme = themeFor(ovModelKey);
+
+// 底座/模型运行时重建(三连击切换):旧组整体移除并释放 GPU 资源
+function disposeGroup(g) {
+  g.traverse((o) => {
+    if (o.geometry) o.geometry.dispose();
+    const mats = Array.isArray(o.material) ? o.material : (o.material ? [o.material] : []);
+    mats.forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); });
+  });
+}
+let pedGroup = null;
+function buildPedestal() {
+  if (pedGroup) { scene.remove(pedGroup); disposeGroup(pedGroup); }
+  pedGroup = new THREE.Group();
+  scene.add(pedGroup);
 {
   // 确定性伪噪声(布景用):多组 sin 叠加,无需随机种子
   const pnoise = (x, y) => Math.sin(x * 2.1 + y * 1.3) * 0.5 + Math.sin(x * 4.7 - y * 3.1 + 1.7) * 0.3
@@ -144,7 +169,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
       }));
     m.position.y = 0.004;
     m.renderOrder = 2;
-    scene.add(m);
+    pedGroup.add(m);
   };
   // 台面贴图圆片(盖在圆台顶面上,不动圆柱 UV)
   const topDisc = (tex) => {
@@ -152,7 +177,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
       new THREE.CircleGeometry(3.98, 96).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ map: tex }));
     m.position.y = 0.003;
-    scene.add(m);
+    pedGroup.add(m);
   };
 
   const THEMES = {
@@ -177,7 +202,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
      new THREE.MeshBasicMaterial({ color: th.top }),                          // 台面
      new THREE.MeshBasicMaterial({ color: th.side[1] })]);                    // 底面(不可见)
   ped.position.y = -0.249;   // 台面与旧圆盘同高(y≈0.001),台体向下延伸出厚度
-  scene.add(ped);
+  pedGroup.add(ped);
 
   if (pedTheme === 'mars') {
     // 3D 火星表面:实拍纹理(裁掉天空)+ 噪声起伏 + 散落岩石。
@@ -196,7 +221,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     }
     terr.geometry.computeVertexNormals();
     terr.position.y = 0.002;
-    scene.add(terr);
+    pedGroup.add(terr);
     new THREE.TextureLoader().load('/mars-surface.webp', (t) => {
       t.colorSpace = THREE.SRGBColorSpace;
       t.anisotropy = renderer.capabilities.getMaxAnisotropy();
@@ -215,7 +240,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
       const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(s, 0), rockMat);
       rock.position.set(x, terrH(x, z) + s * 0.35, z);
       rock.rotation.set(i * 1.3, i * 2.1, i * 0.7);
-      scene.add(rock);
+      pedGroup.add(rock);
     }
   } else if (pedTheme === 'stark') {
     // 斯塔克工业风:枪灰金属台面 + 方舟反应炉光环
@@ -611,32 +636,32 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
   // 主题补光:摄影棚环境(setupStudio)是为黑漆车调暗的,人形手办类 raw 模型偏暗,
   // 按主题加英雄光(模型正面 = -Z)
   if (pedTheme === 'stark') {
-    scene.add(new THREE.HemisphereLight(0xe8f0ff, 0x2c313a, 0.55));
+    pedGroup.add(new THREE.HemisphereLight(0xe8f0ff, 0x2c313a, 0.55));
     const fill = new THREE.DirectionalLight(0xdceaff, 1.5);   // 正面补光
     fill.position.set(0, 4, -6);
-    scene.add(fill);
+    pedGroup.add(fill);
     const rim = new THREE.DirectionalLight(0x6fd3ff, 1.8);    // 背后青色轮廓光(方舟反应炉色调)
     rim.position.set(-3, 5, 5);
-    scene.add(rim);
+    pedGroup.add(rim);
     const warm = new THREE.DirectionalLight(0xffd9a6, 0.8);   // 右前暖光,提金甲层次
     warm.position.set(4, 3, -3);
-    scene.add(warm);
+    pedGroup.add(warm);
   } else if (pedTheme === 'magic') {
     // 扫帚:木质深棕配深紫台面容易糊,加一层月光冷环境 + 前方金色暖补光
-    scene.add(new THREE.HemisphereLight(0xc9c2f0, 0x241a33, 0.5));
+    pedGroup.add(new THREE.HemisphereLight(0xc9c2f0, 0x241a33, 0.5));
     const fill = new THREE.DirectionalLight(0xffe3b0, 1.2);   // 正面暖光(模型正面 = -Z)
     fill.position.set(1.5, 3.5, -6);
-    scene.add(fill);
+    pedGroup.add(fill);
   }
   // 手办人形(美少女系):摄影棚灯为黑漆车调暗过,补柔和环境光 + 正面人像补光,
   // 补光色按角色主题微调(水舞偏冷 / 星星偏金 / 海滩暖阳 / 哥特偏紫 / 初音偏青 / 女仆偏暖橙)
   const GIRL_FILL = { aqua: 0xdcefff, starry: 0xfff0d0, beach: 0xfff0d8,
                       gothloli: 0xefe0ff, miku: 0xe0fff8, maid: 0xffead6 }[pedTheme];
   if (GIRL_FILL) {
-    scene.add(new THREE.HemisphereLight(0xf2ecff, 0x2a2733, 0.55));
+    pedGroup.add(new THREE.HemisphereLight(0xf2ecff, 0x2a2733, 0.55));
     const fill = new THREE.DirectionalLight(GIRL_FILL, 1.35);  // 正面(模型正面 = -Z)
     fill.position.set(0.8, 4.2, -6);
-    scene.add(fill);
+    pedGroup.add(fill);
   }
 
   // 台面柔和投影(火星地表自带起伏与光影,跳过)
@@ -653,7 +678,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
       new THREE.PlaneGeometry(7.0, 3.7).rotateX(-Math.PI / 2),
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false }));
     shadow.position.y = 0.01;
-    scene.add(shadow);
+    pedGroup.add(shadow);
   }
 
   // 侧壁车标:贴合柱面的弧形贴片(与圆台同心、略大一圈防 z-fighting),
@@ -676,7 +701,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, depthWrite: false, toneMapped: false }));
   logo.position.y = -0.19;   // 偏圆台上沿:高位俯视下侧壁被压扁,贴下沿会看不清
   logo.renderOrder = 1;
-  scene.add(logo);
+  pedGroup.add(logo);
   }
 
   // 侧壁文字标:与图形标正对的一侧(θ=0,车尾方向 +Z),TESLA 红色字标。
@@ -697,9 +722,11 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     new THREE.MeshBasicMaterial({ map: wordTex, transparent: true, depthWrite: false, toneMapped: false }));
   word.position.y = -0.19;
   word.renderOrder = 1;
-  scene.add(word);
+  pedGroup.add(word);
+  }
   }
 }
+buildPedestal();
 
 // ---------- 演示数据(与 2D 方案同源;bd = 本充电周期能耗构成,自车头起顺时针) ----------
 const DEMO = {
@@ -1009,6 +1036,7 @@ function inspectRing(e) {
 
 // ---------- 加载用户车型 ----------
 fetch('/api/prefs').then((r) => r.json()).then((p) => {
+  if (userSwitched) return;   // 用户已在面板里三连击切换,以手动选择为准
   if (p.ov_car_model && MODELS[p.ov_car_model]) localStorage.setItem('ttv-ovcarmodel', p.ov_car_model);
   if (p.car_color_effective) localStorage.setItem('ttv-carcolor', p.car_color_effective);
 }).catch(() => {});
@@ -1054,30 +1082,63 @@ const RAW_TUNE = {
 };
 
 let rockPivot = null;   // 摇摇车:绕底座顶面铰链的缓摇组(尊重 prefers-reduced-motion)
-loader.load(cfg.url, (gltf) => {
-  if (cfg.cybertruck) {
-    gltf.scene = prepareCybertruck(gltf.scene).scene;
-  } else if (cfg.highland) {
-    gltf.scene = prepareHighland(gltf.scene, makeMats()).scene;
-  } else if (!cfg.raw) {
-    prepareModel(gltf.scene, cfg, makeMats());
-  }   // raw:趣味模型保留原配色,不做换漆/玻璃重映射
-  if (cfg.raw && RAW_TUNE[cfg.key]) RAW_TUNE[cfg.key](gltf.scene);
-  gltf.scene.scale.multiplyScalar(1.18);   // 放大车模:原比例相对圆台偏小
-  let root = gltf.scene;
-  if (cfg.rock && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    const py = (cfg.rockPivotY || 0) * 1.18;   // 铰链高度换算到缩放后的世界坐标
-    rockPivot = new THREE.Group();
-    gltf.scene.position.y = -py;
-    rockPivot.position.y = py;
-    rockPivot.add(gltf.scene);
-    root = rockPivot;
-  }
-  scene.add(root);
-  loadingEl.style.display = 'none';
-}, undefined, (err) => {
-  loadingEl.textContent = '模型加载失败:' + (err && err.message || err);
-});
+let modelRoot = null;   // 当前模型根(三连击切换时整体替换)
+let loadSeq = 0;        // 加载代次守卫:连切时丢弃过期回调
+function loadModel(key) {
+  const mySeq = ++loadSeq;
+  ovModelKey = key;
+  const c = cfg = resolveCfg(key);
+  loadingEl.textContent = `切换到「${c.label}」…`;
+  loadingEl.style.display = '';
+  loader.load(c.url, (gltf) => {
+    if (mySeq !== loadSeq) return;   // 期间又切了别的模型,丢弃
+    if (c.cybertruck) {
+      gltf.scene = prepareCybertruck(gltf.scene).scene;
+    } else if (c.highland) {
+      gltf.scene = prepareHighland(gltf.scene, makeMats()).scene;
+    } else if (!c.raw) {
+      prepareModel(gltf.scene, c, makeMats());
+    }   // raw:趣味模型保留原配色,不做换漆/玻璃重映射
+    if (c.raw && RAW_TUNE[c.key]) RAW_TUNE[c.key](gltf.scene);
+    gltf.scene.scale.multiplyScalar(1.18);   // 放大车模:原比例相对圆台偏小
+    let root = gltf.scene;
+    rockPivot = null;
+    if (c.rock && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const py = (c.rockPivotY || 0) * 1.18;   // 铰链高度换算到缩放后的世界坐标
+      rockPivot = new THREE.Group();
+      gltf.scene.position.y = -py;
+      rockPivot.position.y = py;
+      rockPivot.add(gltf.scene);
+      root = rockPivot;
+    }
+    if (modelRoot) { scene.remove(modelRoot); disposeGroup(modelRoot); }
+    repulsorBeams.length = 0;
+    modelRoot = root;
+    scene.add(root);
+    loadingEl.style.display = 'none';
+  }, undefined, (err) => {
+    if (mySeq !== loadSeq) return;
+    loadingEl.textContent = '模型加载失败:' + (err && err.message || err);
+  });
+}
+loadModel(ovModelKey);
+
+// ---------- 三连击切换下一个模型(循环;单击仍查色块信息) ----------
+let tapCount = 0, lastTapAt = 0;
+let userSwitched = false;   // 本次会话手动切换过:后台 prefs 校准不得覆盖
+function nextModel() {
+  const keys = Object.keys(MODELS);
+  const next = keys[(keys.indexOf(ovModelKey) + 1) % keys.length];
+  userSwitched = true;
+  localStorage.setItem('ttv-ovcarmodel', next);
+  fetch('/api/prefs', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ov_car_model: next }),
+  }).catch(() => {});
+  pedTheme = themeFor(next);
+  buildPedestal();
+  loadModel(next);
+}
 
 // ---------- 数据覆盖层定位 ----------
 const v = new THREE.Vector3();
