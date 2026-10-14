@@ -107,7 +107,7 @@ function fitRadius() {
 // 不同模型配不同台面/侧壁/边缘光;默认深色台 + 电蓝边缘光环,避免与深色背景相融。
 // 侧壁特斯拉 T 标 / TESLA 字标所有主题均保留。
 const ovModelKey = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
-const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', f40: 'street', revuelto: 'street', f1lm: 'street' }[ovModelKey] || 'default';
+const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', broomstick: 'magic', f40: 'street', revuelto: 'street', f1lm: 'street' }[ovModelKey] || 'default';
 {
   // 确定性伪噪声(布景用):多组 sin 叠加,无需随机种子
   const pnoise = (x, y) => Math.sin(x * 2.1 + y * 1.3) * 0.5 + Math.sin(x * 4.7 - y * 3.1 + 1.7) * 0.3
@@ -162,6 +162,7 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     candy:   { side: ['#e89bb2', '#5c3547'], top: 0xfdf0f3, glow: [0xff9ec4, 0.5] },
     street:  { side: ['#3c3f45', '#121317'], top: 0x26282d, glow: [0xffc42e, 0.4] },
     gotham:  { side: ['#2a2d34', '#0a0b0e'], top: 0x14161a, glow: [0xffd23e, 0.5] },
+    magic:   { side: ['#3d2b57', '#140b21'], top: 0x1c1129, glow: [0xffc95c, 0.55] },
   };
   const th = THEMES[pedTheme];
   const ped = new THREE.Mesh(
@@ -290,6 +291,68 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
       c.fill(bat);
       c.restore();
     }));
+  } else if (pedTheme === 'magic') {
+    // 飞天扫帚:霍格沃茨夜空台面 + 金色魔法阵(双环 + 符文刻度 + 八芒星 + 新月与星芒)
+    topDisc(canvasTex(512, 512, (c) => {
+      const g = c.createRadialGradient(256, 256, 30, 256, 256, 256);
+      g.addColorStop(0, '#241435'); g.addColorStop(1, '#120a1e');
+      c.fillStyle = g; c.fillRect(0, 0, 512, 512);
+      const gold = '#ffc95c';
+      // 外环 + 虚线内环
+      c.strokeStyle = 'rgba(255,201,92,0.9)'; c.lineWidth = 4;
+      c.shadowColor = gold; c.shadowBlur = 14;
+      c.beginPath(); c.arc(256, 256, 232, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([14, 10]); c.lineWidth = 2; c.globalAlpha = 0.6;
+      c.beginPath(); c.arc(256, 256, 208, 0, Math.PI * 2); c.stroke();
+      c.setLineDash([]); c.globalAlpha = 1;
+      // 符文刻度:两环之间 24 根短放射线,长短交替
+      c.lineWidth = 3; c.globalAlpha = 0.75;
+      for (let i = 0; i < 24; i++) {
+        const a = i * Math.PI / 12;
+        const r1 = 214, r2 = i % 2 ? 224 : 228;
+        c.beginPath();
+        c.moveTo(256 + Math.cos(a) * r1, 256 + Math.sin(a) * r1);
+        c.lineTo(256 + Math.cos(a) * r2, 256 + Math.sin(a) * r2);
+        c.stroke();
+      }
+      c.globalAlpha = 1;
+      // 内环 + 八芒星(交替半径)
+      c.lineWidth = 2.5; c.globalAlpha = 0.85;
+      c.beginPath(); c.arc(256, 256, 150, 0, Math.PI * 2); c.stroke();
+      c.beginPath();
+      for (let i = 0; i <= 16; i++) {
+        const a = i * Math.PI / 8 - Math.PI / 2;
+        const r = i % 2 ? 62 : 148;
+        const x = 256 + Math.cos(a) * r, y = 256 + Math.sin(a) * r;
+        i ? c.lineTo(x, y) : c.moveTo(x, y);
+      }
+      c.stroke();
+      c.globalAlpha = 1; c.shadowBlur = 0;
+      // 新月(两圆相减)
+      c.fillStyle = gold;
+      c.shadowColor = gold; c.shadowBlur = 18;
+      c.beginPath(); c.arc(256, 250, 44, 0, Math.PI * 2); c.fill();
+      c.shadowBlur = 0;
+      c.fillStyle = '#1c1129';
+      c.beginPath(); c.arc(274, 240, 40, 0, Math.PI * 2); c.fill();
+      // 星芒:四角星,确定性散点
+      c.fillStyle = gold;
+      const spark = (x, y, s) => {
+        c.save(); c.translate(x, y);
+        c.beginPath();
+        c.moveTo(0, -s); c.quadraticCurveTo(s * 0.18, -s * 0.18, s, 0);
+        c.quadraticCurveTo(s * 0.18, s * 0.18, 0, s);
+        c.quadraticCurveTo(-s * 0.18, s * 0.18, -s, 0);
+        c.quadraticCurveTo(-s * 0.18, -s * 0.18, 0, -s);
+        c.fill(); c.restore();
+      };
+      for (let i = 0; i < 10; i++) {
+        const a = i * 2.399963 + 0.4;
+        const r = 165 + ((i * 41) % 100) / 100 * 35;
+        spark(256 + Math.cos(a) * r, 256 + Math.sin(a) * r, 5 + (i % 3) * 2.5);
+      }
+      spark(322, 296, 9);   // 新月右下陪一颗大星
+    }));
   }
   if (th.glow) {
     glowRing(3.55, 3.78, th.glow[0], th.glow[1] * 0.5);
@@ -309,6 +372,12 @@ const pedTheme = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanb
     const warm = new THREE.DirectionalLight(0xffd9a6, 0.8);   // 右前暖光,提金甲层次
     warm.position.set(4, 3, -3);
     scene.add(warm);
+  } else if (pedTheme === 'magic') {
+    // 扫帚:木质深棕配深紫台面容易糊,加一层月光冷环境 + 前方金色暖补光
+    scene.add(new THREE.HemisphereLight(0xc9c2f0, 0x241a33, 0.5));
+    const fill = new THREE.DirectionalLight(0xffe3b0, 1.2);   // 正面暖光(模型正面 = -Z)
+    fill.position.set(1.5, 3.5, -6);
+    scene.add(fill);
   }
 
   // 台面柔和投影(火星地表自带起伏与光影,跳过)
