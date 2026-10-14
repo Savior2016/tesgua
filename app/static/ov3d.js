@@ -91,9 +91,9 @@ function fitRadius() {
       downAt = null;
       if (e.type === 'pointerup' && tap && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < 8) {
         inspectRing(e);
-        // 三连击(每次间隔 <0.5s、位移 <8px)循环切换下一个模型
+        // 三连击(每次间隔 <0.7s、位移 <8px)循环切换下一个模型
         const now = performance.now();
-        if (now - lastTapAt > 500) tapCount = 0;
+        if (now - lastTapAt > 700) tapCount = 0;
         tapCount += 1;
         lastTapAt = now;
         if (tapCount >= 3) { tapCount = 0; hideTip(); nextModel(); }
