@@ -67,6 +67,10 @@
 .ctl-seg button{border:0;border-right:1px solid var(--border);background:var(--page);color:var(--text-secondary);padding:8px 14px;font-size:14px;cursor:pointer}
 .ctl-seg button:last-child{border-right:0}
 .ctl-seg button.on{background:linear-gradient(180deg,color-mix(in srgb,var(--series-1) 88%,#fff),var(--series-1));color:#fff;box-shadow:0 2px 8px color-mix(in srgb,var(--series-1) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.38)}
+/* 弹窗内的分段按钮:#ctl-dialog-body button 通用样式(ID 优先级)会盖住 .on 高亮,这里用更高优先级压回去,恢复分段控件外观 */
+#ctl-dialog-body .ctl-seg button{border:0;border-right:1px solid var(--border);background:var(--page);color:var(--text-secondary);padding:8px 14px;font-size:14px;border-radius:0;box-shadow:none}
+#ctl-dialog-body .ctl-seg button:last-child{border-right:0}
+#ctl-dialog-body .ctl-seg button.on{background:linear-gradient(180deg,color-mix(in srgb,var(--series-1) 88%,#fff),var(--series-1));color:#fff;box-shadow:0 2px 8px color-mix(in srgb,var(--series-1) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.38)}
 
 /* 小窗内滑动开关收窄:全长轨道单手难拖,限制为约 2/3 宽(主页模块瓦片滑块不受影响) */
 #ctl-dialog-body .ctl-slide{max-width:240px}
