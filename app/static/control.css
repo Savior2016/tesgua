@@ -64,7 +64,7 @@
 .ic-frunk{--sw-icon:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M12%203l4%205h-3v5h-2V8H8l4-5zM5%2015h14v5a1%201%200%200%201-1%201H6a1%201%200%200%201-1-1v-5z'/%3E%3C/svg%3E")}
 .ic-trunk{--sw-icon:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cpath%20d='M4%207l2-3h12l2%203v11a2%202%200%200%201-2%202H6a2%202%200%200%201-2-2V7zm2.6-1-1%201h12.8l-1-1H6.6zM9%2012h6v2H9v-2z'/%3E%3C/svg%3E")}
 .ctl-seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;margin:10px 0}
-.ctl-seg button{border:0;border-right:1px solid var(--border);background:var(--page);color:var(--text-secondary);padding:8px 14px;font-size:14px;cursor:pointer}
+.ctl-seg button{border:0;border-right:1px solid var(--border);background:var(--page);color:var(--text-secondary);padding:8px 14px;font-size:14px;cursor:pointer;white-space:nowrap}
 .ctl-seg button:last-child{border-right:0}
 .ctl-seg button.on{background:linear-gradient(180deg,color-mix(in srgb,var(--series-1) 88%,#fff),var(--series-1));color:#fff;box-shadow:0 2px 8px color-mix(in srgb,var(--series-1) 45%,transparent),inset 0 1px 0 rgba(255,255,255,.38)}
 /* 弹窗内的分段按钮:#ctl-dialog-body button 通用样式(ID 优先级)会盖住 .on 高亮,这里用更高优先级压回去,恢复分段控件外观 */
