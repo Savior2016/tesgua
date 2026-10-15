@@ -123,7 +123,8 @@ function fitRadius() {
 // 侧壁特斯拉 T 标 / TESLA 字标所有主题均保留。
 const ovModelKey0 = prefKey && MODELS[prefKey] ? prefKey : 'y-yl';
 let ovModelKey = ovModelKey0;
-const PED_THEMES = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', broomstick: 'magic', azura: 'aqua', stargirl: 'starry', bikini: 'beach', mia: 'gothloli', 'miku-chibi': 'miku', zeze: 'maid', f40: 'street', revuelto: 'street', f1lm: 'street' };
+const PED_THEMES = { 'mars-rover': 'mars', ironman: 'stark', yaoyao: 'candy', sanbengzi: 'street', batmobile: 'gotham', broomstick: 'magic', azura: 'aqua', stargirl: 'starry', bikini: 'beach', mia: 'gothloli', 'miku-chibi': 'miku', zeze: 'maid', f40: 'street', revuelto: 'street', f1lm: 'street',
+  aerith: 'flower', foxgirl: 'fox', miyu: 'aqua', cybergirl: 'cyber', elfgirl: 'forest', miku: 'miku', lightning: 'bolt', missgalaxy: 'galaxy', schoolgirl: 'sakura', kindred: 'spirit', 'tifa-chibi': 'candy', veera: 'gothloli', ganyu: 'qilin' };
 const themeFor = (key) => PED_THEMES[key] || 'default';
 let pedTheme = themeFor(ovModelKey);
 
@@ -201,6 +202,15 @@ function buildPedestal() {
     gothloli:{ side: ['#3a2440', '#0d0710'], top: 0x160d1f, glow: [0xff5c7a, 0.5] },
     miku:    { side: ['#1f5a56', '#081817'], top: 0x0f2b29, glow: [0x39c5bb, 0.55] },
     maid:    { side: ['#6b4f3a', '#1f140d'], top: 0xe8d3ae, glow: [0xffb3c8, 0.45] },
+    flower:  { side: ['#6d2f3c', '#160a0e'], top: 0x241016, glow: [0xff9eb0, 0.5] },
+    fox:     { side: ['#7a4a1e', '#1e1006'], top: 0x2b1a0c, glow: [0xffb35c, 0.5] },
+    cyber:   { side: ['#1e4a4f', '#081214'], top: 0x0e1f22, glow: [0x4df0e0, 0.55] },
+    forest:  { side: ['#2f5233', '#0c160d'], top: 0x16281a, glow: [0xa8e07f, 0.45] },
+    bolt:    { side: ['#4a2f45', '#120a10'], top: 0x1e1220, glow: [0xf0c8ff, 0.5] },
+    galaxy:  { side: ['#241f4d', '#080716'], top: 0x100e28, glow: [0x9a8cff, 0.55] },
+    sakura:  { side: ['#7d4a5a', '#1d0f14'], top: 0xf6e8ec, glow: [0xffb8d0, 0.5] },
+    spirit:  { side: ['#3f3560', '#100c1e'], top: 0x1a1533, glow: [0xc9b8ff, 0.5] },
+    qilin:   { side: ['#2b4a6b', '#0a1420'], top: 0x10202f, glow: [0x9fd4ff, 0.5] },
   };
   const th = THEMES[pedTheme];
   const ped = new THREE.Mesh(
@@ -663,7 +673,10 @@ function buildPedestal() {
   // 手办人形(美少女系):摄影棚灯为黑漆车调暗过,补柔和环境光 + 正面人像补光,
   // 补光色按角色主题微调(水舞偏冷 / 星星偏金 / 海滩暖阳 / 哥特偏紫 / 初音偏青 / 女仆偏暖橙)
   const GIRL_FILL = { aqua: 0xdcefff, starry: 0xfff0d0, beach: 0xfff0d8,
-                      gothloli: 0xefe0ff, miku: 0xe0fff8, maid: 0xffead6 }[pedTheme];
+                      gothloli: 0xefe0ff, miku: 0xe0fff8, maid: 0xffead6,
+                      flower: 0xffe4ea, fox: 0xffe8cc, cyber: 0xd8fff8, forest: 0xe8ffd8,
+                      bolt: 0xf4e4ff, galaxy: 0xe4e0ff, sakura: 0xffeef4, spirit: 0xeae4ff,
+                      qilin: 0xdceeff }[pedTheme];
   if (GIRL_FILL) {
     pedGroup.add(new THREE.HemisphereLight(0xf2ecff, 0x2a2733, 0.55));
     const fill = new THREE.DirectionalLight(GIRL_FILL, 1.35);  // 正面(模型正面 = -Z)

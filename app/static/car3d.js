@@ -139,6 +139,72 @@ export const MODELS = {
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.7,
     note: '女仆装少女 Zeze(DrewBurger @ Sketchfab,Free Standard);仅供娱乐,无车身交互',
   },
+  // ---------- 少女系列第二批(2026-10-15,均 Sketchfab CC-BY 4.0,scripts/make-girls2.py 烘焙) ----------
+  'aerith': {
+    label: '爱丽丝', url: '/models/fun/aerith.glb', sizeMB: 1.75,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '最终幻想7·爱丽丝(mega mix @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'foxgirl': {
+    label: '狐耳少女', url: '/models/fun/foxgirl.glb', sizeMB: 1.55,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '狐耳短裤少女(darknessvoid403 @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'miyu': {
+    label: '霞泽美游', url: '/models/fun/miyu.glb', sizeMB: 0.85,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '碧蓝档案·霞泽美游(Onerui(momo) @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'cybergirl': {
+    label: '机械少女', url: '/models/fun/cybergirl.glb', sizeMB: 1.52,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '白发机械改造少女(Rotmill @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'elfgirl': {
+    label: '精灵少女', url: '/models/fun/elfgirl.glb', sizeMB: 0.27,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '精灵少女(halloween @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'miku': {
+    label: '初音未来', url: '/models/fun/miku.glb', sizeMB: 0.09,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '初音未来·吉他手(Craft Tama @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'lightning': {
+    label: '雷霆·白魔', url: '/models/fun/lightning.glb', sizeMB: 0.12,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '最终幻想13·雷霆白魔道士装(loriscangini @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'missgalaxy': {
+    label: '银河小姐', url: '/models/fun/missgalaxy.glb', sizeMB: 0.23,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '星空连体衣少女(Donte_Loves_Art @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'schoolgirl': {
+    label: '水手服少女', url: '/models/fun/schoolgirl.glb', sizeMB: 0.08,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '白毛水手服少女(Free3Diz @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'kindred': {
+    label: '灵魂莲华千珏', url: '/models/fun/kindred.glb', sizeMB: 0.65,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '英雄联盟·灵魂莲华千珏(Retronous @ Sketchfab,材质自发光槽已转基础色,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'tifa-chibi': {
+    label: 'Q版蒂法', url: '/models/fun/tifa-chibi.glb', sizeMB: 0.03,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '最终幻想7·Q版蒂法富豪街特别版(DrewsDigitalDesigns @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'veera': {
+    label: '魅魔薇拉', url: '/models/fun/veera.glb', sizeMB: 0.39,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '传说对决·魅魔薇拉(PetalThePotato @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
+  'ganyu': {
+    label: '甘雨·玄玉瑶芳', url: '/models/fun/ganyu.glb', sizeMB: 0.45,
+    meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 0.5,
+    note: '原神·甘雨玄玉瑶芳皮肤(jacenrick @ Sketchfab,CC-BY 4.0);仅供娱乐,无车身交互',
+  },
   'f40': {
     label: '法拉利 F40', url: '/models/fun/f40.glb', sizeMB: 1.1,
     meshopt: true, raw: true, hotspots: [], wheelRe: null, halfLen: 2.2,

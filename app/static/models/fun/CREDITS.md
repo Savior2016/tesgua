@@ -133,3 +133,100 @@
 - Source: [supercar3d/supercar_3D_asssets](https://github.com/supercar3d/supercar_3D_asssets)(basic/mclaren/f1lm,Low Poly)
 - License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(fan-made,与迈凯伦官方无关)
 - 处理:Draco 解码后转正(-Z 车头)、落地、归一化至 4.49m,meshopt 压缩。
+
+## aerith.glb —— 爱丽丝(最终幻想7)
+
+- Author: [mega mix](https://sketchfab.com/oscar3dmodel)
+- Source: [Aerith Default](https://sketchfab.com/3d-models/aerith-default-9e0f7fe57386466cb34959ab4f7eb4c5)(GitHub 镜像:valentinov8060/multiple-marker)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(角色版权属 Square Enix,仅个人娱乐展示)
+- 处理:删隐藏参照球 Icosphere(源模型绑定姿态仅 0.02m),烘姿态、转正、落地、
+  归一化至 2.6m,纹理转 1024px WebP、meshopt 压缩(`scripts/make-girls2.py`)。
+
+## foxgirl.glb —— 狐耳少女
+
+- Author: [darknessvoid403](https://sketchfab.com/darknessvoid403)
+- Source: [Anime fox girl](https://sketchfab.com/3d-models/anime-fox-girl-c6365aa1a75b4b01992ecab01e7afa2f)(GitHub 镜像:IngRamirezJezhuah/Porfl_web)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 处理:删参照球 Icosphere 与 7m 黑色挡板 Object_283,烘姿态、转正、落地、
+  归一化至 2.6m(含大尾巴),纹理转 1024px WebP、meshopt 压缩。
+
+## miyu.glb —— 霞泽美游(碧蓝档案)
+
+- Author: [Onerui(momo)](https://sketchfab.com/hswangrui)
+- Source: [[Blue Archive]Kasumizawa Miyu](https://sketchfab.com/3d-models/blue-archivekasumizawa-miyu-108d81dfd5a44dab92e4dccf0cc51a02)(GitHub 镜像:valentinov8060/multiple-marker)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(角色版权属 Nexon,仅个人娱乐展示)
+- 处理:删参照球 ×2,烘姿态、转正、落地、归一化至 2.5m,纹理转 1024px WebP、meshopt 压缩。
+
+## cybergirl.glb —— 机械少女
+
+- Author: [Rotmill](https://sketchfab.com/Rotmill)
+- Source: [Cyber Girl](https://sketchfab.com/3d-models/cyber-girl-46640796f0dd4fbab5eba5262d542e25)(GitHub 镜像:valentinov8060/multiple-marker)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 处理:源文件含两份完整角色拷贝,删 WhitehairPreview 整支骨架(第二份)与参照球,
+  烘姿态、转正、落地、归一化至 2.6m,纹理转 1024px WebP、meshopt 压缩。
+
+## elfgirl.glb —— 精灵少女
+
+- Author: [halloween](https://sketchfab.com/yellow09)
+- Source: [Elf Girl](https://sketchfab.com/3d-models/elf-girl-52f2e84961b94760b7805c178890d644)(GitHub 镜像:valentinov8060/multiple-marker)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 处理:源模型 42m 巨大尺度,烘姿态、转正、落地、归一化至 2.6m,meshopt 压缩。
+
+## miku.glb —— 初音未来(吉他手)
+
+- Author: [Craft Tama](https://sketchfab.com/rizky08)
+- Source: [Hatsune Miku](https://sketchfab.com/3d-models/hatsune-miku-a25f6548a8684500ac0004559484a4f9)(GitHub 镜像:proginvert/3d_resources)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(角色版权属 Crypton,仅个人娱乐展示)
+- 处理:删参照球 Icosphere(源模型绑定姿态仅 0.02m),烘姿态、转正、落地、
+  归一化至 2.6m,纹理转 1024px WebP、meshopt 压缩。
+
+## lightning.glb —— 雷霆·白魔道士(最终幻想13)
+
+- Author: [loriscangini](https://sketchfab.com/loriscangini)
+- Source: [Lightning - White Mage](https://sketchfab.com/3d-models/lightning-white-mage-21bdf07cc34946fa8c1755289d1ed631)(GitHub 镜像:valentinov8060/multiple-marker)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(角色版权属 Square Enix,仅个人娱乐展示)
+- 处理:删参照球 Icosphere,烘姿态、转正、落地、归一化至 2.6m,meshopt 压缩。
+
+## missgalaxy.glb —— 银河小姐
+
+- Author: [Donte_Loves_Art](https://sketchfab.com/Donte_Loves_Art)
+- Source: [Miss Galaxy](https://sketchfab.com/3d-models/miss-galaxy-32ca79bf7c4043dcbc36d28b22436303)(GitHub 镜像:kateBea/Mikoto)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 处理:烘姿态、转正、落地、归一化至 2.7m,纹理转 1024px WebP、meshopt 压缩。
+
+## schoolgirl.glb —— 水手服少女
+
+- Author: [Free3Diz](https://sketchfab.com/Free3Diz)
+- Source: [School Girl 3D Model](https://sketchfab.com/3d-models/school-girl-3d-model-b38d51241fe845c2afbf47ecaa0203cf)(GitHub 镜像:valentinov8060/multiple-marker)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- 处理:烘姿态、转正、落地、归一化至 2.55m,meshopt 压缩。
+
+## kindred.glb —— 灵魂莲华千珏(英雄联盟)
+
+- Author: [Retronous](https://sketchfab.com/Retronous)
+- Source: [Spirit Blossom Kindred](https://sketchfab.com/3d-models/spirit-blossom-kindred-85187f9f246f4702b7c137dcc6c0fc12)(GitHub 镜像:valentinov8060/multiple-marker)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(角色版权属 Riot Games,仅个人娱乐展示)
+- 处理:源材质全部 unlit 且基础色为黑、颜色贴图塞在 emissive 槽(three.js 会渲染成
+  黑剪影),已把 emissiveTexture 改写为 baseColorTexture;删 7m VFX 大平面 Object_4,
+  烘姿态、转正、落地、归一化至 2.6m,纹理转 1024px WebP、meshopt 压缩。
+
+## tifa-chibi.glb —— Q版蒂法(最终幻想7 富豪街)
+
+- Author: [DrewsDigitalDesigns](https://sketchfab.com/drewsdigitaldesigns)
+- Source: [Tifa - Itadaki Street Special](https://sketchfab.com/3d-models/tifa-itadaki-street-special-82924c34383444ffb59cfe211a89cf04)(GitHub 镜像:valentinov8060/multiple-marker)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(角色版权属 Square Enix,仅个人娱乐展示)
+- 处理:三头身 Q 版,烘姿态、转正、落地、归一化至 1.9m,meshopt 压缩。
+
+## veera.glb —— 魅魔薇拉(传说对决)
+
+- Author: [PetalThePotato](https://sketchfab.com/PetalThePotato)
+- Source: [Veera (AOV)](https://sketchfab.com/3d-models/veera-aov-b0671e78716c400cb1018f8e0a017431)(GitHub 镜像:IngRamirezJezhuah/Porfl_web)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(角色版权属腾讯 Garena,仅个人娱乐展示)
+- 处理:删参照球 Icosphere,烘姿态、转正、落地、归一化至 2.6m,纹理转 1024px WebP、meshopt 压缩。
+
+## ganyu.glb —— 甘雨·玄玉瑶芳(原神)
+
+- Author: [jacenrick](https://sketchfab.com/jacenrick)
+- Source: [genshin impact ganyu Twilight Blossom](https://sketchfab.com/3d-models/genshin-impact-ganyu-twilight-blossom-ff16a088e2d44562bdbedbde20009ae8)(GitHub 镜像:byiyuebai/OpenGL_Engine_530)
+- License: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)(角色版权属米哈游,仅个人娱乐展示)
+- 处理:删参照球 Icosphere,烘姿态、转正、落地、归一化至 2.6m,纹理转 1024px WebP、meshopt 压缩。

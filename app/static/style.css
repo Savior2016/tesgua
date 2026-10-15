@@ -1391,6 +1391,11 @@ button { touch-action: manipulation; }
   height: 1px; margin: 2px 0;
   background: var(--glass-edge);
 }
+.model-seg-cat {
+  grid-column: 1 / -1;
+  font-size: 12px; color: var(--text-muted);
+  margin: 4px 0 0;
+}
 
 /* 车身颜色:圆形色板 + 「自动」胶囊;选中套高亮环 */
 .color-seg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
