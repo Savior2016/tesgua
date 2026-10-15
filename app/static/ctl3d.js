@@ -246,6 +246,8 @@ const VIEWS = {
   top: { theta: 0.0, phi: 0.14, r: 7.8 },
 };
 let autoSpin = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const spinAllowed = autoSpin;   // 偏好减少动态的用户永不自动旋转
+let lastManualAt = 0;           // 最近一次手动旋转/缩放的时间;空闲 4s 后恢复自动旋转(视角按钮除外,选视角是刻意定点)
 let downAt = null;
 let spinVel = 0;            // 松手后的惯性角速度(rad/帧):甩动后车像转盘一样滑行衰减
 let userZoomed = false;   // 滚轮缩放过 → 不再随舞台尺寸自适应
@@ -273,12 +275,14 @@ function applyOrbit() {
 const el = renderer.domElement;
 el.addEventListener('pointerdown', (e) => {
   autoSpin = false;
+  lastManualAt = performance.now();
   spinVel = 0;   // 重新按住即刹停惯性
   downAt = { x: e.clientX, y: e.clientY, theta: orbitGoal.theta, phi: orbitGoal.phi, moved: 0, vel: 0 };
   el.setPointerCapture(e.pointerId);
 });
 el.addEventListener('pointermove', (e) => {
   if (!downAt) return;
+  lastManualAt = performance.now();   // 拖动中持续刷新,松手后才开始计空闲
   const dx = e.clientX - downAt.x, dy = e.clientY - downAt.y;
   downAt.moved = Math.max(downAt.moved, Math.abs(dx) + Math.abs(dy));
   // 只写目标值,由帧循环以高跟随系数插值:事件抖动被抹平,拖动依然跟手
@@ -296,6 +300,7 @@ el.addEventListener('pointerup', (e) => {
 el.addEventListener('wheel', (e) => {
   e.preventDefault();
   autoSpin = false;
+  lastManualAt = performance.now();
   userZoomed = true;
   orbitGoal.r = orbit.r = Math.min(12, Math.max(4, orbit.r * (1 + e.deltaY * 0.001)));
 }, { passive: false });
@@ -435,6 +440,7 @@ const camOff = new THREE.Vector3();
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(clock.getDelta(), 0.1);
+  if (!autoSpin && spinAllowed && lastManualAt && performance.now() - lastManualAt > 4000) autoSpin = true;   // 手动操作空闲 4s 恢复自动旋转
   if (autoSpin) orbitGoal.theta += 0.0016;
   else if (!downAt && Math.abs(spinVel) > 0.0002) {   // 松手惯性滑行,摩擦衰减
     orbitGoal.theta += spinVel;

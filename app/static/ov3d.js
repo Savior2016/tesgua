@@ -29,6 +29,8 @@ const orbitGoal = { ...orbit };
 let userZoomed = false;   // 用户手动缩放后不再随窗口尺寸重置
 // 展示台缓转:加载后自动旋转,用户一上手(拖动/捏合/滚轮)即停,尊重系统减少动态设置
 let autoSpin = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const spinAllowed = autoSpin;   // 偏好减少动态的用户永不自动旋转
+let lastManualAt = 0;           // 最近一次手动接管(拖动/捏合/滚轮)的时间;空闲 4s 后恢复展台缓转
 function applyOrbit() {
   const { theta, phi, r } = orbit;
   camera.position.set(
@@ -55,7 +57,8 @@ function fitRadius() {
   let tap = null;   // 单击候选:抬起时位移 <8px → 查询色块信息
   el.addEventListener('pointerdown', (e) => {
     hideTip();
-    autoSpin = false;   // 用户接管,停止自动旋转
+    autoSpin = false;   // 用户接管,停止自动旋转(空闲 4s 后自动恢复)
+    lastManualAt = performance.now();
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     try { el.setPointerCapture(e.pointerId); } catch (err) {}   // 指针已失效(快速点取消等)时忽略,不影响后续
     if (pointers.size === 2) {
@@ -70,6 +73,7 @@ function fitRadius() {
   });
   el.addEventListener('pointermove', (e) => {
     if (!pointers.has(e.pointerId)) return;
+    lastManualAt = performance.now();   // 拖动/捏合进行中持续刷新,松手后才开始计空闲
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pinch && pointers.size === 2) {
       const [a, b] = [...pointers.values()];
@@ -108,6 +112,7 @@ function fitRadius() {
   el.addEventListener('wheel', (e) => {
     e.preventDefault();
     autoSpin = false;
+    lastManualAt = performance.now();
     userZoomed = true;
     orbitGoal.r = Math.min(20, Math.max(3.2, orbitGoal.r * (1 + e.deltaY * 0.001)));
   }, { passive: false });
@@ -1163,6 +1168,7 @@ resize();
 
 function frame() {
   requestAnimationFrame(frame);
+  if (!autoSpin && spinAllowed && lastManualAt && performance.now() - lastManualAt > 4000) autoSpin = true;   // 手动操作空闲 4s 恢复缓转
   if (autoSpin) orbitGoal.theta += 0.0012;   // 展台缓转(比控制页略慢)
   if (rockPivot) rockPivot.rotation.x = Math.sin(performance.now() * 0.0022) * 0.05;  // 摇摇车缓摇
   if (repulsorBeams.length) {   // 掌心炮光束脉冲
@@ -1183,6 +1189,7 @@ window.__txov = {
   pause() { window.__txovPaused = true; autoSpin = false; },
   resume() { window.__txovPaused = false; },
   getOrbit() { return { ...orbit, camY: camera.position.y }; },
+  spinning() { return autoSpin; },   // 自动旋转是否开启(含手动接管后的恢复状态)
   // 立即切到指定轨道视角(跳过插值):__txov.setOrbit(theta, phi, r)
   setOrbit(theta, phi, r) {
     if (theta !== undefined) orbit.theta = orbitGoal.theta = theta;
