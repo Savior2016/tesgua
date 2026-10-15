@@ -451,24 +451,31 @@
       /* 时长:点击预设芯片直接填好,也可输入或滚轮微调 */
       const minsField=input('ctl-nap-minutes','午休时长（5–180 分钟，滚轮可微调）',napMinutes(),5,180);
       wheelNumber(minsField);
+      /* 弹窗里的时长/截止时间选择即存 localStorage:不必等到开启才生效,
+         关掉弹窗后外面瓦片立即显示「定时 X 分钟 · 最迟 HH:MM」,快捷滑动也用这套配置 */
+      let until=napUntil();
+      const saveNapCfg=()=>{
+        const m=Number(minsField.value);
+        if(m>=5&&m<=180)localStorage.setItem('ttv-nap-minutes',String(m));
+        if(until)localStorage.setItem('ttv-nap-until',until);else localStorage.removeItem('ttv-nap-until');
+      };
       const minsChips=document.createElement('div');minsChips.className='ctl-seg';
       const syncMins=()=>minsChips.querySelectorAll('button').forEach(x=>x.classList.toggle('on',Number(x.dataset.min)===Number(minsField.value)));
       [15,20,30,45,60].forEach(m=>{
         const b=document.createElement('button');b.type='button';b.dataset.min=m;b.textContent=m+' 分钟';
-        b.addEventListener('click',()=>{minsField.value=m;syncMins();});
+        b.addEventListener('click',()=>{minsField.value=m;syncMins();saveNapCfg();});
         minsChips.appendChild(b);
       });
-      minsField.addEventListener('input',syncMins);
+      minsField.addEventListener('input',()=>{syncMins();saveNapCfg();});
       $('ctl-dialog-body').appendChild(minsChips);syncMins();
       /* 最迟停止时间点:不限/到点停止切换,滚轮选择器选时刻;与计时先到先停 */
-      let until=napUntil();
       tip('最迟停止时间点（可选，与计时先到先停）');
       const modeChips=document.createElement('div');modeChips.className='ctl-seg';
-      const picker=timeWheel(until||'13:30',v=>{if(!picker.el.classList.contains('off'))until=v;});
+      const picker=timeWheel(until||'13:30',v=>{if(!picker.el.classList.contains('off')){until=v;saveNapCfg();}});
       const syncMode=()=>modeChips.querySelectorAll('button').forEach(x=>x.classList.toggle('on',(x.dataset.mode==='until')===!!until));
       [['不限',null],['到点停止','until']].forEach(([label,mode])=>{
         const b=document.createElement('button');b.type='button';b.dataset.mode=mode||'none';b.textContent=label;
-        b.addEventListener('click',()=>{until=mode?picker.value():null;picker.setEnabled(!!until);syncMode();});
+        b.addEventListener('click',()=>{until=mode?picker.value():null;picker.setEnabled(!!until);syncMode();saveNapCfg();});
         modeChips.appendChild(b);
       });
       $('ctl-dialog-body').appendChild(modeChips);
@@ -479,7 +486,7 @@
         else await nap(false);
         return active();  // 滑块始终同步到实际状态(取消/失败时弹回原位)
       },'nap','var(--cat-idle)',['滑动开启','午休中']);
-      tip('开启露营模式，到时自动关闭；关闭网页不影响计时。');renderNap();
+      tip('开启露营模式，到时自动关闭；关闭网页不影响计时。时长与最迟时间选择即自动保存。');renderNap();
     }else if(name==='frunk'||name==='trunk'){
       const isFrunk=name==='frunk';
       tip('当前状态：'+tri(s[isFrunk?'frunk_open':'trunk_open'],'已打开','已关闭'));
