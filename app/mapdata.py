@@ -55,6 +55,7 @@ def map_status(request: Request):
 def map_download(request: Request):
     from . import main
     main.require_admin(request)
+    global _job
     with _lock:
         if _job and not _job.get("done"):
             raise HTTPException(409, "地图数据正在下载中，请稍候")
