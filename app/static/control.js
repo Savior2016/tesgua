@@ -60,14 +60,14 @@
     if(n.phase==='active') {
       const seconds=Math.max(0,Math.ceil(n.ends_at-Date.now()/1000));
       const base=seconds ? `剩余 ${Math.floor(seconds/60)} 分 ${seconds%60} 秒` : '时间已到，正在确认关闭';
-      return (n.ac==='fan'?'通风中 · ':'')+base+(n.until?` · 最迟 ${n.until}`:'');
+      return (n.ac==='fan'?'无空调 · ':'')+base+(n.until?` · 最迟 ${n.until}`:'');
     }
     return phases[n.phase]||napDefaultText();
   }
   /* 未开启时模块上显示最后一次使用的配置,与快捷滑动开启一致 */
   function napDefaultText(){
     const u=napUntil();
-    return `定时 ${napMinutes()} 分钟`+(napAc()==='fan'?' · 无AC通风':'')+(u?` · 最迟 ${u}`:'');
+    return `定时 ${napMinutes()} 分钟`+(napAc()==='fan'?' · 不开空调':'')+(u?` · 最迟 ${u}`:'');
   }
   let napDialogSlide=null, napPollAt=0;
   function renderNap(){
@@ -483,13 +483,13 @@
       $('ctl-dialog-body').appendChild(modeChips);
       picker.setEnabled(!!until);syncMode();
       $('ctl-dialog-body').appendChild(picker.el);
-      /* 空调方式:露营模式开空调;无AC通风用生化模式送风(压缩机不工作,仅 HEPA 车型) */
+      /* 空调方式:露营模式开空调;不开空调为纯定时,车辆不动,到点兜底关露营与空调 */
       tip('空调方式');
       const acChips=document.createElement('div');acChips.className='ctl-seg';
       const syncAc=()=>acChips.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.ac===ac));
-      [['camp','空调·露营'],['fan','无AC通风']].forEach(([v,label])=>{
+      [['camp','空调·露营'],['fan','不开空调']].forEach(([v,label])=>{
         const b=document.createElement('button');b.type='button';b.dataset.ac=v;b.textContent=label;
-        b.title=v==='camp'?'露营模式,空调保持温度':'生化模式送风,不开压缩机(仅 HEPA 车型)';
+        b.title=v==='camp'?'露营模式,空调保持温度':'纯定时,车辆不动;到点兜底关空调与露营';
         b.addEventListener('click',()=>{ac=v;syncAc();saveNapCfg();});
         acChips.appendChild(b);
       });
@@ -499,7 +499,7 @@
         else await nap(false);
         return active();  // 滑块始终同步到实际状态(取消/失败时弹回原位)
       },'nap','var(--cat-idle)',['滑动开启','午休中']);
-      tip('空调·露营保持温度;无AC通风为生化模式送风(仅 HEPA 车型)。到时自动关闭空调与露营模式,关闭网页不影响计时;选择即自动保存。');renderNap();
+      tip('空调·露营保持温度;不开空调为纯定时,车辆不动。到时自动关闭空调与露营模式,关闭网页不影响计时;选择即自动保存。');renderNap();
     }else if(name==='frunk'||name==='trunk'){
       const isFrunk=name==='frunk';
       tip('当前状态：'+tri(s[isFrunk?'frunk_open':'trunk_open'],'已打开','已关闭'));
@@ -564,7 +564,7 @@
       if(until)localStorage.setItem('ttv-nap-until',until);else localStorage.removeItem('ttv-nap-until');
       localStorage.setItem('ttv-nap-ac',ac||'camp');
     }
-    busy=true;render();message(start?(ac==='fan'?'正在开启通风…':'正在开启露营模式…'):'正在结束午休…');
+    busy=true;render();message(start?(ac==='fan'?'正在开始午休…':'正在开启露营模式…'):'正在结束午休…');
     try{model.nap=await api('nap/'+(start?'start':'stop'),start?{minutes,ac:ac||'camp',...(until?{until}:{})}:{});message(model.nap.error||'午休设置已更新',!!model.nap.error);if(!model.nap.error)refreshLater();}
     catch(e){message(e.message,true);}finally{busy=false;await load();renderNap();}
   }

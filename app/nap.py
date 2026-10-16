@@ -63,22 +63,19 @@ class NapTimer:
             if until:
                 job["until"] = until
             if ac == "fan":
-                # 无AC通风:生化模式(HEPA 送风,压缩机不工作);已在送风则不属本次开启,结束时不替车主关
-                cs = self.fetch(vin).get("climate_state") or {}
-                job["bio_started"] = not bool(cs.get("bioweapon_mode"))
+                # 不开空调:纯定时,不发任何车辆指令;到点由 tick 兜底关露营/空调
+                job.update(phase="active")
+                self.write(job)
+                return self.public()
             self.write(job)  # Persist shutdown obligation before any physical command.
             try:
-                if ac == "fan":
-                    result = self.command("set_bioweapon_mode", {"on": True}, vin)
-                else:
-                    result = self.command("set_climate_keeper_mode", {"climate_keeper_mode":3}, vin)
+                result = self.command("set_climate_keeper_mode", {"climate_keeper_mode":3}, vin)
             except Exception:
                 job.update(phase="retrying", ends_at=self.clock(), error="开启结果未确认，服务器将检查并关闭露营模式；请同时在 Tesla App 确认")
                 self.write(job)
                 raise HTTPException(502, job["error"]) from None
             if not result.get("ok"):
-                job.update(phase="failed", error="车辆未接受露营指令，请检查车辆在线状态、档位和电量" if ac == "camp"
-                           else "车辆未接受通风指令：生化模式仅 HEPA 车型支持，请确认车辆在线后重试")
+                job.update(phase="failed", error="车辆未接受露营指令，请检查车辆在线状态、档位和电量")
                 self.write(job)
                 raise HTTPException(409, job["error"])
             job.update(phase="active", updated_at=self.clock())
@@ -115,10 +112,6 @@ class NapTimer:
                         self.command("auto_conditioning_stop", {}, job["vin"])
                     except Exception:
                         pass
-                if job.get("ac") == "fan" and job.get("bio_started", True):
-                    result = self.command("set_bioweapon_mode", {"on": False}, job["vin"])
-                    if not result.get("ok"):
-                        raise RuntimeError("fan shutdown not acknowledged")
                 job.update(phase="completed", error="", updated_at=self.clock())
             except Exception:
                 attempts = job.get("attempts", 0) + 1
@@ -188,7 +181,7 @@ def _until_ts(until, now):
 class NapRequest(BaseModel):
     minutes: int = Field(ge=5, le=180, strict=True)
     until: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
-    ac: str = Field(default="camp", pattern=r"^(camp|fan)$")  # camp=露营开空调 / fan=无AC通风(生化模式)
+    ac: str = Field(default="camp", pattern=r"^(camp|fan)$")  # camp=露营开空调 / fan=不开空调(纯定时,不动车)
 
 
 @router.post("/api/control/nap/start")
