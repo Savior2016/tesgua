@@ -58,6 +58,7 @@
   function renderStatus(s) {
     $('control-settings-entry').style.display = s.role === 'admin' ? '' : 'none';
     $('nav-card').style.display = s.role === 'admin' ? '' : 'none';
+    mapRole = s.role;
     $('acct-user-name').textContent = s.user || '—';
     if (s.role === 'admin') { loadCertInfo(); loadNavConfig(); }
 
@@ -481,4 +482,55 @@
     amapInp.value = '';
     submitAmapKey('');
   };
+
+  // 离线地图:状态查询 + 服务端后台下载(下载由全局中间件拦只读账号)
+  const mapText = $('map-status-text'), mapBtn = $('map-download-btn'), mapMsg = $('map-msg');
+  let mapPoll = 0, mapRole = 'viewer';
+  const STAGE_NAMES = { starting: '准备中', cli: '下载工具', pmtiles: '提取矢量瓦片', fonts: '下载字体', sprites: '下载图标' };
+  function renderMapStatus(s) {
+    const job = s.job;
+    if (job && !job.done) {
+      mapText.textContent = `下载中:${STAGE_NAMES[job.stage] || job.stage}${job.detail ? ' · ' + job.detail : ''}`;
+      mapBtn.disabled = true;
+      return;
+    }
+    mapBtn.disabled = mapRole !== 'admin';
+    if (job && job.done && job.error) {
+      mapText.textContent = s.installed ? `已安装 · ${(s.size_mb / 1024).toFixed(1)} GB` : '未安装';
+      msg(mapMsg, '上次下载失败:' + job.error, false);
+      return;
+    }
+    if (s.installed) {
+      mapText.textContent = `已安装 · ${(s.size_mb / 1024).toFixed(1)} GB · 字体 ${s.fonts} 分块 · 图标 ${s.sprites} 个`;
+      mapBtn.textContent = '重新下载';
+      if (job && job.done && !job.error) msg(mapMsg, '✓ 下载完成', true);
+    } else {
+      mapText.textContent = '未安装:地图页暂不可用,请下载数据(约 12GB)';
+      mapBtn.textContent = '下载地图数据';
+    }
+  }
+  async function loadMapStatus() {
+    try {
+      const s = await api('/api/map/status');
+      renderMapStatus(s);
+      const running = s.job && !s.job.done;
+      clearTimeout(mapPoll);
+      if (running) mapPoll = setTimeout(loadMapStatus, 3000);
+    } catch (e) {
+      mapText.textContent = '状态查询失败:' + e.message;
+    }
+  }
+  mapBtn.onclick = async () => {
+    mapBtn.disabled = true;
+    msg(mapMsg, '', true);
+    try {
+      await api('/api/map/download', { method: 'POST' });
+      msg(mapMsg, '已开始后台下载,可关闭本页', true);
+      loadMapStatus();
+    } catch (e) {
+      msg(mapMsg, e.message, false);
+      mapBtn.disabled = false;
+    }
+  };
+  loadMapStatus();
 })();

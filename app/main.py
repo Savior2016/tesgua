@@ -655,7 +655,7 @@ PMTILES_FILE = os.path.join(MAP_DATA_DIR, "china.pmtiles")
 def map_pmtiles(request: Request):
     """PMTiles 归档的 Range 读取;pmtiles.js 每次只取索引/瓦片所在的一小段。"""
     if not os.path.isfile(PMTILES_FILE):
-        raise HTTPException(status_code=503, detail="地图数据未安装：请运行 scripts/update-map-data.sh")
+        raise HTTPException(status_code=503, detail="地图数据未安装：请在个人中心「离线地图」点击下载，或运行 scripts/update-map-data.sh")
     size = os.path.getsize(PMTILES_FILE)
     headers = {"Accept-Ranges": "bytes", "Cache-Control": "private, max-age=86400"}
     range_header = request.headers.get("range", "")
@@ -2563,6 +2563,8 @@ from .amap import router as amap_router
 from .navplan import router as navplan_router
 app.include_router(amap_router)     # 导航:高德代理 + key 存储
 app.include_router(navplan_router)  # 导航:能耗/区间带/超充规划
+from .mapdata import router as mapdata_router
+app.include_router(mapdata_router)  # 离线地图:状态 + 后台下载(个人中心按钮)
 
 app.mount("/", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static"),
                            html=True), name="static")

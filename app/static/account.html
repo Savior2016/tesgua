@@ -260,6 +260,21 @@
     <div class="form-msg" id="amap-msg"></div>
   </section>
 
+  <!-- 离线地图:首次部署服务器上没有矢量地图数据(约 12GB),需下载一次;
+       下载在服务端后台进行,关掉页面不影响;只读账号可查看状态但不能触发下载 -->
+  <section class="card">
+    <h2>离线地图</h2>
+    <p style="font-size:13px;color:var(--text-secondary);margin:0 0 10px">
+      行程/导航页使用自托管矢量地图(Protomaps · OpenStreetMap,ODbL),全部流量不出服务器。
+      首次部署需下载一次数据(约 12GB,耗时取决于服务器带宽,期间页面可正常关闭)。
+    </p>
+    <div class="form-row" style="align-items:center">
+      <span id="map-status-text" style="font-size:13px;color:var(--text-secondary);flex:1">正在查询地图数据状态…</span>
+      <button class="btn" id="map-download-btn" disabled>下载地图数据</button>
+    </div>
+    <div class="form-msg" id="map-msg"></div>
+  </section>
+
   <section class="card" id="control-settings-entry" style="display:none">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
       <div><h2 style="margin:0 0 6px">车辆控制配置</h2><p style="font-size:13px;color:var(--text-secondary);margin:0">管理应用凭据、Tesla 授权与虚拟钥匙配对</p></div>
