@@ -59,6 +59,7 @@
     $('control-settings-entry').style.display = s.role === 'admin' ? '' : 'none';
     $('nav-card').style.display = s.role === 'admin' ? '' : 'none';
     mapRole = s.role;
+    if (lastMapStatus) renderMapStatus(lastMapStatus);  // 地图状态可能先于账号状态返回,按真实角色重算按钮
     $('acct-user-name').textContent = s.user || '—';
     if (s.role === 'admin') { loadCertInfo(); loadNavConfig(); }
 
@@ -485,7 +486,7 @@
 
   // 离线地图:状态查询 + 服务端后台下载(下载由全局中间件拦只读账号)
   const mapText = $('map-status-text'), mapBtn = $('map-download-btn'), mapMsg = $('map-msg');
-  let mapPoll = 0, mapRole = 'viewer';
+  let mapPoll = 0, mapRole = 'viewer', lastMapStatus = null;
   const STAGE_NAMES = { starting: '准备中', cli: '下载工具', pmtiles: '提取矢量瓦片', fonts: '下载字体', sprites: '下载图标' };
   function renderMapStatus(s) {
     const job = s.job;
@@ -512,6 +513,7 @@
   async function loadMapStatus() {
     try {
       const s = await api('/api/map/status');
+      lastMapStatus = s;
       renderMapStatus(s);
       const running = s.job && !s.job.done;
       clearTimeout(mapPoll);
