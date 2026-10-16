@@ -31,7 +31,7 @@ class NapTimer:
 
     def public(self):
         job = self.read()
-        return {k: job[k] for k in ("phase", "ends_at", "minutes", "until", "error", "updated_at", "attempts") if k in job}
+        return {k: job[k] for k in ("phase", "ends_at", "minutes", "until", "ac", "error", "updated_at", "attempts") if k in job}
 
     def active(self):
         return self.read().get("phase") in ACTIVE
@@ -48,7 +48,7 @@ class NapTimer:
             raise HTTPException(409, "此车辆暂未返回露营模式状态")
         return value
 
-    def start(self, vin, minutes, until=None):
+    def start(self, vin, minutes, until=None, ac="camp"):
         with lock:
             if self.active():
                 raise HTTPException(409, "已有午休任务，请先结束当前午休")
@@ -59,18 +59,26 @@ class NapTimer:
             if until:  # 计时或到点先到先停
                 ends_at = min(ends_at, _until_ts(until, now))
             job = {"phase":"starting", "vin":vin, "minutes":minutes, "ends_at":ends_at,
-                   "updated_at":now, "attempts":0, "error":""}
+                   "updated_at":now, "attempts":0, "error":"", "ac":ac}
             if until:
                 job["until"] = until
+            if ac == "fan":
+                # 无AC通风:生化模式(HEPA 送风,压缩机不工作);已在送风则不属本次开启,结束时不替车主关
+                cs = self.fetch(vin).get("climate_state") or {}
+                job["bio_started"] = not bool(cs.get("bioweapon_mode"))
             self.write(job)  # Persist shutdown obligation before any physical command.
             try:
-                result = self.command("set_climate_keeper_mode", {"climate_keeper_mode":3}, vin)
+                if ac == "fan":
+                    result = self.command("set_bioweapon_mode", {"on": True}, vin)
+                else:
+                    result = self.command("set_climate_keeper_mode", {"climate_keeper_mode":3}, vin)
             except Exception:
                 job.update(phase="retrying", ends_at=self.clock(), error="开启结果未确认，服务器将检查并关闭露营模式；请同时在 Tesla App 确认")
                 self.write(job)
                 raise HTTPException(502, job["error"]) from None
             if not result.get("ok"):
-                job.update(phase="failed", error="车辆未接受露营指令，请检查车辆在线状态、档位和电量")
+                job.update(phase="failed", error="车辆未接受露营指令，请检查车辆在线状态、档位和电量" if ac == "camp"
+                           else "车辆未接受通风指令：生化模式仅 HEPA 车型支持，请确认车辆在线后重试")
                 self.write(job)
                 raise HTTPException(409, job["error"])
             job.update(phase="active", updated_at=self.clock())
@@ -97,10 +105,20 @@ class NapTimer:
             try:
                 # Never disable Dog/Keep Mode that the owner selected during their break.
                 mode = self.mode(job["vin"])
-                if mode == "camp":
+                if mode == "camp":  # 露营兜底:车主午休中手动开了又忘关,到点照样关
                     result = self.command("set_climate_keeper_mode", {"climate_keeper_mode":0}, job["vin"])
                     if not result.get("ok"):
                         raise RuntimeError("shutdown not acknowledged")
+                elif mode == "off":
+                    # 防忘关:车主午休中可能手动开了空调(非驻车模式),到点顺手关掉;失败不阻塞
+                    try:
+                        self.command("auto_conditioning_stop", {}, job["vin"])
+                    except Exception:
+                        pass
+                if job.get("ac") == "fan" and job.get("bio_started", True):
+                    result = self.command("set_bioweapon_mode", {"on": False}, job["vin"])
+                    if not result.get("ok"):
+                        raise RuntimeError("fan shutdown not acknowledged")
                 job.update(phase="completed", error="", updated_at=self.clock())
             except Exception:
                 attempts = job.get("attempts", 0) + 1
@@ -170,13 +188,14 @@ def _until_ts(until, now):
 class NapRequest(BaseModel):
     minutes: int = Field(ge=5, le=180, strict=True)
     until: str | None = Field(default=None, pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+    ac: str = Field(default="camp", pattern=r"^(camp|fan)$")  # camp=露营开空调 / fan=无AC通风(生化模式)
 
 
 @router.post("/api/control/nap/start")
 def start(body: NapRequest, request: Request):
     from . import main, control
     main.require_admin(request)
-    return timer.start(control._vin(), body.minutes, body.until)
+    return timer.start(control._vin(), body.minutes, body.until, body.ac)
 
 
 @router.post("/api/control/nap/stop")

@@ -18,7 +18,8 @@ def timer(tmp_path):
     mode=["off"]
     def command(cmd,args,vin):
         calls.append((cmd,args,vin))
-        mode[0]="camp" if args['climate_keeper_mode']==3 else "off"
+        if 'climate_keeper_mode' in args:
+            mode[0]="camp" if args['climate_keeper_mode']==3 else "off"
         return {"ok":True}
     t=nap.NapTimer(tmp_path/'nap.json',lambda vin:sample(mode[0]),command,lambda:clock[0])
     return t,clock,calls,mode
@@ -110,6 +111,59 @@ def test_nap_does_not_override_existing_climate(timer):
         mode[0]=value
         with pytest.raises(HTTPException):t.start('synthetic-vin',5)
     assert not calls
+
+
+def test_nap_fan_start_and_shutdown(timer):
+    """无AC通风:生化模式送风;到点关生化+兜底关空调(车主手动开了非驻车空调的情形)。"""
+    t,clock,calls,mode=timer
+    pub=t.start('synthetic-vin',5,ac='fan')
+    assert pub['ac']=='fan' and pub['phase']=='active'
+    assert calls[-1][0]=='set_bioweapon_mode' and calls[-1][1]=={'on':True}
+    clock[0]+=301;t.tick()
+    assert t.public()['phase']=='completed'
+    assert [c[0] for c in calls]==['set_bioweapon_mode','auto_conditioning_stop','set_bioweapon_mode']
+    assert calls[-1][1]=={'on':False}
+
+
+def test_nap_fan_keeps_preexisting_bioweapon(tmp_path):
+    """午休前已在生化送风(车主自己开的),结束时只兜底关空调,不替车主关停风。"""
+    clock=[time.time()];calls=[]
+    payload={"climate_state":{"timestamp":time.time()*1000,"climate_keeper_mode":"off","bioweapon_mode":True}}
+    t=nap.NapTimer(tmp_path/'nap.json',lambda vin:payload,
+                   lambda cmd,args,vin:calls.append((cmd,args))or{"ok":True},lambda:clock[0])
+    t.start('synthetic-vin',5,ac='fan')
+    clock[0]+=301;t.tick()
+    assert t.public()['phase']=='completed'
+    assert [c for c in calls if c[0]=='set_bioweapon_mode']==[('set_bioweapon_mode',{'on':True})]
+    assert ('auto_conditioning_stop',{}) in calls
+
+
+def test_nap_fan_shutdown_turns_off_forgotten_camp(timer):
+    """通风午休中车主手动开了露营又忘关:到点照样关露营+关停风。"""
+    t,clock,calls,mode=timer
+    t.start('synthetic-vin',5,ac='fan')
+    mode[0]='camp'
+    clock[0]+=301;t.tick()
+    assert t.public()['phase']=='completed'
+    pairs=[(c[0],c[1]) for c in calls]
+    assert ('set_climate_keeper_mode',{'climate_keeper_mode':0}) in pairs
+    assert ('set_bioweapon_mode',{'on':False}) in pairs
+    assert not any(c[0]=='auto_conditioning_stop' for c in calls)
+
+
+def test_nap_fan_start_rejected(timer):
+    t,clock,calls,mode=timer
+    t.command=lambda *a:{'ok':False}
+    with pytest.raises(HTTPException) as e:t.start('synthetic-vin',5,ac='fan')
+    assert e.value.status_code==409 and 'HEPA' in e.value.detail
+    assert t.public()['phase']=='failed'
+
+
+def test_nap_ac_validation(client,monkeypatch,timer):
+    monkeypatch.setattr(nap,'timer',timer[0]);login(client)
+    for value in ['turbo','',None,1]:
+        assert client.post('/api/control/nap/start',json={'minutes':30,'ac':value}).status_code==422
+    assert not timer[2]
 
 
 def test_nap_config_guard(timer,monkeypatch):

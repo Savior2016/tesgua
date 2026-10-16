@@ -60,14 +60,14 @@
     if(n.phase==='active') {
       const seconds=Math.max(0,Math.ceil(n.ends_at-Date.now()/1000));
       const base=seconds ? `剩余 ${Math.floor(seconds/60)} 分 ${seconds%60} 秒` : '时间已到，正在确认关闭';
-      return n.until?base+` · 最迟 ${n.until}`:base;
+      return (n.ac==='fan'?'通风中 · ':'')+base+(n.until?` · 最迟 ${n.until}`:'');
     }
     return phases[n.phase]||napDefaultText();
   }
   /* 未开启时模块上显示最后一次使用的配置,与快捷滑动开启一致 */
   function napDefaultText(){
     const u=napUntil();
-    return `定时 ${napMinutes()} 分钟`+(u?` · 最迟 ${u}`:'');
+    return `定时 ${napMinutes()} 分钟`+(napAc()==='fan'?' · 无AC通风':'')+(u?` · 最迟 ${u}`:'');
   }
   let napDialogSlide=null, napPollAt=0;
   function renderNap(){
@@ -454,10 +454,12 @@
       /* 弹窗里的时长/截止时间选择即存 localStorage:不必等到开启才生效,
          关掉弹窗后外面瓦片立即显示「定时 X 分钟 · 最迟 HH:MM」,快捷滑动也用这套配置 */
       let until=napUntil();
+      let ac=napAc();
       const saveNapCfg=()=>{
         const m=Number(minsField.value);
         if(m>=5&&m<=180)localStorage.setItem('ttv-nap-minutes',String(m));
         if(until)localStorage.setItem('ttv-nap-until',until);else localStorage.removeItem('ttv-nap-until');
+        localStorage.setItem('ttv-nap-ac',ac);
       };
       const minsChips=document.createElement('div');minsChips.className='ctl-seg';
       const syncMins=()=>minsChips.querySelectorAll('button').forEach(x=>x.classList.toggle('on',Number(x.dataset.min)===Number(minsField.value)));
@@ -481,12 +483,23 @@
       $('ctl-dialog-body').appendChild(modeChips);
       picker.setEnabled(!!until);syncMode();
       $('ctl-dialog-body').appendChild(picker.el);
+      /* 空调方式:露营模式开空调;无AC通风用生化模式送风(压缩机不工作,仅 HEPA 车型) */
+      tip('空调方式');
+      const acChips=document.createElement('div');acChips.className='ctl-seg';
+      const syncAc=()=>acChips.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x.dataset.ac===ac));
+      [['camp','空调·露营'],['fan','无AC通风']].forEach(([v,label])=>{
+        const b=document.createElement('button');b.type='button';b.dataset.ac=v;b.textContent=label;
+        b.title=v==='camp'?'露营模式,空调保持温度':'生化模式送风,不开压缩机(仅 HEPA 车型)';
+        b.addEventListener('click',()=>{ac=v;syncAc();saveNapCfg();});
+        acChips.appendChild(b);
+      });
+      $('ctl-dialog-body').appendChild(acChips);syncAc();
       napDialogSlide=slideRow('午休模式','',active(),async target=>{
-        if(target){const field=$('ctl-nap-minutes');if(!field.reportValidity()||!field.value)return null;await nap(true,Number(field.value),until);}
+        if(target){const field=$('ctl-nap-minutes');if(!field.reportValidity()||!field.value)return null;await nap(true,Number(field.value),until,ac);}
         else await nap(false);
         return active();  // 滑块始终同步到实际状态(取消/失败时弹回原位)
       },'nap','var(--cat-idle)',['滑动开启','午休中']);
-      tip('开启露营模式，到时自动关闭；关闭网页不影响计时。时长与最迟时间选择即自动保存。');renderNap();
+      tip('空调·露营保持温度;无AC通风为生化模式送风(仅 HEPA 车型)。到时自动关闭空调与露营模式,关闭网页不影响计时;选择即自动保存。');renderNap();
     }else if(name==='frunk'||name==='trunk'){
       const isFrunk=name==='frunk';
       tip('当前状态：'+tri(s[isFrunk?'frunk_open':'trunk_open'],'已打开','已关闭'));
@@ -540,21 +553,26 @@
     const v=localStorage.getItem('ttv-nap-until');
     return /^([01]\d|2[0-3]):[0-5]\d$/.test(v||'')?v:null;
   }
-  async function nap(start,minutes,until){
+  function napAc(){
+    const v=localStorage.getItem('ttv-nap-ac');
+    return v==='fan'?'fan':'camp';
+  }
+  async function nap(start,minutes,until,ac){
     if(busy||!canWrite())return;
     if(start){
       localStorage.setItem('ttv-nap-minutes',String(minutes));
       if(until)localStorage.setItem('ttv-nap-until',until);else localStorage.removeItem('ttv-nap-until');
+      localStorage.setItem('ttv-nap-ac',ac||'camp');
     }
-    busy=true;render();message(start?'正在开启露营模式…':'正在结束午休…');
-    try{model.nap=await api('nap/'+(start?'start':'stop'),start?{minutes,...(until?{until}:{})}:{});message(model.nap.error||'午休设置已更新',!!model.nap.error);if(!model.nap.error)refreshLater();}
+    busy=true;render();message(start?(ac==='fan'?'正在开启通风…':'正在开启露营模式…'):'正在结束午休…');
+    try{model.nap=await api('nap/'+(start?'start':'stop'),start?{minutes,ac:ac||'camp',...(until?{until}:{})}:{});message(model.nap.error||'午休设置已更新',!!model.nap.error);if(!model.nap.error)refreshLater();}
     catch(e){message(e.message,true);}finally{busy=false;await load();renderNap();}
   }
   /* 模块瓦片滑动开关:右滑开、回滑关(无确认窗) */
   async function flipSwitch(name,target){
     const cur=SWITCH[name].state()===true;
     if(busy||!guardWrite())return cur;
-    if(name==='nap'){await nap(target,target?napMinutes():undefined,target?napUntil():undefined);return active();}
+    if(name==='nap'){await nap(target,target?napMinutes():undefined,target?napUntil():undefined,target?napAc():undefined);return active();}
     const [cmd,argsOrFn]=target?SWITCH[name].on:SWITCH[name].off;
     const args=typeof argsOrFn==='function'?argsOrFn():argsOrFn;
     busy=true;message(SENDING);
