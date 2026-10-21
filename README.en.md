@@ -46,6 +46,7 @@ The official app is about *controlling* the car; TESLA Home is about *understand
 ## Features
 
 **Dashboard modules**
+- Multi-car support: switch vehicles from the car name in the header; every page (overview / vehicle / charging / data / control) follows. Home-charge pricing, delivery date, nap timer, scheduled sentry and parking fees are all isolated per car, with legacy data automatically attributed to the first car
 - Vehicle overview: top-view car SVG, per-charge-cycle energy ring (remaining / driving / sentry / parked climate / parked drain / not-charged), cycle efficiency bar, tire pressure for all four wheels, in-cabin temperature sparkline; left column stats include rated range, monthly/weekly mileage and a compact **battery health** module (baseline = highest-ever full-pack estimate, current = latest charge's estimate)
 - Charging sessions: one card per charge; editable cost / metered total kWh / charger name, auto-computed unit price and per-km cost
 - Home-charger peak/valley pricing: per-location peak/off-peak rates and valley hours, precise day-segmented time-of-use allocation; manually entered cost always wins
@@ -217,6 +218,14 @@ git tag v1.x.y && git push origin v1.x.y
 - Self-calibrating energy model: kWh per ideal-range km is calibrated from charging history; parked drain uses "energy added ÷ displayed % gain" (includes charging losses)
 - Battery health: each charge estimates full-pack capacity as "energy added ÷ % gain × 100" (filters: gain ≥10%, estimate within 30–150 kWh); baseline = highest-ever estimate, current = latest estimate
 - Map tiles are proxied same-origin by the app (upstream: official OSM tiles, disk-cached), so maps load even on restrictive mobile networks
+
+## Sponsor
+
+tesgua is a free, self-hosted hobby project. If it helps you understand your car's data, you can buy the author a coffee ☕ via WeChat Pay:
+
+<img src="docs/screenshots/sponsor-wechat.jpg" alt="WeChat Pay QR code" width="240">
+
+WeChat Pay QR code (Alipay QR code to be added later)
 
 ## License
 

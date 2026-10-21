@@ -78,10 +78,11 @@
     renderSteps(s.steps || {});
 
     if (s.cars && s.cars.length) {
-      const c = s.cars[0];
-      $('car-detect-desc').textContent =
-        `已识别:${c.name || '未命名车辆'}(VIN 后 6 位 ${c.vin_tail || '—'})`;
+      $('car-detect-desc').textContent = '已识别:' + s.cars
+        .map((c) => `${c.name || '未命名车辆'}(VIN 后 6 位 ${c.vin_tail || '—'})`)
+        .join('、');
     }
+    renderDeliveryCars(s.cars || []);
 
     if (s.sync && s.sync.positions > 0) {
       $('sync-stats').hidden = false;
@@ -422,20 +423,51 @@
   pollTimer = setInterval(loadStatus, 15000); // 授权完成前每 15 秒自动刷新状态
 
   /* 车辆信息:提车日期(与总览页「已陪伴 N 天」同一数据源 /api/vehicle/delivery;
-     总览页只在未设置时提供入口,修改/清除统一在这里) */
+     总览页只在未设置时提供入口,修改/清除统一在这里)。
+     多车时按车设置:车名下拉选择目标车,默认跟随主页当前选中的车 */
   const delDateInp = $('delivery-date');
-  (async () => {
+  const delCarSel = $('delivery-car');
+  const storedCarId = () => {
+    const v = parseInt(localStorage.getItem('ttv-car-id'), 10);
+    return Number.isInteger(v) ? v : null;
+  };
+  const deliveryCarId = () => {
+    if (delCarSel && !delCarSel.hidden && delCarSel.value) return Number(delCarSel.value);
+    return storedCarId();
+  };
+  const deliveryQuery = () => {
+    const cid = deliveryCarId();
+    return cid === null ? '' : `?car_id=${cid}`;
+  };
+  async function loadDelivery() {
     try {
-      const r = await api('/api/vehicle/delivery');
-      if (r.date) delDateInp.value = r.date;
+      const r = await api('/api/vehicle/delivery' + deliveryQuery());
+      delDateInp.value = r.date || '';
     } catch (e) {
       msg($('delivery-msg'), e.message, false);
     }
-  })();
+  }
+  function renderDeliveryCars(cars) {
+    /* 多车时才显示车名下拉(单车保持原界面);选项按 id 稳定,切换即重载对应日期 */
+    if (!delCarSel) return;
+    if (cars.length < 2) { delCarSel.hidden = true; return; }
+    delCarSel.textContent = '';
+    for (const c of cars) {
+      const opt = document.createElement('option');
+      opt.value = String(c.id);
+      opt.textContent = c.name || `车辆 ${c.id}`;
+      delCarSel.appendChild(opt);
+    }
+    const cur = storedCarId();
+    delCarSel.value = cars.some((c) => c.id === cur) ? String(cur) : String(cars[0].id);
+    delCarSel.hidden = false;
+  }
+  if (delCarSel) delCarSel.onchange = loadDelivery;
+  loadDelivery();
   const submitDelivery = async (date) => {
     const m = $('delivery-msg');
     try {
-      await api('/api/vehicle/delivery', {
+      await api('/api/vehicle/delivery' + deliveryQuery(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ date }),

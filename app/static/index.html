@@ -25,7 +25,7 @@
         <!-- 第二行:车辆状态与车名合并为一个标签;数据更新在其后 -->
         <div class="header-line2">
           <span class="badge" id="state-badge" data-state="unknown">
-            <span class="dot"></span><span id="state-text">加载中…</span><span class="car-name" id="car-name" role="button" tabindex="0" title="点击刷新数据">—</span>
+            <span class="dot"></span><span id="state-text">加载中…</span><span id="car-switch"><span class="car-name" id="car-name" role="button" tabindex="0" title="点击刷新数据">—</span><span class="car-caret" id="car-caret" hidden>▾</span><span class="car-menu" id="car-menu" role="menu"></span></span>
           </span>
           <span id="sw-version"></span>
           <!-- 有新固件时显示(优先取 Fleet 快照的 OTA 状态,否则退化为 TeslaMate 更新记录) -->

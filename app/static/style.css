@@ -350,6 +350,58 @@ header.mini .header-main .model-icon { height: 44px; }
 .car-name:hover { color: var(--series-1); }
 .car-name:active { opacity: 0.55; }
 
+/* 多车切换:车名后的 ▾ 指示 + 车辆选择浮层(单车时全部隐藏,行为不变) */
+#car-switch { position: relative; display: inline-flex; align-items: center; }
+.car-caret {
+  color: var(--text-muted);
+  font-size: 11px;
+  margin-left: 2px;
+  pointer-events: none;  /* 点击落在车名上,统一走车名的激活逻辑 */
+}
+.car-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  min-width: 180px;
+  display: none;
+  flex-direction: column;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--glass-edge);
+  background: linear-gradient(180deg, var(--ctl-top), var(--ctl-bot));
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: var(--glass-shadow), inset 0 1px 0 var(--glass-hi);
+}
+.car-menu.open { display: flex; }
+.car-menu-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.car-menu-item small { color: var(--text-muted); font-size: 11px; }
+.car-menu-item:hover { background: var(--tile-track); }
+.car-menu-item.on { color: var(--series-1); font-weight: 700; }
+.car-menu-item.on small { color: var(--series-1); opacity: 0.75; }
+.car-menu-refresh {
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 10px 10px;
+  color: var(--text-muted);
+  justify-content: center;
+}
+
 /* 电量胶囊:图标 + 百分比/续航,点击切换 */
 .batt-pill {
   display: inline-flex;

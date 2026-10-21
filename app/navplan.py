@@ -4,7 +4,7 @@
 """
 import math
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/nav", tags=["nav"])
@@ -180,7 +180,7 @@ class PlanIn(BaseModel):
 
 
 @router.post("/plan")
-def plan(payload: PlanIn):
+def plan(payload: PlanIn, car_id: int | None = Query(default=None)):
     """路线能耗规划:10% SOC 区间带 + 超充停靠建议(含每站到达/出发电量)。"""
     from . import amap
     pts = []
@@ -192,7 +192,7 @@ def plan(payload: PlanIn):
             continue
     if len(pts) < 2:
         raise HTTPException(status_code=422, detail="polyline 至少需要两个点")
-    cid = _m().get_car_id(None)
+    cid = _m().get_car_id(car_id)
     e = energy_per_km(cid)
     kwh_per_pct = _m().kwh_per_pct(cid)
     cum = cumulative_km(pts)

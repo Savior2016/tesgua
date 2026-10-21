@@ -490,7 +490,8 @@ def kwh_per_pct(car_id: int) -> float:
 
 
 # ---------- 家充设置:峰谷电价自动计价 ----------
-# 配置存 panel_manual(kind='settings', key='home_charge'):
+# 配置存 panel_manual(kind='settings', key='home_charge:<car_id>',按车隔离;
+# 旧部署的全局 key='home_charge' 作为读取回退,首次按车保存后自然分离):
 #   {master: 总开关, chargers: {loc_key: {name, enabled, peak, valley, vstart, vend}}}
 # 单次充电的手动指定存 kind='charge_home',key=充电会话 id,payload {mode}:
 #   mode = 'auto'(默认,按充电地点匹配)| 'off'(本次不按家充计)| loc_key(指定某个家充)。
@@ -501,20 +502,26 @@ HOME_CHARGE_DEFAULT_VSTART = "23:00"
 HOME_CHARGE_DEFAULT_VEND = "07:00"
 
 
-def _home_charge_cfg() -> dict:
-    rows = q("SELECT payload FROM panel_manual WHERE kind = 'settings' AND key = 'home_charge'")
-    cfg = rows[0]["payload"] if rows else {}
+def _home_charge_cfg(car_id: int) -> dict:
+    """按车读家充配置;按车 key 不存在时回退旧全局 key(老数据零迁移,首次按车保存后分离)。"""
+    rows = q(
+        "SELECT key, payload FROM panel_manual "
+        "WHERE kind = 'settings' AND key IN ('home_charge', %s)",
+        (f"home_charge:{car_id}",),
+    )
+    by_key = {r["key"]: r["payload"] for r in rows}
+    cfg = by_key.get(f"home_charge:{car_id}") or by_key.get("home_charge") or {}
     return {"master": bool(cfg.get("master")), "chargers": cfg.get("chargers") or {}}
 
 
-def _save_home_charge_cfg(cfg: dict) -> None:
+def _save_home_charge_cfg(car_id: int, cfg: dict) -> None:
     _exec(
         """
-        INSERT INTO panel_manual (kind, key, payload) VALUES ('settings', 'home_charge', %s)
+        INSERT INTO panel_manual (kind, key, payload) VALUES ('settings', %s, %s)
         ON CONFLICT (kind, key) DO UPDATE
           SET payload = EXCLUDED.payload, updated_at = now()
         """,
-        (Jsonb(cfg),),
+        (f"home_charge:{car_id}", Jsonb(cfg)),
     )
 
 
@@ -594,7 +601,7 @@ def charge_rate_timeline(car_id: int) -> list[dict]:
     """全部充电会话按开始时间升序,带有效单价(用户录入优先,其次家充自动,最后库内 cost)。"""
     costs = _load_costs()
     extras = _load_extras()["charges"]
-    home_cfg = _home_charge_cfg()
+    home_cfg = _home_charge_cfg(car_id)
     assigns = _manual_all("charge_home")
     rows = q(
         f"""
@@ -993,7 +1000,7 @@ def charging_sessions(car_id: int | None = Query(default=None),
     )
     costs = _load_costs()
     extras = _load_extras()
-    home_cfg = _home_charge_cfg()
+    home_cfg = _home_charge_cfg(cid)
     home_assigns = _manual_all("charge_home")
     # 充电后行驶里程:本次充电结束 → 下次充电开始之间的行程距离合计
     drives = q(
@@ -1179,7 +1186,7 @@ def set_charger(payload: ChargerIn):
 def get_home_charge(request: Request, car_id: int | None = Query(default=None)):
     """家充设置:总开关 + 已配地点列表 + 可添加的充电地点候选(按充电次数排序)。"""
     cid = get_car_id(car_id)
-    cfg = _home_charge_cfg()
+    cfg = _home_charge_cfg(cid)
     locs = q(
         """
         SELECT cp.address_id, cp.geofence_id, a.name AS address_name, g.name AS geofence_name,
@@ -1221,17 +1228,19 @@ def get_home_charge(request: Request, car_id: int | None = Query(default=None)):
 
 
 @app.post("/api/charging/home/master")
-def set_home_master(payload: HomeMasterIn):
+def set_home_master(payload: HomeMasterIn, car_id: int | None = Query(default=None)):
     """家充自动计价总开关:开启后,在已开启家充地点的充电默认按峰谷电价计费。"""
-    cfg = _home_charge_cfg()
+    cid = get_car_id(car_id)
+    cfg = _home_charge_cfg(cid)
     cfg["master"] = payload.enabled
-    _save_home_charge_cfg(cfg)
+    _save_home_charge_cfg(cid, cfg)
     return {"ok": True, "master": cfg["master"]}
 
 
 @app.post("/api/charging/home/charger")
-def set_home_charger(payload: HomeChargerIn):
+def set_home_charger(payload: HomeChargerIn, car_id: int | None = Query(default=None)):
     """添加/更新一个家充地点(峰谷电价、开关、谷时段);key 为充电地点键。"""
+    cid = get_car_id(car_id)
     if not re.fullmatch(r"(addr|geo)_\d{1,10}", payload.key):
         raise HTTPException(status_code=422, detail="地点键无效")
     for p in (payload.peak, payload.valley):
@@ -1245,7 +1254,7 @@ def set_home_charger(payload: HomeChargerIn):
     tbl = "addresses" if payload.key.startswith("addr_") else "geofences"
     if not q(f"SELECT 1 FROM {tbl} WHERE id = %s", (int(payload.key.split("_")[1]),)):
         raise HTTPException(status_code=404, detail="地点不存在")
-    cfg = _home_charge_cfg()
+    cfg = _home_charge_cfg(cid)
     entry = dict(cfg["chargers"].get(payload.key) or {})
     entry.update({
         "name": payload.name.strip()[:80],
@@ -1256,18 +1265,19 @@ def set_home_charger(payload: HomeChargerIn):
         "vend": payload.vend or None,
     })
     cfg["chargers"][payload.key] = entry
-    _save_home_charge_cfg(cfg)
+    _save_home_charge_cfg(cid, cfg)
     return {"ok": True, "key": payload.key}
 
 
 @app.delete("/api/charging/home/charger")
-def del_home_charger(key: str = Query(...)):
+def del_home_charger(key: str = Query(...), car_id: int | None = Query(default=None)):
     """删除一个家充地点;指向它的单次手动指定一并清除(回退自动)。"""
-    cfg = _home_charge_cfg()
+    cid = get_car_id(car_id)
+    cfg = _home_charge_cfg(cid)
     if key not in cfg["chargers"]:
         raise HTTPException(status_code=404, detail="家充地点不存在")
     cfg["chargers"].pop(key, None)
-    _save_home_charge_cfg(cfg)
+    _save_home_charge_cfg(cid, cfg)
     _exec("DELETE FROM panel_manual WHERE kind = 'charge_home' AND payload->>'mode' = %s",
           (key,))
     return {"ok": True}
@@ -1276,13 +1286,15 @@ def del_home_charger(key: str = Query(...)):
 @app.post("/api/charging/home/assign")
 def set_home_assign(payload: HomeAssignIn):
     """单次充电的家充计价指定:auto 跟随地点(默认)/ off 不计 / loc_key 指定某个家充。"""
-    if not q("SELECT 1 FROM charging_processes WHERE id = %s", (payload.charge_id,)):
+    row = q("SELECT car_id FROM charging_processes WHERE id = %s", (payload.charge_id,))
+    if not row:
         raise HTTPException(status_code=404, detail="充电会话不存在")
     if payload.mode == "auto":
         _exec("DELETE FROM panel_manual WHERE kind = 'charge_home' AND key = %s",
               (str(payload.charge_id),))
     else:
-        if payload.mode != "off" and payload.mode not in _home_charge_cfg()["chargers"]:
+        if payload.mode != "off" \
+                and payload.mode not in _home_charge_cfg(row[0]["car_id"])["chargers"]:
             raise HTTPException(status_code=422, detail="家充地点无效")
         _exec(
             """
@@ -2281,7 +2293,7 @@ def vehicle_lifetime(car_id: int | None = Query(default=None)):
     )
     costs = _load_costs()
     extras = _load_extras()
-    home_cfg = _home_charge_cfg()
+    home_cfg = _home_charge_cfg(cid)
     home_assigns = _manual_all("charge_home")
     total_cost = 0.0
     priced_kwh = 0.0

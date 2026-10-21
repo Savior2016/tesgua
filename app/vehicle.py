@@ -1,12 +1,14 @@
 """车辆档案(提车日期等随车设置)。
 
-存 panel_manual 表 kind='settings'(key 固定),随数据库备份/迁移走。
+存 panel_manual 表 kind='settings'(key 按车隔离:delivery_date:<car_id>;
+旧部署的全局 key='delivery_date' 作为读取回退,首次按车保存后自然分离),
+随数据库备份/迁移走。
 独立成模块减少与 main.py 的并发修改冲突(同 backup/parking/control 模式)。
 """
 import re
 from datetime import date as _date, datetime
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel
 
@@ -27,21 +29,32 @@ def _m():
     return main
 
 
+def _key(car_id: int) -> str:
+    return f"{_KEY}:{car_id}"
+
+
+def _read(car_id: int) -> dict:
+    """按车读取,回退旧全局 key。"""
+    all_ = _m()._manual_all(_KIND)
+    return all_.get(_key(car_id)) or all_.get(_KEY) or {}
+
+
 @router.get("/delivery")
-def get_delivery():
+def get_delivery(car_id: int | None = Query(default=None)):
     """提车日期;未设置返回 null(前端据此提示设置)。"""
-    row = _m()._manual_all(_KIND).get(_KEY) or {}
-    d = row.get("date")
+    cid = _m().get_car_id(car_id)
+    d = _read(cid).get("date")
     return {"date": d if isinstance(d, str) and _DATE_RE.fullmatch(d) else None}
 
 
 @router.post("/delivery")
-def set_delivery(payload: DeliveryIn):
+def set_delivery(payload: DeliveryIn, car_id: int | None = Query(default=None)):
     """设置/清除提车日期(date 为空串时删除)。"""
     main = _m()
+    cid = main.get_car_id(car_id)
     if payload.date == "":
-        main._exec("DELETE FROM panel_manual WHERE kind = %s AND key = %s",
-                   (_KIND, _KEY))
+        main._exec("DELETE FROM panel_manual WHERE kind = %s AND key IN (%s, %s)",
+                   (_KIND, _key(cid), _KEY))
         return {"ok": True, "date": None}
     if not _DATE_RE.fullmatch(payload.date):
         raise HTTPException(status_code=422, detail="日期格式应为 YYYY-MM-DD")
@@ -56,6 +69,6 @@ def set_delivery(payload: DeliveryIn):
         INSERT INTO panel_manual (kind, key, payload) VALUES (%s, %s, %s)
         ON CONFLICT (kind, key) DO UPDATE SET payload = EXCLUDED.payload
         """,
-        (_KIND, _KEY, Jsonb({"date": payload.date})),
+        (_KIND, _key(cid), Jsonb({"date": payload.date})),
     )
     return {"ok": True, "date": payload.date}

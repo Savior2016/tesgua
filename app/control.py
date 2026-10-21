@@ -24,7 +24,7 @@ import urllib.request
 import urllib.parse
 from collections import defaultdict
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel
@@ -113,6 +113,7 @@ _strobe_lock = threading.Lock()
 _strobe_stop = threading.Event()
 _strobe_stop.set()
 _strobe_until = 0.0
+_strobe_vin = ""  # 当前爆闪绑定的车辆(全局单例:同一时间只对一辆车爆闪)
 
 # 自动唤醒:车辆休眠/离线时云端指令必失败。下发前查 TeslaMate states,非 online
 # 先 wake_up 并等待上线(最长 45 秒);唤醒成功后 120 秒内跳过后续前置检查,
@@ -121,33 +122,38 @@ WAKE_TIMEOUT = 45.0
 WAKE_POLL = 2.5
 WAKE_CACHE = 120.0
 _wake_lock = threading.Lock()
-_awake_until = 0.0
+_awake_until: dict[str, float] = {}  # vin → monotonic 截止时间(按车缓存)
 
 # 车辆状态:TeslaMate 只上报空调 / 充电 / 充电线;车锁、哨兵、车窗、充电口盖
 # TeslaMate 不上报(Tesla 也不推送),由面板按「最近一次成功指令」乐观推测,
-# 持久化到 panel_manual(kind='control_state', key='current'),重启不丢。
+# 持久化到 panel_manual(kind='control_state', key='current:<car_id>',按车隔离;
+# 旧全局 key='current' 作为读取回退),重启不丢。
 _STATE_KIND = "control_state"
 
 
-def _optimistic() -> dict:
+def _optimistic(car_id: int | None = None) -> dict:
     try:
-        return dict(_m()._manual_all(_STATE_KIND).get("current") or {})
+        all_ = _m()._manual_all(_STATE_KIND)
+        row = (all_.get(f"current:{car_id}") if car_id is not None else None) \
+            or all_.get("current") or {}
+        return dict(row)
     except Exception:  # noqa: BLE001 — 状态读取失败不影响指令主流程
         return {}
 
 
-def _save_optimistic(patch: dict) -> None:
-    state = {**_optimistic(), **patch, "updated_at": int(time.time())}
+def _save_optimistic(patch: dict, car_id: int | None = None) -> None:
+    state = {**_optimistic(car_id), **patch, "updated_at": int(time.time())}
+    key = f"current:{car_id}" if car_id is not None else "current"
     _m()._exec(
         """
-        INSERT INTO panel_manual (kind, key, payload) VALUES (%s, 'current', %s)
+        INSERT INTO panel_manual (kind, key, payload) VALUES (%s, %s, %s)
         ON CONFLICT (kind, key) DO UPDATE SET payload = EXCLUDED.payload
         """,
-        (_STATE_KIND, Jsonb(state)),
+        (_STATE_KIND, key, Jsonb(state)),
     )
 
 
-def _state_patch(cmd: str, args: dict) -> dict | None:
+def _state_patch(cmd: str, args: dict, car_id: int | None = None) -> dict | None:
     """指令被车辆确认后,需要落盘的乐观状态补丁。"""
     if cmd == "door_lock":
         return {"locked": True}
@@ -173,7 +179,7 @@ def _state_patch(cmd: str, args: dict) -> dict | None:
         return {"charge_amps": args.get("charging_amps")}
     if cmd == "remote_seat_heater_request":
         # 座椅按编号逐个补丁:与已有乐观状态合并,避免覆盖其他座位
-        seats = dict(_optimistic().get("seats") or {})
+        seats = dict(_optimistic(car_id).get("seats") or {})
         seats[str(args["heater"])] = args["level"]
         return {"seats": seats}
     if cmd == "remote_steering_wheel_heater_request":
@@ -185,11 +191,11 @@ def _state_patch(cmd: str, args: dict) -> dict | None:
     return None
 
 
-def _live_states() -> dict:
+def _live_states(car_id: int | None = None) -> dict:
     """车辆实际上报的状态(空调/充电/充电线),作为乐观推测的底盘,实时项以它为准。"""
     m = _m()
     out: dict = {}
-    cid = m.get_car_id(None)
+    cid = m.get_car_id(car_id)
     rows = m.q("SELECT is_climate_on, driver_temp_setting, EXTRACT(EPOCH FROM date AT TIME ZONE 'UTC') * 1000 AS ts FROM positions "
                "WHERE car_id=%s ORDER BY date DESC LIMIT 1", (cid,))
     if rows:
@@ -206,10 +212,8 @@ def _live_states() -> dict:
 
 
 _snapshot_lock = threading.Lock()
-_snapshot = {}
-_snapshot_vin = ""
-_snapshot_checked = 0.0
-_snapshot_error = ""
+# Fleet 快照按 VIN 分槽:多车切换查询互不覆盖(快照查询为计费接口,单飞锁仍全局)
+_snapshots: dict[str, dict] = {}  # vin → {"snap": ..., "checked": ts, "error": str}
 
 # MQTT 遥测(car_telemetry)键 → 控制页状态字段;事件驱动,比 positions 轮询新鲜
 _TEL_MAP = {
@@ -223,11 +227,11 @@ _TEL_MAP = {
 }
 
 
-def _telemetry_states() -> dict:
+def _telemetry_states(car_id: int | None = None) -> dict:
     """MQTT 遥测实报:各键取最新值,15 分钟内新鲜才采用(车离线后旧值不顶包)。"""
     m = _m()
     out: dict = {}
-    cid = m.get_car_id(None)
+    cid = m.get_car_id(car_id)
     rows = m.q(
         "SELECT DISTINCT ON (key) key, value, "
         "EXTRACT(EPOCH FROM ts) * 1000 AS ts FROM car_telemetry "
@@ -360,25 +364,30 @@ def vehicle_data(vin):
     return fleet.remote(url, token=CONTROL_API_TOKEN).get("response") or {}
 
 
-def _states():
+def _states(car_id: int | None = None):
     """车辆当前状态:乐观推测(面板最近成功指令,已持久化)打底,
     新鲜的 Fleet 快照 / TeslaMate 实报以非 None 值覆盖(实报优先)。"""
     out = {k: None for k in CURRENT_FIELDS}
     try:
-        optimistic = _optimistic()
+        optimistic = _optimistic(car_id)
         for k in CURRENT_FIELDS:
             if optimistic.get(k) is not None:
                 out[k] = optimistic[k]
     except Exception:  # noqa: BLE001 — 乐观状态读取失败不影响实报
         pass
     out["source"] = "unknown"
+    vin = None
+    try:
+        vin = _vin(car_id)
+    except Exception:  # noqa: BLE001 — 车辆未入库时无快照可查
+        pass
     with _snapshot_lock:
-        snap = dict(_snapshot)
+        snap = dict((_snapshots.get(vin) or {}).get("snap") or {})
     if snap.get("reported_at") and time.time() * 1000 - snap["reported_at"] <= 120000:
         out.update({k: v for k, v in snap.items() if v is not None})
         return out
     try:
-        live = _live_states()
+        live = _live_states(car_id)
         # Only recent TeslaMate climate/charge fields can supplement unknown Fleet data.
         if live.get("reported_at") and time.time() * 1000 - live["reported_at"] <= 120000:
             out.update({k: v for k, v in live.items() if v is not None})
@@ -387,7 +396,7 @@ def _states():
         pass
     try:
         # MQTT 遥测实报(事件驱动,比 positions 新鲜):覆盖乐观推测与轮询实报
-        tel = _telemetry_states()
+        tel = _telemetry_states(car_id)
         if tel:
             out.update(tel)
             out["source"] = "teslamate"
@@ -400,63 +409,70 @@ _refresh_lock = threading.Lock()
 
 # 车辆静态配置(颜色/车型/轮毂):refresh 时顺带解析,变化才落盘 panel_manual,
 # 随数据库备份;status 直接回缓存,不为此发起任何计费查询。
+# key='current:<car_id>' 按车隔离,旧全局 key='current' 作为读取回退。
 _CONFIG_KIND = "vehicle_config"
 
 
-def _config_cached() -> dict:
+def _config_cached(car_id: int | None = None) -> dict:
     try:
-        return dict(_m()._manual_all(_CONFIG_KIND).get("current") or {})
+        all_ = _m()._manual_all(_CONFIG_KIND)
+        row = (all_.get(f"current:{car_id}") if car_id is not None else None) \
+            or all_.get("current") or {}
+        return dict(row)
     except Exception:  # noqa: BLE001 — 配置读取失败只影响展示
         return {}
 
 
-def _save_config(config: dict) -> None:
+def _save_config(config: dict, car_id: int | None = None) -> None:
+    key = f"current:{car_id}" if car_id is not None else "current"
     _m()._exec(
         """
-        INSERT INTO panel_manual (kind, key, payload) VALUES (%s, 'current', %s)
+        INSERT INTO panel_manual (kind, key, payload) VALUES (%s, %s, %s)
         ON CONFLICT (kind, key) DO UPDATE SET payload = EXCLUDED.payload
         """,
-        (_CONFIG_KIND, Jsonb(config)),
+        (_CONFIG_KIND, key, Jsonb(config)),
     )
 
 
 @router.post("/api/control/refresh")
-def refresh_vehicle(request: Request):
-    global _snapshot, _snapshot_checked, _snapshot_vin, _snapshot_error
+def refresh_vehicle(request: Request, car_id: int | None = Query(default=None)):
     _m().require_admin(request)
-    vin = _vin()
+    cid = _m().get_car_id(car_id)
+    vin = _vin(cid)
     # 节流判断只在锁内读时间戳;_states() 也要拿这把锁,绝不能在持锁时调用(非重入锁会自死锁)。
     with _snapshot_lock:
-        throttled = vin == _snapshot_vin and time.time() - _snapshot_checked < 10
+        slot = _snapshots.get(vin) or {}
+        throttled = time.time() - slot.get("checked", 0.0) < 10
     # 单飞:车辆查询是计费接口且可能耗时数十秒,并发 refresh 直接回当前快照,不重复查询。
     if not throttled and _refresh_lock.acquire(blocking=False):
         try:
             with _snapshot_lock:
-                if vin == _snapshot_vin and time.time() - _snapshot_checked < 10:
+                slot = _snapshots.setdefault(vin, {"snap": {}, "checked": 0.0, "error": ""})
+                if time.time() - slot["checked"] < 10:
                     throttled = True
                 else:  # 先占位时间戳,查询期间其余 refresh 走节流分支
-                    _snapshot_checked, _snapshot_vin = time.time(), vin
+                    slot["checked"] = time.time()
             if not throttled:
                 try:
                     snap = normalize_vehicle(vehicle_data(vin))
                     # 静态配置单独持久化(颜色/车型/轮毂),快照只保留实时字段
                     config = snap.pop("vehicle_config", None)
-                    if config and config != _config_cached():
+                    if config and config != _config_cached(cid):
                         try:
-                            _save_config(config)
+                            _save_config(config, cid)
                         except Exception:  # noqa: BLE001 — 配置落盘失败不影响状态刷新
                             pass
                     err = "" if snap.get("reported_at") else "车辆未返回新鲜状态，请确认车辆在线后重试"
                 except HTTPException as e:
                     snap, err = {k: None for k in CURRENT_FIELDS}, e.detail
                 with _snapshot_lock:
-                    _snapshot, _snapshot_error = snap, err
+                    _snapshots[vin].update(snap=snap, error=err)
         finally:
             _refresh_lock.release()
     with _snapshot_lock:
-        detail = _snapshot_error
+        detail = (_snapshots.get(vin) or {}).get("error", "")
     # 快照之外补上乐观推测状态(锁/哨兵/车窗等不上报项),与 status 接口口径一致
-    return {"ok": not bool(detail), "states": _states(), "detail": detail}
+    return {"ok": not bool(detail), "states": _states(cid), "detail": detail}
 
 
 class CommandIn(BaseModel):
@@ -470,16 +486,22 @@ def _m():
     return main
 
 
-def _vin() -> str:
+def _vin(car_id: int | None = None) -> str:
+    """解析控制目标车辆 VIN:env CONTROL_VIN 设置时恒定锁定该车(忽略 car_id);
+    否则按 car_id 查库,不传时保持旧行为(数据库第一辆车)。"""
     if CONTROL_VIN:
         return CONTROL_VIN
-    rows = _m().q("SELECT vin FROM cars ORDER BY id LIMIT 1")
+    if car_id is not None:
+        cid = _m().get_car_id(car_id)
+        rows = _m().q("SELECT vin FROM cars WHERE id = %s", (cid,))
+    else:
+        rows = _m().q("SELECT vin FROM cars ORDER BY id LIMIT 1")
     if not rows or not rows[0]["vin"]:
         raise HTTPException(status_code=503, detail="数据库中还没有车辆,请先完成 TeslaMate 授权")
     return rows[0]["vin"]
 
 
-def _validate_args(cmd: str, args: dict) -> dict:
+def _validate_args(cmd: str, args: dict, car_id: int | None = None) -> dict:
     """按白名单校验参数类型与范围,多余的键直接丢弃(不透传未知参数)。"""
     if cmd == "share":
         # 导航推送:纯文本地址 → Tesla share_ext_content_raw 载荷;剔除控制字符防注入
@@ -512,8 +534,10 @@ def _validate_args(cmd: str, args: dict) -> dict:
                 raise HTTPException(status_code=422, detail=f"参数 {k} 仅支持 {'/'.join(map(str, rule))}")
             out[k] = v
     if cmd == "window_control":
-        # Tesla REST 形态要求携带车辆当前位置;从 positions 取最新上报点
-        rows = _m().q("SELECT latitude, longitude FROM positions ORDER BY date DESC LIMIT 1")
+        # Tesla REST 形态要求携带车辆当前位置;从 positions 取该车最新上报点
+        cid = _m().get_car_id(car_id)
+        rows = _m().q("SELECT latitude, longitude FROM positions "
+                      "WHERE car_id = %s ORDER BY date DESC LIMIT 1", (cid,))
         if rows:
             out["lat"] = float(rows[0]["latitude"])
             out["lon"] = float(rows[0]["longitude"])
@@ -555,29 +579,28 @@ def _teslamate_online(vin: str) -> bool | None:
 
 def _wake_and_wait(vin: str) -> None:
     """循环 wake_up 直到车辆上线或超时(车辆真正离线时唤醒无果,返回 504)。"""
-    global _awake_until
     deadline = time.monotonic() + WAKE_TIMEOUT
     while True:
         try:
             if _forward("wake_up", {}, vin).get("ok"):
-                _awake_until = time.monotonic() + WAKE_CACHE
+                _awake_until[vin] = time.monotonic() + WAKE_CACHE
                 return
         except HTTPException:
             pass  # 唤醒请求本身失败(代理 408/往返超时)时继续重试到截止时间
         if time.monotonic() >= deadline:
             raise HTTPException(status_code=504, detail="车辆唤醒超时：车辆可能离线或处于信号弱的区域，请稍后再试或在 Tesla App 中唤醒")
         if _teslamate_online(vin):
-            _awake_until = time.monotonic() + WAKE_CACHE
+            _awake_until[vin] = time.monotonic() + WAKE_CACHE
             return
         time.sleep(WAKE_POLL)
 
 
 def _ensure_awake(vin: str) -> bool:
     """下发前确保车辆在线:TeslaMate 报告休眠/离线时先唤醒并等待上线。返回是否发生了唤醒。"""
-    if _teslamate_online(vin) or time.monotonic() < _awake_until:
+    if _teslamate_online(vin) or time.monotonic() < _awake_until.get(vin, 0.0):
         return False
     with _wake_lock:
-        if _teslamate_online(vin) or time.monotonic() < _awake_until:
+        if _teslamate_online(vin) or time.monotonic() < _awake_until.get(vin, 0.0):
             return False
         _wake_and_wait(vin)
         return True
@@ -595,30 +618,29 @@ def _is_asleep_failure(text) -> bool:
 
 def _forward_with_wake(cmd: str, args: dict, vin: str) -> dict:
     """转发指令;预检与执行之间车辆恰好入睡(上游明确拒绝)时,无视 TeslaMate 状态直接唤醒后重发一次。"""
-    global _awake_until
     try:
         result = _forward(cmd, args, vin)
     except HTTPException as exc:
         if not _is_asleep_failure(exc.detail):
             raise
         with _wake_lock:
-            _awake_until = 0.0
+            _awake_until[vin] = 0.0
             _wake_and_wait(vin)
         return _forward(cmd, args, vin)
     if not result.get("ok") and _is_asleep_failure(result.get("reason")):
         with _wake_lock:
-            _awake_until = 0.0
+            _awake_until[vin] = 0.0
             _wake_and_wait(vin)
         result = _forward(cmd, args, vin)
     return result
 
 
-def _strobe_loop() -> None:
+def _strobe_loop(vin: str) -> None:
     """爆闪线程:等上一条返回再发下一条,保证最小间隔;出错不中断(车辆暂时不可达时继续尝试)。"""
     while not _strobe_stop.is_set() and time.time() < _strobe_until:
         t0 = time.time()
         try:
-            _forward("flash_lights", {})
+            _forward("flash_lights", {}, vin)
         except Exception:  # noqa: BLE001 — 爆闪期间单条失败不终止整段
             pass
         _strobe_stop.wait(max(0.25, STROBE_MIN_INTERVAL - (time.time() - t0)))
@@ -628,8 +650,8 @@ def _strobe_active() -> bool:
     return not _strobe_stop.is_set() and time.time() < _strobe_until
 
 
-def _strobe_start(args: dict) -> dict:
-    global _strobe_until
+def _strobe_start(args: dict, vin: str) -> dict:
+    global _strobe_until, _strobe_vin
     try:
         seconds = int(args.get("seconds", 10))
     except (TypeError, ValueError):
@@ -639,8 +661,9 @@ def _strobe_start(args: dict) -> dict:
         if _strobe_active():
             raise HTTPException(status_code=409, detail="爆闪进行中,可先停止再重新开始")
         _strobe_stop.clear()
+        _strobe_vin = vin
         _strobe_until = time.time() + seconds
-        threading.Thread(target=_strobe_loop, daemon=True).start()
+        threading.Thread(target=_strobe_loop, args=(vin,), daemon=True).start()
     return {"ok": True, "reason": "", "cmd": "flash_strobe", "seconds": seconds}
 
 
@@ -653,11 +676,12 @@ def _strobe_cancel() -> dict:
 
 
 @router.get("/api/control/status")
-def control_status(request: Request):
+def control_status(request: Request, car_id: int | None = Query(default=None)):
     """控制功能是否已配置指令后端(不泄露令牌,只回域名与 VIN 后 6 位)+ 车辆状态。"""
     from . import fleet, nap
+    cid = _m().get_car_id(car_id)
     saved = fleet.read()
-    base = {"configured": False, "role": request.state.role, "ever_configured": bool(saved.get("client_id") or (CONTROL_API_URL and CONTROL_API_TOKEN)), "strobe_active": _strobe_active(), "states": _states(), "nap": nap.status(), "vehicle": _config_cached()}
+    base = {"configured": False, "role": request.state.role, "ever_configured": bool(saved.get("client_id") or (CONTROL_API_URL and CONTROL_API_TOKEN)), "strobe_active": _strobe_active(), "states": _states(cid), "nap": nap.status(cid), "vehicle": _config_cached(cid)}
     from . import fleet
     if not (fleet.configured() or (CONTROL_API_URL and CONTROL_API_TOKEN)):
         return base
@@ -665,19 +689,20 @@ def control_status(request: Request):
     host = backend_url.split("://", 1)[-1].split("/", 1)[0]
     vin_tail = None
     try:
-        vin_tail = _vin()[-6:]
+        vin_tail = _vin(cid)[-6:]
     except Exception:  # noqa: BLE001 — 车辆未入库时仅影响展示
         pass
     return {**base, "configured": True, "backend": host, "vin_tail": vin_tail}
 
 
 @router.post("/api/control/command")
-def send_command(body: CommandIn, request: Request):
+def send_command(body: CommandIn, request: Request, car_id: int | None = Query(default=None)):
     """下发车辆指令:白名单校验 → 节流 → 转发指令后端,返回 Tesla 侧执行结果。"""
     _m().require_admin(request)
     from . import fleet
     if not (fleet.configured() or (CONTROL_API_URL and CONTROL_API_TOKEN)):
         raise HTTPException(status_code=503, detail="请先在个人中心完成车辆控制配置")
+    cid = _m().get_car_id(car_id)
     # 爆闪为本地面板功能(循环 flash_lights),不直接转发;计 1 次节流
     if body.cmd in ("flash_strobe", "flash_strobe_stop"):
         pass
@@ -692,8 +717,9 @@ def send_command(body: CommandIn, request: Request):
     log.append(now)
 
     if body.cmd == "flash_strobe":
-        _ensure_awake(_vin())
-        result = _strobe_start(body.args or {})
+        vin = _vin(cid)
+        _ensure_awake(vin)
+        result = _strobe_start(body.args or {}, vin)
         _audit(user, body.cmd, body.args or {}, result)
         return result
     if body.cmd == "flash_strobe_stop":
@@ -701,8 +727,8 @@ def send_command(body: CommandIn, request: Request):
         _audit(user, body.cmd, {}, result)
         return result
 
-    args = _validate_args(body.cmd, body.args or {})
-    vin = _vin()
+    args = _validate_args(body.cmd, body.args or {}, cid)
+    vin = _vin(cid)
     woke = body.cmd != "wake_up" and _ensure_awake(vin)
     try:
         result = {"cmd": body.cmd, **_forward_with_wake(body.cmd, args, vin)}
@@ -712,11 +738,11 @@ def send_command(body: CommandIn, request: Request):
     if woke:
         result["woke"] = True
     _audit(user, body.cmd, args, result)
-    patch = _state_patch(body.cmd, args)
+    patch = _state_patch(body.cmd, args, cid)
     if result.get("ok") and patch:
         try:
-            _save_optimistic(patch)
-            result["states"] = _states()
+            _save_optimistic(patch, cid)
+            result["states"] = _states(cid)
         except Exception:  # noqa: BLE001 — 状态落盘失败不视为指令失败
             pass
     return result

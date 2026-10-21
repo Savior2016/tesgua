@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from math import asin, cos, radians, sin, sqrt
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel
 
@@ -490,8 +490,14 @@ def reminder(car_id: int | None = None):
         )
     ]
 
-    override = main._manual_all("anchors").get("places") or {}
-    saved_cfg = main._manual_all("settings").get("reminder") or {}
+    # 按车配置(旧全局 key 归属首辆车,作为其读取回退)
+    first = (main.q("SELECT id FROM cars ORDER BY id LIMIT 1") or [{}])[0].get("id")
+    all_anchor = main._manual_all("anchors")
+    override = all_anchor.get(f"places:{cid}") \
+        or (all_anchor.get("places") if cid == first else None) or {}
+    all_settings = main._manual_all("settings")
+    saved_cfg = all_settings.get(f"reminder:{cid}") \
+        or (all_settings.get("reminder") if cid == first else None) or {}
     try:
         min_pct = int(saved_cfg.get("min_pct", _DEFAULT_MIN_PCT))
     except (TypeError, ValueError):
@@ -604,18 +610,20 @@ class ReminderConfigIn(BaseModel):
 
 
 @router.post("/reminder-config")
-def set_reminder_config(body: ReminderConfigIn, request: Request):
+def set_reminder_config(body: ReminderConfigIn, request: Request,
+                        car_id: int | None = Query(default=None)):
     main = _m()
     main.require_admin(request)
     if not (5 <= body.min_pct <= 50):
         raise HTTPException(status_code=422, detail="最低电量需在 5–50% 之间")
+    cid = main.get_car_id(car_id)
     main._exec(
         """
-        INSERT INTO panel_manual (kind, key, payload) VALUES ('settings', 'reminder', %s)
+        INSERT INTO panel_manual (kind, key, payload) VALUES ('settings', %s, %s)
         ON CONFLICT (kind, key) DO UPDATE
           SET payload = EXCLUDED.payload, updated_at = now()
         """,
-        (Jsonb({"min_pct": body.min_pct}),),
+        (f"reminder:{cid}", Jsonb({"min_pct": body.min_pct})),
     )
     return {"ok": True, "min_pct": body.min_pct}
 
@@ -626,7 +634,7 @@ class AnchorsIn(BaseModel):
 
 
 @router.post("/anchors")
-def set_anchors(body: AnchorsIn, request: Request):
+def set_anchors(body: AnchorsIn, request: Request, car_id: int | None = Query(default=None)):
     main = _m()
     main.require_admin(request)
     if len(body.home) > 50 or len(body.work) > 50 or \
@@ -634,12 +642,13 @@ def set_anchors(body: AnchorsIn, request: Request):
         raise HTTPException(status_code=422, detail="地点参数无效")
     if set(body.home) & set(body.work):
         raise HTTPException(status_code=422, detail="家和公司不能是同一地点")
+    cid = main.get_car_id(car_id)
     main._exec(
         """
-        INSERT INTO panel_manual (kind, key, payload) VALUES ('anchors', 'places', %s)
+        INSERT INTO panel_manual (kind, key, payload) VALUES ('anchors', %s, %s)
         ON CONFLICT (kind, key) DO UPDATE
           SET payload = EXCLUDED.payload, updated_at = now()
         """,
-        (Jsonb({"home": sorted(set(body.home)), "work": sorted(set(body.work))}),),
+        (f"places:{cid}", Jsonb({"home": sorted(set(body.home)), "work": sorted(set(body.work))})),
     )
     return {"ok": True}

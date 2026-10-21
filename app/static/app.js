@@ -3,7 +3,11 @@
   'use strict';
 
   const S = {
-    carId: null,
+    // 当前车辆:多车时由顶栏切换器选择并持久化;null = 跟随数据库首辆(旧行为)
+    carId: (() => {
+      const v = parseInt(localStorage.getItem('ttv-car-id'), 10);
+      return Number.isInteger(v) ? v : null;
+    })(),
     days: 7,
     theme: localStorage.getItem('ttv-theme') || 'dark',
     battMode: localStorage.getItem('ttv-batt-mode') || 'pct',
@@ -295,6 +299,10 @@
     if (!o) return;
     const car = o.cars.find((c) => c.id === S.carId) || o.cars[0];
     $('#car-name').textContent = car ? car.name : '—';
+    // 多车:车名变为切换器入口(▾ 指示 + title 变更);浮层内容每次打开时重建
+    const multi = o.cars.length > 1;
+    $('#car-caret').hidden = !multi;
+    $('#car-name').title = multi ? '点击切换车辆' : '点击刷新数据';
     const mi = carModelInfo(car);
     // Model Y L 展示官方尾标徽章(PNG 蒙版 + currentColor 随主题变色);其他车型回退为字标文字
     $('#car-model-badge').hidden = !mi.isYL;
@@ -318,6 +326,51 @@
     ua.classList.remove('fade-in');
     void ua.offsetWidth;
     ua.classList.add('fade-in');
+  }
+
+  /* ---------- 多车切换浮层 ---------- */
+
+  // 车辆列表(当前车高亮)+ 底部「刷新数据」入口;切车 = 记 localStorage 后整页重载,
+  // 让控制页/导航页等所有模块都以新车重新初始化,避免跨模块的残留状态
+  function renderCarMenu() {
+    const menu = $('#car-menu');
+    menu.textContent = '';
+    (S.overview?.cars || []).forEach((c) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'car-menu-item' + (c.id === S.carId ? ' on' : '');
+      item.setAttribute('role', 'menuitem');
+      const name = document.createElement('span');
+      name.textContent = c.name;
+      const sub = document.createElement('small');
+      sub.textContent = carModelInfo(c).label || '';
+      item.append(name, sub);
+      item.addEventListener('click', (e) => { e.stopPropagation(); switchCar(c.id); });
+      menu.appendChild(item);
+    });
+    const again = document.createElement('button');
+    again.type = 'button';
+    again.className = 'car-menu-item car-menu-refresh';
+    again.setAttribute('role', 'menuitem');
+    again.textContent = '刷新数据';
+    again.addEventListener('click', (e) => { e.stopPropagation(); hideCarMenu(); refresh(); });
+    menu.appendChild(again);
+  }
+
+  function hideCarMenu() { $('#car-menu').classList.remove('open'); }
+
+  function toggleCarMenu() {
+    const menu = $('#car-menu');
+    if (menu.classList.contains('open')) { hideCarMenu(); return; }
+    renderCarMenu();
+    menu.classList.add('open');
+  }
+
+  function switchCar(id) {
+    hideCarMenu();
+    if (id === S.carId) return;
+    try { localStorage.setItem('ttv-car-id', String(id)); } catch (_) { /* 隐私模式等 */ }
+    location.reload();
   }
 
   /* ---------- 渲染:顶栏 OTA 徽标 ---------- */
@@ -1982,7 +2035,8 @@
 
   async function hcSave(path, body, method) {
     try {
-      await fetchJSON(path, method === 'DELETE' ? { method: 'DELETE' } : {
+      // 统一走 api():自动携带当前车辆 car_id(家充配置按车隔离)
+      await api(path.replace(/^\/api\//, ''), method === 'DELETE' ? { method: 'DELETE' } : {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -2898,7 +2952,7 @@
       const save = async (ids) => {
         panel.style.pointerEvents = 'none';
         try {
-          await fetchJSON('/api/charging/anchors', {
+          await api('charging/anchors', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2988,7 +3042,7 @@
     slider.addEventListener('change', async () => {
       slider.disabled = true;
       try {
-        await fetchJSON('/api/charging/reminder-config', {
+        await api('charging/reminder-config', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ min_pct: Number(slider.value) }),
@@ -3131,7 +3185,7 @@
       const btn = $('#companion-save');
       btn.disabled = true;
       try {
-        const r = await fetchJSON('/api/vehicle/delivery', {
+        const r = await api('vehicle/delivery', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ date }),
@@ -3172,7 +3226,7 @@
       const btn = $('#pk-add');
       btn.disabled = true;
       try {
-        await fetchJSON('/api/parking/fees', {
+        await api('parking/fees', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -4101,7 +4155,7 @@
 // 按时间范围分槽(days=1/7/30 各一份);轨迹点体积大,配额不足时降级去掉轨迹再存
   const DASH_CACHE_FIELDS = ['sys', 'overview', 'health', 'sessions', 'cycles', 'parking',
     'delivery', 'reminder', 'homeCharge', 'lifetime', 'monthly', 'tpmsWeekly', 'parked'];
-  const dashCacheKey = () => `ttv-dash-${S.days}`;
+  const dashCacheKey = () => `ttv-dash-${S.carId === null ? 'first' : S.carId}-${S.days}`;
   function saveDashCache() {
     if (!S.overview) return;
     const d = { t: Date.now(), carId: S.carId };
@@ -4118,16 +4172,37 @@
   function loadDashCache() {
     let d = null;
     try { d = JSON.parse(localStorage.getItem(dashCacheKey()) || 'null'); } catch (e) { return 0; }
+    // 旧版缓存键不含车辆(ttv-dash-<days>):借其中的 carId 迁移选中车辆,数据本趟直接用
+    if ((!d || !d.overview) && S.carId === null) {
+      try { d = JSON.parse(localStorage.getItem(`ttv-dash-${S.days}`) || 'null'); } catch (e) { d = null; }
+      if (d && d.overview && Number.isInteger(d.carId)) {
+        S.carId = d.carId;
+        try { localStorage.setItem('ttv-car-id', String(d.carId)); } catch (e) { /* 隐私模式等 */ }
+      }
+    }
     if (!d || !d.overview) return 0;
-    if (d.carId !== null && d.carId !== undefined) S.carId = d.carId;
     DASH_CACHE_FIELDS.forEach((k) => { if (k in d) S[k] = d[k]; });
     return d.t || 0;
   }
 
   async function refresh() {
     try {
-      const o = await api('overview');
-      if (S.carId === null) S.carId = o.car_id;
+      let o;
+      try {
+        o = await api('overview');
+      } catch (err) {
+        // 记住的车辆已被删除(如 TeslaMate 重建库):清掉记忆回退首车再试一次
+        if (S.carId !== null && /car_id/.test(err.message)) {
+          S.carId = null;
+          try { localStorage.removeItem('ttv-car-id'); } catch (_) { /* 忽略 */ }
+          o = await api('overview');
+        } else throw err;
+      }
+      if (S.carId !== o.car_id) {
+        // 首次访问(或回退后):跟随服务端解析结果并持久化;此后切换只走切换器
+        S.carId = o.car_id;
+        try { localStorage.setItem('ttv-car-id', String(o.car_id)); } catch (_) { /* 忽略 */ }
+      }
       const [daily, chg, routes, act, eff, tpms, sys, health, sessions, cyc, temp, tpms24, pk, del, rm, hm, life, monthly, tpmsWk, parked] = await Promise.all([
         api(`drives/daily?days=${S.days}`),
         api('charging/summary?limit=12'),
@@ -4476,11 +4551,18 @@
     initCarSides();
     initSpaceMark();
 
-    // 点击车名刷新;点击电量胶囊循环切换 电量% → 度数kWh → 续航km
+    // 点击车名:多车时弹出车辆切换浮层,单车时刷新数据;点击浮层外部关闭浮层
     const carNameEl = $('#car-name');
-    carNameEl.addEventListener('click', refresh);
+    const carNameActivate = () => {
+      if ((S.overview?.cars || []).length > 1) toggleCarMenu();
+      else refresh();
+    };
+    carNameEl.addEventListener('click', carNameActivate);
     carNameEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); refresh(); }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); carNameActivate(); }
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#car-switch')) hideCarMenu();
     });
     // 顶栏随滚动收缩成紧凑徽章栏并钉在顶部,回顶展开(迟滞阈值防抖动)
     const headerEl = $('#header');

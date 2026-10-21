@@ -111,10 +111,10 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "_session_user", store.session_user)
     monkeypatch.setattr(main, "get_car_id", lambda car_id: 1)
     monkeypatch.setattr(main, "_home_charge_cfg",
-                        lambda: {"master": cfg["master"], "chargers": dict(cfg["chargers"])})
+                        lambda car_id: {"master": cfg["master"], "chargers": dict(cfg["chargers"])})
     monkeypatch.setattr(main, "_save_home_charge_cfg",
-                        lambda c: cfg.update({"master": c["master"],
-                                              "chargers": dict(c["chargers"])}))
+                        lambda car_id, c: cfg.update({"master": c["master"],
+                                                      "chargers": dict(c["chargers"])}))
     monkeypatch.setattr(main, "_manual_all",
                         lambda kind: assigns if kind == "charge_home" else {})
 
@@ -128,8 +128,8 @@ def env(tmp_path, monkeypatch):
         if "count(*)" in sql:  # 充电地点候选
             return [{"address_id": 7, "geofence_id": None, "address_name": "家",
                      "geofence_name": None, "n": 12}]
-        if "FROM charging_processes" in sql:  # 会话存在性检查
-            return [] if params and params[0] == 99999 else [{"?column?": 1}]
+        if "FROM charging_processes" in sql:  # 会话存在性检查(返回归属车辆)
+            return [] if params and params[0] == 99999 else [{"car_id": 1}]
         return []
 
     monkeypatch.setattr(main, "q", fake_q)

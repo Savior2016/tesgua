@@ -37,19 +37,19 @@ def test_nap_until_caps_end(timer):
     t,clock,calls,mode=timer
     until=_until_at(clock[0],120)
     t.start('synthetic-vin',30,until)
-    assert t.public()['until']==until
-    assert abs(t.read()['ends_at']-(clock[0]+120))<61  # 到点早于计时,先到先停
+    assert t.public('synthetic-vin')['until']==until
+    assert abs(t.read()['synthetic-vin']['ends_at']-(clock[0]+120))<61  # 到点早于计时,先到先停
     clock[0]+=181;t.tick()
-    assert t.public()['phase']=='completed'
+    assert t.public('synthetic-vin')['phase']=='completed'
 
 
 def test_nap_until_past_today_falls_back_to_minutes(timer):
     t,clock,calls,mode=timer
     until=_until_at(clock[0],-3600)
     t.start('synthetic-vin',10,until)  # 该时间点今日已过→次日,计时先触发
-    assert abs(t.read()['ends_at']-(clock[0]+600))<2
+    assert abs(t.read()['synthetic-vin']['ends_at']-(clock[0]+600))<2
     clock[0]+=601;t.tick()
-    assert t.public()['phase']=='completed'
+    assert t.public('synthetic-vin')['phase']=='completed'
 
 
 def test_nap_until_validation(client,monkeypatch,timer):
@@ -62,11 +62,11 @@ def test_nap_until_validation(client,monkeypatch,timer):
 def test_nap_survives_restart_and_pins_vehicle(timer):
     t,clock,calls,mode=timer
     t.start('synthetic-vin',5)
-    assert t.public()['phase']=='active' and 'vin' not in t.public()
+    assert t.public('synthetic-vin')['phase']=='active' and 'vin' not in t.public('synthetic-vin')
     restarted=nap.NapTimer(t.path,t.fetch,t.command,t.clock)
     restarted.tick();assert len(calls)==1
     clock[0]+=301;restarted.tick()
-    assert restarted.public()['phase']=='completed'
+    assert restarted.public('synthetic-vin')['phase']=='completed'
     assert [x[1]['climate_keeper_mode'] for x in calls]==[3,0]
     assert all(x[2]=='synthetic-vin' for x in calls)
     restarted.tick();assert len(calls)==2
@@ -74,9 +74,13 @@ def test_nap_survives_restart_and_pins_vehicle(timer):
 
 def test_nap_duplicate_and_external_mode(timer):
     t,clock,calls,mode=timer;t.start('synthetic-vin',5)
-    with pytest.raises(HTTPException):t.start('another-vin',5)
+    with pytest.raises(HTTPException):t.start('synthetic-vin',5)  # 同车重复开启仍拒绝
+    mode[0]='off'  # 桩的 climate 模式是全局的:重置后才能开另一辆车的午休
+    t.start('another-vin',5)  # 多车:另一辆车可各自开午休
+    assert t.active('another-vin')
     mode[0]='dog';clock[0]+=301;t.tick()
-    assert len(calls)==1 and t.public()['phase']=='completed'
+    assert len(calls)==2 and t.public('synthetic-vin')['phase']=='completed'
+    assert t.public('another-vin')['phase']=='completed'  # 两车任务互不影响,各自收尾
 
 
 def test_nap_shutdown_failure_retries(timer):
@@ -84,10 +88,10 @@ def test_nap_shutdown_failure_retries(timer):
     original=t.command
     t.command=lambda *a: {'ok':False}
     clock[0]+=301;t.tick()
-    assert t.public()['phase']=='retrying'
-    assert t.active()
+    assert t.public('synthetic-vin')['phase']=='retrying'
+    assert t.active('synthetic-vin')
     t.command=original;clock[0]+=301;t.tick()
-    assert t.public()['phase']=='completed'
+    assert t.public('synthetic-vin')['phase']=='completed'
 
 
 def test_nap_start_timeout_arms_cleanup(timer):
@@ -99,9 +103,9 @@ def test_nap_start_timeout_arms_cleanup(timer):
     t.command=uncertain
     with pytest.raises(HTTPException) as e:t.start('synthetic-vin',5)
     assert 'private upstream text' not in e.value.detail
-    assert t.public()['phase']=='retrying'
+    assert t.public('synthetic-vin')['phase']=='retrying'
     t.command=original;t.tick()
-    assert t.public()['phase']=='completed'
+    assert t.public('synthetic-vin')['phase']=='completed'
     assert [x[1]['climate_keeper_mode'] for x in calls]==[3,0]
 
 
@@ -120,7 +124,7 @@ def test_nap_fan_start_and_shutdown(timer):
     assert pub['ac']=='fan' and pub['phase']=='active'
     assert not calls  # 纯定时:开始时不发任何车辆指令
     clock[0]+=301;t.tick()
-    assert t.public()['phase']=='completed'
+    assert t.public('synthetic-vin')['phase']=='completed'
     assert [c[0] for c in calls]==['auto_conditioning_stop']
 
 
@@ -130,7 +134,7 @@ def test_nap_fan_shutdown_turns_off_forgotten_camp(timer):
     t.start('synthetic-vin',5,ac='fan')
     mode[0]='camp'
     clock[0]+=301;t.tick()
-    assert t.public()['phase']=='completed'
+    assert t.public('synthetic-vin')['phase']=='completed'
     assert [(c[0],c[1]) for c in calls]==[('set_climate_keeper_mode',{'climate_keeper_mode':0})]
 
 
@@ -145,7 +149,7 @@ def test_nap_config_guard(timer,monkeypatch):
     t,*_=timer;monkeypatch.setattr(nap,'timer',t)
     t.start('synthetic-vin',5)
     with pytest.raises(HTTPException):nap.ensure_idle()
-    t.stop();nap.ensure_idle()
+    t.stop('synthetic-vin');nap.ensure_idle()
 
 
 def test_state_requires_fresh_explicit_values(monkeypatch):
@@ -156,14 +160,15 @@ def test_state_requires_fresh_explicit_values(monkeypatch):
     p['vehicle_state']['timestamp']-=180000
     result=control.normalize_vehicle(p)
     assert result['frunk_open'] is None and result['locked'] is None
-    monkeypatch.setattr(control,'_snapshot',{})
-    monkeypatch.setattr(control,'_live_states',lambda:{})
-    monkeypatch.setattr(control,'_optimistic',lambda:{'locked':True})
+    monkeypatch.setattr(control,'_snapshots',{})
+    monkeypatch.setattr(control,'_live_states',lambda *a:{})
+    monkeypatch.setattr(control,'_telemetry_states',lambda *a:{})
+    monkeypatch.setattr(control,'_optimistic',lambda *a:{'locked':True})
     # 实报缺失时以持久化的乐观推测为准(否则开关刷新后全部掉回未知/关闭)
     assert control._states()['locked'] is True
     # 新鲜实报的非 None 值覆盖乐观推测
     ts=int(time.time()*1000)
-    monkeypatch.setattr(control,'_live_states',lambda:{'climate_on':False,'reported_at':ts})
+    monkeypatch.setattr(control,'_live_states',lambda *a:{'climate_on':False,'reported_at':ts})
     merged=control._states()
     assert merged['locked'] is True and merged['climate_on'] is False and merged['source']=='teslamate'
 
@@ -186,10 +191,10 @@ def command_harness(monkeypatch, online, forward):
     calls=[]
     monkeypatch.setattr(control,'CONTROL_API_URL','http://backend.test')
     monkeypatch.setattr(control,'CONTROL_API_TOKEN','test-token')
-    monkeypatch.setattr(control,'_vin',lambda:'vin-test')
-    monkeypatch.setattr(control,'_awake_until',0.0)
+    monkeypatch.setattr(control,'_vin',lambda *a:'vin-test')
+    monkeypatch.setattr(control,'_awake_until',{})
     monkeypatch.setattr(control,'_teslamate_online',lambda vin:online(vin) if callable(online) else online)
-    monkeypatch.setattr(control,'_save_optimistic',lambda patch:None)
+    monkeypatch.setattr(control,'_save_optimistic',lambda *a:None)
     def spy(cmd,args,vin=None):
         calls.append(cmd)
         return forward(cmd,calls)
@@ -298,7 +303,7 @@ def test_state_patch_new_commands():
 
 
 def test_state_patch_seat_merges_existing(monkeypatch):
-    monkeypatch.setattr(control,'_optimistic',lambda:{'seats':{'0':3}})
+    monkeypatch.setattr(control,'_optimistic',lambda *a:{'seats':{'0':3}})
     assert control._state_patch('remote_seat_heater_request',{'heater':1,'level':2})=={'seats':{'0':3,'1':2}}
 
 
@@ -319,14 +324,11 @@ def test_refresh_persists_vehicle_config(client,monkeypatch):
     saved=[]
     monkeypatch.setattr(control,'CONTROL_API_URL','http://backend.test')
     monkeypatch.setattr(control,'CONTROL_API_TOKEN','test-token')
-    monkeypatch.setattr(control,'_vin',lambda:'vin-test')
+    monkeypatch.setattr(control,'_vin',lambda *a:'vin-test')
     monkeypatch.setattr(control,'vehicle_data',lambda vin:extended())
-    monkeypatch.setattr(control,'_snapshot',{})
-    monkeypatch.setattr(control,'_snapshot_checked',0.0)
-    monkeypatch.setattr(control,'_snapshot_vin','')
-    monkeypatch.setattr(control,'_snapshot_error','')
-    monkeypatch.setattr(control,'_config_cached',lambda:{})
-    monkeypatch.setattr(control,'_save_config',lambda c:saved.append(c))
+    monkeypatch.setattr(control,'_snapshots',{})
+    monkeypatch.setattr(control,'_config_cached',lambda *a:{})
+    monkeypatch.setattr(control,'_save_config',lambda c,*a:saved.append(c))
     login(client)
     r=client.post('/api/control/refresh')
     assert r.status_code==200 and r.json()['ok'] is True
@@ -341,12 +343,9 @@ def test_refresh_throttled_second_call_does_not_deadlock(client,monkeypatch):
     (同一把非重入锁),线程自死锁,随后所有 status 请求排队堵死,控制页瘫痪。"""
     monkeypatch.setattr(control,'CONTROL_API_URL','http://backend.test')
     monkeypatch.setattr(control,'CONTROL_API_TOKEN','test-token')
-    monkeypatch.setattr(control,'_vin',lambda:'vin-test')
+    monkeypatch.setattr(control,'_vin',lambda *a:'vin-test')
     monkeypatch.setattr(control,'vehicle_data',lambda vin:sample())
-    monkeypatch.setattr(control,'_snapshot',{})
-    monkeypatch.setattr(control,'_snapshot_checked',0.0)
-    monkeypatch.setattr(control,'_snapshot_vin','')
-    monkeypatch.setattr(control,'_snapshot_error','')
+    monkeypatch.setattr(control,'_snapshots',{})
     login(client)
     assert client.post('/api/control/refresh').status_code==200
     result={}

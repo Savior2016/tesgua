@@ -1,7 +1,8 @@
 """定时哨兵:按用户设置的多个每日时段自动开/关哨兵模式。
 
-时段存 panel_manual(kind='sentry_schedule', key='slots'),随数据库备份;
-调度线程每 20 秒评估一次当前时刻是否落在任一启用时段内,目标状态与
+时段存 panel_manual(kind='sentry_schedule', key='slots:<car_id>',按车隔离),
+随数据库备份;旧部署的全局 key='slots' 作为首辆车的读取回退(零迁移)。
+调度线程每 20 秒逐车评估当前时刻是否落在任一启用时段内,目标状态与
 「上次已下发状态」不一致时下发 set_sentry_mode 并写入控制审计(user=定时哨兵)。
 支持跨夜时段(如 22:00–07:00);时段按 SENTRY_SCHED_TZ(默认 Asia/Shanghai)解释。
 
@@ -16,7 +17,7 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel
 
@@ -34,23 +35,38 @@ _stop = threading.Event()
 _thread = None
 
 
-def _read() -> dict:
+def _key(car_id: int) -> str:
+    return f"slots:{car_id}"
+
+
+def _first_car_id() -> int | None:
+    from . import main
+    rows = main.q("SELECT id FROM cars ORDER BY id LIMIT 1")
+    return rows[0]["id"] if rows else None
+
+
+def _read(car_id: int) -> dict:
+    """按车读取时段配置;仅首辆车回退旧全局 key='slots'(旧数据天然归属首车)。"""
     from . import main
     try:
-        data = main._manual_all(_KIND).get("slots") or {}
+        all_ = main._manual_all(_KIND)
+        data = all_.get(_key(car_id))
+        if data is None and car_id == _first_car_id():
+            data = all_.get("slots")
+        data = data or {}
     except Exception:  # noqa: BLE001 — 读取失败视为无时段,本轮不动作
         return {}
     return data if isinstance(data, dict) else {}
 
 
-def _write(data: dict) -> None:
+def _write(car_id: int, data: dict) -> None:
     from . import main
     main._exec(
         """
-        INSERT INTO panel_manual (kind, key, payload) VALUES (%s, 'slots', %s)
+        INSERT INTO panel_manual (kind, key, payload) VALUES (%s, %s, %s)
         ON CONFLICT (kind, key) DO UPDATE SET payload = EXCLUDED.payload
         """,
-        (_KIND, Jsonb(data)),
+        (_KIND, _key(car_id), Jsonb(data)),
     )
 
 
@@ -59,11 +75,11 @@ def _minutes(hhmm: str) -> int:
     return int(h) * 60 + int(m)
 
 
-def desired(now: datetime | None = None) -> bool:
+def desired(slots: list, now: datetime | None = None) -> bool:
     """当前时刻是否落在任一启用时段内(跨夜时段如 22:00–07:00 也算)。"""
     now = now or datetime.now(TZ)
     cur = now.hour * 60 + now.minute
-    for s in _read().get("slots") or []:
+    for s in slots:
         if not isinstance(s, dict) or not s.get("enabled", True):
             continue
         start, end = str(s.get("start", "")), str(s.get("end", ""))
@@ -77,14 +93,12 @@ def desired(now: datetime | None = None) -> bool:
     return False
 
 
-def tick() -> None:
-    """目标状态与已下发状态不一致时下发一次;结果写控制审计,失败隔 120 秒重试。"""
-    from . import control, fleet
-    if not (fleet.configured() or (control.CONTROL_API_URL and control.CONTROL_API_TOKEN)):
-        return
-    want = desired()
+def _tick_car(car_id: int) -> None:
+    """单辆车的评估与下发;目标状态与已下发状态不一致时下发一次,失败隔 120 秒重试。"""
+    from . import control
+    want = desired(_read(car_id).get("slots") or [])
     with _lock:
-        data = _read()
+        data = _read(car_id)
         if time.time() < data.get("retry_at", 0):
             return
         applied = data.get("applied")
@@ -92,11 +106,11 @@ def tick() -> None:
             return
         if applied is None and not want:
             # 首次运行且不在时段内:只记录基线,不主动下发「关闭」
-            _write({**data, "applied": False, "applied_at": int(time.time())})
+            _write(car_id, {**data, "applied": False, "applied_at": int(time.time())})
             return
-        _write({**data, "pending": want})  # 占位,防并发重复下发
+        _write(car_id, {**data, "pending": want})  # 占位,防并发重复下发
     try:
-        vin = control._vin()
+        vin = control._vin(car_id)
         control._ensure_awake(vin)
         result = control._forward_with_wake("set_sentry_mode", {"on": want}, vin)
     except HTTPException as exc:
@@ -105,22 +119,38 @@ def tick() -> None:
         result = {"ok": False, "reason": "下发失败,将自动重试"}
     control._audit("定时哨兵", "set_sentry_mode", {"on": want}, result)
     with _lock:
-        data = _read()
+        data = _read(car_id)
         data.pop("pending", None)
         if result.get("ok"):
             data.update(applied=want, applied_at=int(time.time()), error="", retry_at=0)
             try:
-                control._save_optimistic({"sentry": want})  # 面板乐观状态同步
+                control._save_optimistic({"sentry": want}, car_id)  # 面板乐观状态同步
             except Exception:  # noqa: BLE001 — 状态落盘失败不视为任务失败
                 pass
         else:
             data.update(error=result["reason"], retry_at=time.time() + RETRY_SECONDS)
-        _write(data)
+        _write(car_id, data)
 
 
-def status() -> dict:
-    data = _read()
-    return {"slots": data.get("slots") or [], "active": desired(),
+def tick() -> None:
+    """逐车评估:目标状态与已下发状态不一致时下发一次;结果写控制审计。"""
+    from . import control, fleet, main
+    if not (fleet.configured() or (control.CONTROL_API_URL and control.CONTROL_API_TOKEN)):
+        return
+    try:
+        car_ids = [r["id"] for r in main.q("SELECT id FROM cars ORDER BY id")]
+    except Exception:  # noqa: BLE001 — 车辆列表查询失败,本轮不动作
+        return
+    for cid in car_ids:
+        try:
+            _tick_car(cid)
+        except Exception:  # noqa: BLE001 — 单车异常不影响其他车
+            pass
+
+
+def status(car_id: int) -> dict:
+    data = _read(car_id)
+    return {"slots": data.get("slots") or [], "active": desired(data.get("slots") or []),
             "applied": data.get("applied"), "error": data.get("error") or ""}
 
 
@@ -157,16 +187,19 @@ class ScheduleIn(BaseModel):
 
 
 @router.get("/api/control/sentry-schedule")
-def get_schedule(request: Request):
+def get_schedule(request: Request, car_id: int | None = Query(default=None)):
     """查看定时哨兵时段(登录即可看,含只读账号)。"""
-    return status()
+    from . import main
+    return status(main.get_car_id(car_id))
 
 
 @router.post("/api/control/sentry-schedule")
-def save_schedule(body: ScheduleIn, request: Request):
+def save_schedule(body: ScheduleIn, request: Request,
+                  car_id: int | None = Query(default=None)):
     """整体替换时段列表(添加/删除/启停都由前端整表提交)。"""
     from . import main
     main.require_admin(request)
+    cid = main.get_car_id(car_id)
     if len(body.slots) > MAX_SLOTS:
         raise HTTPException(status_code=422, detail=f"最多 {MAX_SLOTS} 个时段")
     slots = []
@@ -182,6 +215,12 @@ def save_schedule(body: ScheduleIn, request: Request):
         slots.append({"id": f"s{int(time.time() * 1000) % 10**9}{i}",
                       "start": s.start, "end": s.end, "enabled": s.enabled})
     with _lock:
-        _write({**_read(), "slots": slots})
-    tick()  # 时段变化立即评估一次,不用等下个 20 秒
-    return status()
+        _write(cid, {**_read(cid), "slots": slots})
+    # 时段变化立即评估一次,不用等下个 20 秒;未接入控制时跳过(留给调度线程统一判断)
+    from . import control, fleet
+    if fleet.configured() or (control.CONTROL_API_URL and control.CONTROL_API_TOKEN):
+        try:
+            _tick_car(cid)
+        except Exception:  # noqa: BLE001 — 保存成功即可,评估异常留下轮
+            pass
+    return status(cid)

@@ -32,6 +32,7 @@ def client(store, monkeypatch):
     monkeypatch.setattr(main, "_session_user", store.session_user)
     monkeypatch.setattr(main, "_manual_all", lambda kind: {})
     monkeypatch.setattr(main, "q", lambda *args: [])
+    monkeypatch.setattr(main, "get_car_id", lambda car_id: 1)
     main._failures.clear()
     result = TestClient(main.app, raise_server_exceptions=False)
     yield result

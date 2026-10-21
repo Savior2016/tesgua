@@ -29,8 +29,11 @@
   function message(text,error=false) {
     ['ctl-operation-message','ctl-dialog-message'].forEach(id=>{$(id).textContent=text;$(id).classList.toggle('error',error);});
   }
+  /* 当前车辆(与 app.js 顶栏切换器同源):所有控制接口按车转发 */
+  const carId=()=>{const v=parseInt(localStorage.getItem('ttv-car-id'),10);return Number.isInteger(v)?v:null;};
   async function api(path,body) {
-    const response=await fetch('/api/control/'+path,body===undefined?{cache:'no-store'}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const cid=carId();
+    const response=await fetch('/api/control/'+path+(cid===null?'':'?car_id='+cid),body===undefined?{cache:'no-store'}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(response.status===401){location.href='/login?next=/';throw Error('请先登录');}
     const data=await response.json();
     if(!response.ok)throw Error(typeof data.detail==='string'?data.detail:'操作失败，请检查填写内容');
@@ -457,9 +460,9 @@
       let ac=napAc();
       const saveNapCfg=()=>{
         const m=Number(minsField.value);
-        if(m>=5&&m<=180)localStorage.setItem('ttv-nap-minutes',String(m));
-        if(until)localStorage.setItem('ttv-nap-until',until);else localStorage.removeItem('ttv-nap-until');
-        localStorage.setItem('ttv-nap-ac',ac);
+        if(m>=5&&m<=180)localStorage.setItem(napKey('minutes'),String(m));
+        if(until)localStorage.setItem(napKey('until'),until);else localStorage.removeItem(napKey('until'));
+        localStorage.setItem(napKey('ac'),ac);
       };
       const minsChips=document.createElement('div');minsChips.className='ctl-seg';
       const syncMins=()=>minsChips.querySelectorAll('button').forEach(x=>x.classList.toggle('on',Number(x.dataset.min)===Number(minsField.value)));
@@ -545,24 +548,27 @@
     catch(e){message(e.message,true);return null;}
     finally{busy=false;sheet.querySelectorAll('#ctl-dialog-body button').forEach(b=>b.disabled=!canWrite());await load();}
   }
+  /* 午休偏好按车记忆:读取先按车键、回退旧全局键(旧版本记忆不丢),首次按车保存后分离 */
+  const napKey=k=>{const cid=carId();return cid===null?`ttv-nap-${k}`:`ttv-nap-${k}:${cid}`;};
+  const napGet=k=>localStorage.getItem(napKey(k))??localStorage.getItem(`ttv-nap-${k}`);
   function napMinutes(){
-    const saved=parseInt(localStorage.getItem('ttv-nap-minutes'),10);
+    const saved=parseInt(napGet('minutes'),10);
     return Number.isFinite(saved)?Math.min(180,Math.max(5,saved)):30;
   }
   function napUntil(){
-    const v=localStorage.getItem('ttv-nap-until');
+    const v=napGet('until');
     return /^([01]\d|2[0-3]):[0-5]\d$/.test(v||'')?v:null;
   }
   function napAc(){
-    const v=localStorage.getItem('ttv-nap-ac');
+    const v=napGet('ac');
     return v==='fan'?'fan':'camp';
   }
   async function nap(start,minutes,until,ac){
     if(busy||!canWrite())return;
     if(start){
-      localStorage.setItem('ttv-nap-minutes',String(minutes));
-      if(until)localStorage.setItem('ttv-nap-until',until);else localStorage.removeItem('ttv-nap-until');
-      localStorage.setItem('ttv-nap-ac',ac||'camp');
+      localStorage.setItem(napKey('minutes'),String(minutes));
+      if(until)localStorage.setItem(napKey('until'),until);else localStorage.removeItem(napKey('until'));
+      localStorage.setItem(napKey('ac'),ac||'camp');
     }
     busy=true;render();message(start?(ac==='fan'?'正在开始午休…':'正在开启露营模式…'):'正在结束午休…');
     try{model.nap=await api('nap/'+(start?'start':'stop'),start?{minutes,ac:ac||'camp',...(until?{until}:{})}:{});message(model.nap.error||'午休设置已更新',!!model.nap.error);if(!model.nap.error)refreshLater();}
